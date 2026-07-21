@@ -1,0 +1,159 @@
+body {
+    background-color: #eeefe9 !important; /* Canvas */
+    color: #4d4f46 !important; /* Body */
+    font-family: 'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, sans-serif !important;
+}
+
+/* Typography Classes */
+.display-xl {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.5;
+    color: #23251d; /* Ink */
+}
+.display-lg {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.33;
+    letter-spacing: -0.6px;
+    color: #23251d;
+}
+.heading-lg {
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: -0.5px;
+    color: #23251d;
+}
+.heading-sm {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.5;
+    text-transform: uppercase;
+    color: #23251d;
+}
+.body-md {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #4d4f46;
+}
+.body-strong {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.5;
+    color: #23251d;
+}
+
+/* Navbar */
+.custom-navbar {
+    background-color: #eeefe9 !important; /* Canvas */
+    border-bottom: 1px solid #bfc1b7 !important; /* Hairline */
+    box-shadow: none !important;
+}
+
+.custom-navbar .nav-link {
+    color: #23251d !important; /* Ink */
+    font-weight: 600; /* body-strong */
+    transition: all 0.2s ease;
+}
+
+.custom-navbar .nav-link:hover {
+    color: #f7a501 !important; /* Primary */
+}
+
+/* Cards (product-card / doc-card) */
+.custom-card {
+    background-color: #ffffff !important; /* Surface Card */
+    border: 1px solid #bfc1b7 !important; /* Hairline */
+    border-radius: 6px !important; /* md rounded */
+    box-shadow: none !important; /* No drop shadows */
+    color: #23251d !important;
+}
+
+.custom-card .card-header {
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #dcdfd2 !important; /* Hairline Soft */
+    font-weight: 700;
+    color: #23251d;
+    font-size: 18px; /* heading-sm-mixed */
+}
+
+/* Sidebar navigation */
+.custom-sidebar-nav .nav-link {
+    color: #4d4f46 !important;
+    border-radius: 6px !important;
+    margin-bottom: 4px;
+    padding: 10px 16px;
+    transition: all 0.2s ease;
+}
+
+.custom-sidebar-nav .nav-link:hover {
+    background-color: #e5e7e0 !important; /* Surface soft */
+    color: #23251d !important;
+}
+
+.custom-sidebar-nav .nav-link.active {
+    background-color: #ffffff !important;
+    color: #23251d !important;
+    border: 1px solid #bfc1b7 !important;
+    font-weight: 700;
+}
+
+/* Buttons */
+.custom-btn-primary {
+    background-color: #f7a501 !important; /* Primary */
+    border-color: #f7a501 !important;
+    color: #23251d !important; /* On Primary (Ink) */
+    font-weight: 700 !important; /* button-md */
+    font-size: 14px !important;
+    border-radius: 6px !important;
+    transition: all 0.2s ease;
+    box-shadow: none !important;
+}
+
+.custom-btn-primary:hover {
+    background-color: #dd9001 !important; /* Primary-pressed */
+    border-color: #dd9001 !important;
+    color: #23251d !important;
+    transform: translateY(0) !important;
+}
+
+/* Dash Core Components adjustments */
+.Select-control {
+    background-color: #ffffff !important;
+    color: #23251d !important;
+    border-color: #bfc1b7 !important;
+    border-radius: 6px !important;
+}
+
+.Select-value-label {
+    color: #23251d !important;
+}
+
+.Select-menu-outer {
+    background-color: #ffffff !important;
+    border-color: #bfc1b7 !important;
+}
+
+.Select-option {
+    background-color: #ffffff !important;
+    color: #4d4f46 !important;
+}
+
+.Select-option.is-focused {
+    background-color: #e5e7e0 !important; /* Surface soft */
+    color: #23251d !important;
+}
+
+/* Table styling override for light mode */
+.table {
+    color: #4d4f46 !important;
+}
+.table thead th {
+    border-bottom: 2px solid #bfc1b7 !important;
+    color: #23251d;
+}
+.table td, .table th {
+    border-top: 1px solid #dcdfd2 !important; /* Hairline Soft */
+}
