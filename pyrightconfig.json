@@ -1,0 +1,8 @@
+{
+    "ignore": [
+        "**/__pycache__"
+    ],
+    "typeCheckingMode": "basic",
+    "reportCallIssue": "none",
+    "reportAttributeAccessIssue": "none"
+}

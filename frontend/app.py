@@ -1,0 +1,223 @@
+import dash
+from dash import Dash, html, dcc, Input, Output, State, callback
+import dash_bootstrap_components as dbc
+import pandas as pd
+import base64
+import io
+import os
+
+# Initialize the Dash application
+app = Dash(
+    __name__, 
+    use_pages=True, 
+    external_stylesheets=[
+        dbc.themes.BOOTSTRAP,
+        "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css",
+        "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap"
+    ],
+    suppress_callback_exceptions=True
+)
+
+app.title = "UIDAI Dashboard"
+
+PROCESSED_DATA_DIR = "data/processed"
+
+def get_initial_data():
+    files = [f for f in os.listdir(PROCESSED_DATA_DIR) if f.endswith('.csv')]
+    if not files:
+        return pd.DataFrame().to_dict('records')
+    df = pd.read_csv(os.path.join(PROCESSED_DATA_DIR, files[0]))
+    return df.to_dict('records')
+
+def parse_contents(contents, filename):
+    content_type, content_string = contents.split(',')
+    decoded = base64.b64decode(content_string)
+    
+    try:
+        if 'csv' in filename:
+            df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+        elif 'xls' in filename:
+            df = pd.read_excel(io.BytesIO(decoded), engine='openpyxl')
+        else:
+            return None
+            
+        import numpy as np
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        df[numeric_cols] = df[numeric_cols].fillna(0)
+        object_cols = df.select_dtypes(include=['object', 'string']).columns
+        df[object_cols] = df[object_cols].fillna('Unknown')
+        for col in object_cols:
+            df[col] = df[col].astype(str).str.strip()
+        df.dropna(how='all', inplace=True)
+        df.dropna(axis=1, how='all', inplace=True)
+        
+        return df.to_dict('records')
+    except Exception as e:
+        print(f"Error parsing file: {e}")
+        return None
+
+# --- TOPBAR ---
+topbar = html.Div(
+    [
+        html.Div([
+            # Hamburger Button
+            html.Button(
+                html.I(className="bi bi-list", style={"fontSize": "28px"}),
+                id="open-offcanvas",
+                n_clicks=0,
+                className="btn btn-link text-dark p-0 me-4 text-decoration-none",
+                style={"border": "none", "background": "none"}
+            ), 
+            html.H2("UIDAI", className="display-lg mb-0 me-4", style={"display": "inline-block"}),
+        ], style={"display": "flex", "alignItems": "center"}),
+        
+        # Filters and Controls (Right Aligned)
+        html.Div([
+            # Date Picker
+            dcc.DatePickerRange(
+                id='date-picker-range',
+                start_date_placeholder_text="Start",
+                end_date_placeholder_text="End",
+                display_format='YYYY-MM-DD',
+                className="me-4"
+            ),
+            
+            # Compare Toggle
+            dbc.Switch(
+                id="compare-toggle",
+                label="Compare",
+                value=False,
+                className="me-4 body-strong mt-2"
+            ),
+
+            # Company Filter
+            html.Span("Company: ", className="me-2 body-strong"),
+            dbc.Checklist(
+                options=[
+                    {"label": "Company A", "value": "Company A"},
+                    {"label": "Company B", "value": "Company B"}
+                ],
+                value=[],
+                id="modality-filter",
+                inline=True,
+                className="d-inline-flex gap-3 me-4"
+            ),
+            
+            # Avatar Icon
+            html.I(className="bi bi-person-circle fs-3 text-secondary")
+            
+        ], style={"display": "flex", "alignItems": "center"})
+    ],
+    className="topbar custom-card px-4",
+    style={
+        "position": "fixed", 
+        "top": 0, 
+        "left": 0, 
+        "right": 0, 
+        "height": "80px",
+        "zIndex": 1000,
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "space-between"
+    }
+)
+
+# --- OFFCANVAS SIDEBAR ---
+sidebar_content = html.Div([
+    html.H6("MAIN", className="text-muted text-uppercase mb-3", style={"fontSize": "11px", "letterSpacing": "1px"}),
+    dbc.Nav(
+        [
+            dbc.NavLink(
+                [html.I(className="bi bi-grid-1x2-fill me-3"), page['name']], 
+                href=page['relative_path'], 
+                active="exact", 
+                className="body-strong mb-2 d-flex align-items-center"
+            )
+            for page in dash.page_registry.values()
+        ],
+        vertical=True,
+        pills=True,
+        className="custom-sidebar-nav mb-5"
+    ),
+    
+    html.Hr(style={"borderColor": "#e2e8f0"}),
+    
+    html.H6("DATA", className="text-muted text-uppercase mb-3 mt-4", style={"fontSize": "11px", "letterSpacing": "1px"}),
+    dcc.Upload(
+        id='upload-data',
+        children=html.Div([
+            html.I(className="bi bi-cloud-arrow-up fs-4 mb-2 d-block"),
+            'Drag and Drop or ', html.A('Select Files', className="text-primary text-decoration-none")
+        ]),
+        style={
+            'width': '100%',
+            'padding': '1.5rem',
+            'borderWidth': '2px',
+            'borderStyle': 'dashed',
+            'borderColor': '#cbd5e1',
+            'borderRadius': '12px',
+            'textAlign': 'center',
+            'backgroundColor': '#f8fafc',
+            'cursor': 'pointer',
+            'color': '#64748b',
+            'transition': 'all 0.2s ease'
+        },
+        multiple=False,
+        className="upload-box"
+    )
+])
+
+offcanvas = dbc.Offcanvas(
+    sidebar_content,
+    id="offcanvas-sidebar",
+    title="",
+    is_open=False,
+    className="offcanvas border-0 shadow-lg"
+)
+
+content = html.Div(
+    dash.page_container,
+    style={"marginTop": "80px", "padding": "2rem"}
+)
+
+app.layout = html.Div([
+    dcc.Store(id='data-store', data=get_initial_data()),
+    topbar, 
+    offcanvas, 
+    content
+])
+
+# --- APP LEVEL CALLBACKS ---
+
+@callback(
+    Output("offcanvas-sidebar", "is_open"),
+    Input("open-offcanvas", "n_clicks"),
+    State("offcanvas-sidebar", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_offcanvas(n1, is_open):
+    return not is_open
+
+@callback(
+    Output("open-offcanvas", "children"),
+    Input("offcanvas-sidebar", "is_open"),
+)
+def toggle_icon(is_open):
+    icon = "bi bi-x-lg" if is_open else "bi bi-list"
+    return html.I(className=icon, style={"fontSize": "28px"})
+
+@callback(
+    Output('data-store', 'data'),
+    Input('upload-data', 'contents'),
+    State('upload-data', 'filename'),
+    prevent_initial_call=True
+)
+def update_store(contents, filename):
+    if contents is not None:
+        new_data = parse_contents(contents, filename)
+        if new_data is not None:
+            return new_data
+    return dash.no_update
+
+if __name__ == '__main__':
+    app.run(debug=True, port=8050)

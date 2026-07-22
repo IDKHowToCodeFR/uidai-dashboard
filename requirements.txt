@@ -1,0 +1,9 @@
+dash
+dash-bootstrap-components
+dash-ag-grid
+pandas
+numpy
+plotly
+openpyxl
+requests
+matplotlib
