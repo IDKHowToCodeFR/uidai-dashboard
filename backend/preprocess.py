@@ -39,10 +39,10 @@ def process_data():
             df.dropna(how='all', inplace=True)
             df.dropna(axis=1, how='all', inplace=True)
 
-            # Save to processed as CSV
-            out_filename = os.path.splitext(file)[0] + "_processed.csv"
+            # Save to processed as XLSX
+            out_filename = os.path.splitext(file)[0] + "_processed.xlsx"
             out_path = os.path.join(PROCESSED_DIR, out_filename)
-            df.to_csv(out_path, index=False)
+            df.to_excel(out_path, index=False, engine='openpyxl')
             print(f"Saved processed data to {out_path}")
             
         except Exception as e:
