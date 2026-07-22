@@ -1,5 +1,5 @@
 import dash
-from dash import Dash, html, dcc, Input, Output, State, callback
+from dash import Dash, html, dcc, Input, Output, State, callback, ctx
 import dash_bootstrap_components as dbc
 import pandas as pd
 import base64
@@ -23,10 +23,15 @@ app.title = "UIDAI Dashboard"
 PROCESSED_DATA_DIR = "data/processed"
 
 def get_initial_data():
-    files = [f for f in os.listdir(PROCESSED_DATA_DIR) if f.endswith('.csv')]
+    target_file = "ivrs_call_logs_sample_processed.csv"
+    if os.path.exists(os.path.join(PROCESSED_DATA_DIR, target_file)):
+        df = pd.read_excel(os.path.join(PROCESSED_DATA_DIR, target_file), engine='openpyxl')
+        return df.to_dict('records')
+
+    files = [f for f in os.listdir(PROCESSED_DATA_DIR) if f.endswith('.xlsx')]
     if not files:
         return pd.DataFrame().to_dict('records')
-    df = pd.read_csv(os.path.join(PROCESSED_DATA_DIR, files[0]))
+    df = pd.read_excel(os.path.join(PROCESSED_DATA_DIR, files[0]), engine='openpyxl')
     return df.to_dict('records')
 
 def parse_contents(contents, filename):
@@ -65,8 +70,8 @@ topbar = html.Div(
                 html.I(className="bi bi-list", style={"fontSize": "28px"}),
                 id="open-offcanvas",
                 n_clicks=0,
-                className="btn btn-link text-dark p-0 me-4 text-decoration-none",
-                style={"border": "none", "background": "none"}
+                className="btn btn-link p-0 me-4 text-decoration-none",
+                style={"border": "none", "background": "none", "color": "var(--color-ink)"}
             ), 
             html.H2("UIDAI", className="display-lg mb-0 me-4", style={"display": "inline-block"}),
         ], style={"display": "flex", "alignItems": "center"}),
@@ -82,30 +87,28 @@ topbar = html.Div(
                 className="me-4"
             ),
             
-            # Compare Toggle
-            dbc.Switch(
-                id="compare-toggle",
-                label="Compare",
-                value=False,
-                className="me-4 body-strong mt-2"
-            ),
-
             # Company Filter
             html.Span("Company: ", className="me-2 body-strong"),
-            dbc.Checklist(
-                options=[
-                    {"label": "Company A", "value": "Company A"},
-                    {"label": "Company B", "value": "Company B"}
-                ],
-                value=[],
-                id="modality-filter",
-                inline=True,
-                className="d-inline-flex gap-3 me-4"
-            ),
-            
-            # Avatar Icon
-            html.I(className="bi bi-person-circle fs-3 text-secondary")
-            
+            html.Div(
+                dbc.DropdownMenu(
+                    label="Select Companies...",
+                    id="company-dropdown-btn",
+                    toggleClassName="btn-outline-secondary bg-white text-dark",
+                    children=[
+                        html.Div([
+                            dbc.Checkbox(id="select-all-companies", label="Select All", value=True, className="fw-bold px-3 pt-2"),
+                            html.Hr(className="my-2"),
+                            dbc.Checklist(
+                                id="modality-filter",
+                                options=[],
+                                value=[],
+                                className="px-3 pb-2"
+                            )
+                        ], style={"maxHeight": "300px", "overflowY": "auto", "minWidth": "250px"})
+                    ]
+                ),
+                className="me-4"
+            )
         ], style={"display": "flex", "alignItems": "center"})
     ],
     className="topbar custom-card px-4",
@@ -124,7 +127,7 @@ topbar = html.Div(
 
 # --- OFFCANVAS SIDEBAR ---
 sidebar_content = html.Div([
-    html.H6("MAIN", className="text-muted text-uppercase mb-3", style={"fontSize": "11px", "letterSpacing": "1px"}),
+    html.H6("MAIN", className="utility-xs mb-3"),
     dbc.Nav(
         [
             dbc.NavLink(
@@ -142,7 +145,7 @@ sidebar_content = html.Div([
     
     html.Hr(style={"borderColor": "#e2e8f0"}),
     
-    html.H6("DATA", className="text-muted text-uppercase mb-3 mt-4", style={"fontSize": "11px", "letterSpacing": "1px"}),
+    html.H6("DATA", className="utility-xs mb-3 mt-4"),
     dcc.Upload(
         id='upload-data',
         children=html.Div([
@@ -207,6 +210,44 @@ def toggle_icon(is_open):
     return html.I(className=icon, style={"fontSize": "28px"})
 
 @callback(
+    Output('modality-filter', 'options'),
+    Output('modality-filter', 'value'),
+    Output('date-picker-range', 'min_date_allowed'),
+    Output('date-picker-range', 'max_date_allowed'),
+    Output('date-picker-range', 'start_date'),
+    Output('date-picker-range', 'end_date'),
+    Input('data-store', 'data')
+)
+def sync_filters(data):
+    if not data:
+        return dash.no_update
+    
+    df = pd.DataFrame(data)
+    
+    options = []
+    values = []
+    if 'Company' in df.columns:
+        companies = df['Company'].dropna().unique().tolist()
+        options = [{'label': c, 'value': c} for c in companies]
+        values = companies
+        
+    min_date = max_date = start_date = end_date = None
+    if 'Timestamp' in df.columns:
+        df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+        min_date = df['Timestamp'].min().date()
+        max_date = df['Timestamp'].max().date()
+        start_date = min_date
+        end_date = max_date
+    elif 'Call Start Time' in df.columns:
+        df['Call Start Time'] = pd.to_datetime(df['Call Start Time'])
+        min_date = df['Call Start Time'].min().date()
+        max_date = df['Call Start Time'].max().date()
+        start_date = min_date
+        end_date = max_date
+        
+    return options, values, min_date, max_date, start_date, end_date
+
+@callback(
     Output('data-store', 'data'),
     Input('upload-data', 'contents'),
     State('upload-data', 'filename'),
@@ -218,6 +259,50 @@ def update_store(contents, filename):
         if new_data is not None:
             return new_data
     return dash.no_update
+
+@callback(
+    Output('modality-filter', 'value', allow_duplicate=True),
+    Output('select-all-companies', 'value'),
+    Input('select-all-companies', 'value'),
+    Input('modality-filter', 'value'),
+    State('modality-filter', 'options'),
+    prevent_initial_call=True
+)
+def sync_select_all(select_all, selected_companies, options):
+    trigger = ctx.triggered_id
+    all_companies = [opt['value'] for opt in options] if options else []
+    
+    if trigger == 'select-all-companies':
+        if select_all:
+            return all_companies, True
+        else:
+            return [], False
+    elif trigger == 'modality-filter':
+        selected = selected_companies or []
+        if len(selected) == len(all_companies) and len(all_companies) > 0:
+            return dash.no_update, True
+        else:
+            return dash.no_update, False
+    return dash.no_update, dash.no_update
+
+@callback(
+    Output('company-dropdown-btn', 'label'),
+    Input('modality-filter', 'value'),
+    State('modality-filter', 'options')
+)
+def update_dropdown_label(selected_companies, options):
+    if not options:
+        return "Select Companies..."
+    
+    all_companies = [opt['value'] for opt in options]
+    selected = selected_companies or []
+    
+    if len(selected) == len(all_companies) or len(selected) == 0:
+        return "All Companies"
+    elif len(selected) == 1:
+        return selected[0]
+    else:
+        return f"{len(selected)} Companies Selected"
 
 if __name__ == '__main__':
     app.run(debug=True, port=8050)

@@ -1,117 +1,184 @@
-/* Premium Light + Glassmorphism */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* PostHog-Inspired Design System */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --color-primary: #2563eb;
-    --color-primary-light: #3b82f6;
-    --color-bg: #f8fafc;
-    --color-surface: #ffffff;
-    --color-border: #e2e8f0;
-    --color-border-light: #f1f5f9;
-    --color-text: #1e293b;
-    --color-text-heading: #0f172a;
-    --color-text-muted: #64748b;
-    --color-text-body: #334155;
-    --color-success: #10b981;
-    --color-danger: #ef4444;
-    --color-warning: #f59e0b;
+    /* Brand & Accent */
+    --color-primary: #f7a501;
+    --color-primary-pressed: #dd9001;
+    --color-primary-active: #b17816;
+    --color-on-primary: #23251d;
+    --color-ink: #23251d;
+    --color-body: #4d4f46;
+    --color-charcoal: #33342d;
+    --color-mute: #6c6e63;
+    --color-ash: #9b9c92;
+    --color-stone: #b6b7af;
+    
+    /* Borders */
+    --color-hairline: #bfc1b7;
+    --color-hairline-soft: #dcdfd2;
+    
+    /* Surface */
+    --color-on-dark: #ffffff;
+    --color-canvas: #eeefe9;
+    --color-surface-soft: #e5e7e0;
+    --color-surface-card: #ffffff;
+    --color-surface-doc: #fcfcfa;
+    --color-surface-dark: #23251d;
+    
+    /* Semantic */
+    --color-link-blue: #1d4ed8;
+    --color-link-teal: #1078a3;
+    --color-accent-blue: #2c84e0;
+    --color-accent-blue-soft: #dceaf6;
+    --color-accent-red: #cd4239;
+    --color-accent-red-soft: #f7d6d3;
+    --color-accent-green: #2c8c66;
+    --color-accent-green-soft: #d9eddf;
+    --color-accent-purple: #7c44a6;
+    --color-accent-purple-soft: #e7d8ee;
+    --color-focus-ring: rgba(59,130,246,0.5);
 }
 
 body {
-    background-color: var(--color-bg);
-    color: var(--color-text);
-    font-family: 'Inter', sans-serif !important;
+    background-color: var(--color-canvas);
+    color: var(--color-body);
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    line-height: 1.5;
 }
 
+/* Typography Tokens */
+.display-xl { font-size: 36px; font-weight: 700; line-height: 1.5; letter-spacing: 0; color: var(--color-ink); }
+.display-lg { font-size: 24px; font-weight: 800; line-height: 1.33; letter-spacing: -0.6px; color: var(--color-ink); }
+.heading-lg { font-size: 21px; font-weight: 700; line-height: 1.4; letter-spacing: -0.5px; color: var(--color-ink); }
+.heading-md { font-size: 20px; font-weight: 700; line-height: 1.4; letter-spacing: 0; color: var(--color-ink); }
+.heading-sm { font-size: 18px; font-weight: 700; line-height: 1.5; letter-spacing: 0; text-transform: uppercase; color: var(--color-ink); }
+.heading-sm-mixed { font-size: 18px; font-weight: 600; line-height: 1.56; letter-spacing: 0; color: var(--color-ink); }
+.body-md { font-size: 16px; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: var(--color-body); }
+.body-strong { font-size: 16px; font-weight: 600; line-height: 1.5; letter-spacing: 0; color: var(--color-ink); }
+.body-sm { font-size: 15px; font-weight: 400; line-height: 1.71; letter-spacing: 0; color: var(--color-body); }
+.body-sm-strong { font-size: 15px; font-weight: 600; line-height: 1.71; letter-spacing: 0; color: var(--color-ink); }
+.body-xs { font-size: 14px; font-weight: 500; line-height: 1.43; letter-spacing: 0; color: var(--color-body); }
+.caption-md { font-size: 14px; font-weight: 700; line-height: 1.71; letter-spacing: 0; color: var(--color-mute); }
+.caption-sm { font-size: 13px; font-weight: 500; line-height: 1.5; letter-spacing: 0; color: var(--color-mute); }
+.caption-xs { font-size: 12px; font-weight: 600; line-height: 1.33; letter-spacing: 0; text-transform: uppercase; color: var(--color-mute); }
+.utility-xs { font-size: 12px; font-weight: 700; line-height: 1.33; letter-spacing: 0; text-transform: uppercase; color: var(--color-body); }
+
+/* Banner Tips */
+.banner-tip-blue {
+    background-color: var(--color-accent-blue-soft);
+    color: var(--color-ink);
+    border-radius: 6px;
+    padding: 16px 20px;
+    font-size: 16px;
+    font-weight: 400;
+}
+.banner-tip-green {
+    background-color: var(--color-accent-green-soft);
+    color: var(--color-ink);
+    border-radius: 6px;
+    padding: 16px 20px;
+    font-size: 16px;
+    font-weight: 400;
+}
+
+/* Buttons */
+.btn-primary, .button-primary {
+    background-color: var(--color-primary) !important;
+    color: var(--color-on-primary) !important;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+    border-radius: 6px !important;
+    padding: 8px 16px !important;
+    height: 40px;
+    border: none !important;
+    box-shadow: none !important;
+    transition: background-color 0.2s ease;
+}
+.btn-primary:hover, .btn-primary:active, .button-primary:hover {
+    background-color: var(--color-primary-pressed) !important;
+}
+
+.button-secondary {
+    background-color: var(--color-surface-soft) !important;
+    color: var(--color-ink) !important;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+    border-radius: 6px !important;
+    padding: 8px 16px !important;
+    height: 40px;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Structural Components */
 .topbar {
-    background: #ffffff !important;
-    border-bottom: 1px solid var(--color-border) !important;
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+    background-color: var(--color-canvas) !important;
+    border-bottom: 1px solid var(--color-hairline) !important;
+    box-shadow: none !important;
 }
 
 .custom-card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border) !important;
-    border-radius: 16px !important;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.custom-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    background-color: var(--color-surface-card) !important;
+    border: 1px solid var(--color-hairline) !important;
+    border-radius: 6px !important; /* md */
+    box-shadow: none !important;
 }
 
 .card-header {
     background-color: transparent !important;
-    border-bottom: 1px solid var(--color-border) !important;
-    font-weight: 600;
-    color: var(--color-text-body);
-    padding: 1.25rem 1.5rem !important;
-    border-top-left-radius: 16px !important;
-    border-top-right-radius: 16px !important;
+    border-bottom: 1px solid var(--color-hairline-soft) !important;
+    padding: 24px !important;
 }
 
 .card-body {
-    padding: 1.5rem !important;
-}
-
-.display-lg {
-    font-weight: 800;
-    color: var(--color-text-heading);
-    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.display-xl {
-    font-weight: 800;
-    color: var(--color-text-heading);
-}
-
-.text-muted {
-    color: var(--color-text-muted) !important;
+    padding: 24px !important;
 }
 
 /* Sidebar styling */
 .offcanvas {
-    background: var(--color-surface) !important;
-    backdrop-filter: blur(10px);
+    background-color: var(--color-canvas) !important;
+    border-right: 1px solid var(--color-hairline) !important;
+    color: var(--color-body);
 }
 
 .custom-sidebar-nav .nav-link {
-    color: var(--color-text-body) !important;
-    border-radius: 8px;
-    margin-bottom: 8px;
-    padding: 10px 16px;
+    color: var(--color-body) !important;
+    border-radius: 0;
+    margin-bottom: 0;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 500;
     transition: all 0.2s ease;
 }
 
 .custom-sidebar-nav .nav-link:hover {
-    background-color: var(--color-border-light);
-    color: var(--color-text-heading) !important;
+    background-color: var(--color-surface-soft);
+    color: var(--color-ink) !important;
 }
 
 .custom-sidebar-nav .nav-link.active {
-    background-color: #eff6ff !important;
-    color: var(--color-primary) !important;
+    background-color: var(--color-surface-soft) !important;
+    color: var(--color-ink) !important;
     font-weight: 600;
 }
 
 /* Ag Grid Customization */
 .ag-theme-alpine {
-    --ag-background-color: var(--color-surface);
-    --ag-foreground-color: var(--color-text);
-    --ag-border-color: var(--color-border);
-    --ag-header-background-color: var(--color-bg);
-    --ag-header-foreground-color: var(--color-text-body);
-    --ag-row-hover-color: var(--color-border-light);
-    --ag-selected-row-background-color: #eff6ff;
-    border-radius: 8px;
+    --ag-background-color: var(--color-surface-card);
+    --ag-foreground-color: var(--color-body);
+    --ag-border-color: var(--color-hairline);
+    --ag-header-background-color: var(--color-canvas);
+    --ag-header-foreground-color: var(--color-ink);
+    --ag-row-hover-color: var(--color-surface-soft);
+    --ag-selected-row-background-color: var(--color-accent-blue-soft);
+    border-radius: 6px;
     overflow: hidden;
 }
 
-/* Fix DatePickerRange white patches in topbar */
+/* DatePickerRange Fixes */
 .topbar .SingleDatePickerInput,
 .topbar .DateRangePickerInput,
 .topbar .DateInput {
@@ -119,36 +186,38 @@ body {
 }
 
 .topbar .DateInput_input {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    color: var(--color-text-body);
-    font-size: 14px;
-    padding: 6px 10px;
-    width: 100px;
+    background-color: var(--color-surface-card);
+    border: 1px solid var(--color-hairline);
+    border-radius: 6px;
+    color: var(--color-ink);
+    font-size: 16px; /* body-md */
+    padding: 8px 12px;
+    width: 110px;
+    height: 36px;
 }
 
 .topbar .DateRangePickerInput_arrow_svg {
-    fill: var(--color-text-muted);
+    fill: var(--color-mute);
 }
 
 .topbar .DateInput_input__focused {
-    border-color: var(--color-primary);
+    border-color: var(--color-accent-blue);
+    box-shadow: 0 0 0 2px var(--color-focus-ring);
 }
 
 /* calendar popup itself */
 .DayPicker, .CalendarMonth, .CalendarMonth_table {
-    background-color: var(--color-surface);
+    background-color: var(--color-surface-card);
 }
 
 .CalendarDay__default {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border-light);
-    color: var(--color-text);
+    background: var(--color-surface-card);
+    border: 1px solid var(--color-hairline-soft);
+    color: var(--color-body);
 }
 
 .CalendarDay__selected, .CalendarDay__selected:hover {
     background: var(--color-primary);
-    border: 1px solid var(--color-primary);
-    color: #fff;
+    border: 1px solid var(--color-primary-pressed);
+    color: var(--color-on-primary);
 }

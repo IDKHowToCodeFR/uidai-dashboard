@@ -1,3 +1,4 @@
 # Glossary
 
-* **Authentication Modality**: The method used for UIDAI authentication. The primary modalities are "Biometric" (e.g., fingerprint, iris) and "Demographic" (e.g., name, address, DOB).
+* **IVRS Call Log**: A record of a customer interaction through the Interactive Voice Response System.
+* **Admin Viewer**: The sole intended user of the dashboard, tasked with monitoring system-wide performance, call center metrics, and agent efficiency across all regions and companies.
