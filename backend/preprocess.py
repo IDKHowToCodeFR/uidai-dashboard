@@ -28,7 +28,7 @@ def process_data():
             df[numeric_cols] = df[numeric_cols].fillna(0)
             
             # 2. Fill NaNs in object columns with 'Unknown'
-            object_cols = df.select_dtypes(include=['object']).columns
+            object_cols = df.select_dtypes(include=['object', 'string']).columns
             df[object_cols] = df[object_cols].fillna('Unknown')
             
             # 3. Strip whitespace from string columns

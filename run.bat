@@ -5,6 +5,7 @@ echo ==========================================
 
 echo.
 echo [1/3] Syncing dependencies...
+uv venv --clear
 uv pip install -r requirements.txt
 
 echo.

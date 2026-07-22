@@ -1,159 +1,154 @@
+/* Premium Light + Glassmorphism */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --color-primary: #2563eb;
+    --color-primary-light: #3b82f6;
+    --color-bg: #f8fafc;
+    --color-surface: #ffffff;
+    --color-border: #e2e8f0;
+    --color-border-light: #f1f5f9;
+    --color-text: #1e293b;
+    --color-text-heading: #0f172a;
+    --color-text-muted: #64748b;
+    --color-text-body: #334155;
+    --color-success: #10b981;
+    --color-danger: #ef4444;
+    --color-warning: #f59e0b;
+}
+
 body {
-    background-color: #eeefe9 !important; /* Canvas */
-    color: #4d4f46 !important; /* Body */
-    font-family: 'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, sans-serif !important;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: 'Inter', sans-serif !important;
 }
 
-/* Typography Classes */
-.display-xl {
-    font-size: 36px;
-    font-weight: 700;
-    line-height: 1.5;
-    color: #23251d; /* Ink */
-}
-.display-lg {
-    font-size: 24px;
-    font-weight: 800;
-    line-height: 1.33;
-    letter-spacing: -0.6px;
-    color: #23251d;
-}
-.heading-lg {
-    font-size: 21px;
-    font-weight: 700;
-    line-height: 1.4;
-    letter-spacing: -0.5px;
-    color: #23251d;
-}
-.heading-sm {
-    font-size: 18px;
-    font-weight: 700;
-    line-height: 1.5;
-    text-transform: uppercase;
-    color: #23251d;
-}
-.body-md {
-    font-size: 16px;
-    font-weight: 400;
-    line-height: 1.5;
-    color: #4d4f46;
-}
-.body-strong {
-    font-size: 16px;
-    font-weight: 600;
-    line-height: 1.5;
-    color: #23251d;
+.topbar {
+    background: #ffffff !important;
+    border-bottom: 1px solid var(--color-border) !important;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
 }
 
-/* Navbar */
-.custom-navbar {
-    background-color: #eeefe9 !important; /* Canvas */
-    border-bottom: 1px solid #bfc1b7 !important; /* Hairline */
-    box-shadow: none !important;
-}
-
-.custom-navbar .nav-link {
-    color: #23251d !important; /* Ink */
-    font-weight: 600; /* body-strong */
-    transition: all 0.2s ease;
-}
-
-.custom-navbar .nav-link:hover {
-    color: #f7a501 !important; /* Primary */
-}
-
-/* Cards (product-card / doc-card) */
 .custom-card {
-    background-color: #ffffff !important; /* Surface Card */
-    border: 1px solid #bfc1b7 !important; /* Hairline */
-    border-radius: 6px !important; /* md rounded */
-    box-shadow: none !important; /* No drop shadows */
-    color: #23251d !important;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.custom-card .card-header {
-    background-color: #ffffff !important;
-    border-bottom: 1px solid #dcdfd2 !important; /* Hairline Soft */
-    font-weight: 700;
-    color: #23251d;
-    font-size: 18px; /* heading-sm-mixed */
+.custom-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
-/* Sidebar navigation */
+.card-header {
+    background-color: transparent !important;
+    border-bottom: 1px solid var(--color-border) !important;
+    font-weight: 600;
+    color: var(--color-text-body);
+    padding: 1.25rem 1.5rem !important;
+    border-top-left-radius: 16px !important;
+    border-top-right-radius: 16px !important;
+}
+
+.card-body {
+    padding: 1.5rem !important;
+}
+
+.display-lg {
+    font-weight: 800;
+    color: var(--color-text-heading);
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.display-xl {
+    font-weight: 800;
+    color: var(--color-text-heading);
+}
+
+.text-muted {
+    color: var(--color-text-muted) !important;
+}
+
+/* Sidebar styling */
+.offcanvas {
+    background: var(--color-surface) !important;
+    backdrop-filter: blur(10px);
+}
+
 .custom-sidebar-nav .nav-link {
-    color: #4d4f46 !important;
-    border-radius: 6px !important;
-    margin-bottom: 4px;
+    color: var(--color-text-body) !important;
+    border-radius: 8px;
+    margin-bottom: 8px;
     padding: 10px 16px;
     transition: all 0.2s ease;
 }
 
 .custom-sidebar-nav .nav-link:hover {
-    background-color: #e5e7e0 !important; /* Surface soft */
-    color: #23251d !important;
+    background-color: var(--color-border-light);
+    color: var(--color-text-heading) !important;
 }
 
 .custom-sidebar-nav .nav-link.active {
-    background-color: #ffffff !important;
-    color: #23251d !important;
-    border: 1px solid #bfc1b7 !important;
-    font-weight: 700;
+    background-color: #eff6ff !important;
+    color: var(--color-primary) !important;
+    font-weight: 600;
 }
 
-/* Buttons */
-.custom-btn-primary {
-    background-color: #f7a501 !important; /* Primary */
-    border-color: #f7a501 !important;
-    color: #23251d !important; /* On Primary (Ink) */
-    font-weight: 700 !important; /* button-md */
-    font-size: 14px !important;
-    border-radius: 6px !important;
-    transition: all 0.2s ease;
-    box-shadow: none !important;
+/* Ag Grid Customization */
+.ag-theme-alpine {
+    --ag-background-color: var(--color-surface);
+    --ag-foreground-color: var(--color-text);
+    --ag-border-color: var(--color-border);
+    --ag-header-background-color: var(--color-bg);
+    --ag-header-foreground-color: var(--color-text-body);
+    --ag-row-hover-color: var(--color-border-light);
+    --ag-selected-row-background-color: #eff6ff;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
-.custom-btn-primary:hover {
-    background-color: #dd9001 !important; /* Primary-pressed */
-    border-color: #dd9001 !important;
-    color: #23251d !important;
-    transform: translateY(0) !important;
+/* Fix DatePickerRange white patches in topbar */
+.topbar .SingleDatePickerInput,
+.topbar .DateRangePickerInput,
+.topbar .DateInput {
+    background-color: transparent !important;
 }
 
-/* Dash Core Components adjustments */
-.Select-control {
-    background-color: #ffffff !important;
-    color: #23251d !important;
-    border-color: #bfc1b7 !important;
-    border-radius: 6px !important;
+.topbar .DateInput_input {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    color: var(--color-text-body);
+    font-size: 14px;
+    padding: 6px 10px;
+    width: 100px;
 }
 
-.Select-value-label {
-    color: #23251d !important;
+.topbar .DateRangePickerInput_arrow_svg {
+    fill: var(--color-text-muted);
 }
 
-.Select-menu-outer {
-    background-color: #ffffff !important;
-    border-color: #bfc1b7 !important;
+.topbar .DateInput_input__focused {
+    border-color: var(--color-primary);
 }
 
-.Select-option {
-    background-color: #ffffff !important;
-    color: #4d4f46 !important;
+/* calendar popup itself */
+.DayPicker, .CalendarMonth, .CalendarMonth_table {
+    background-color: var(--color-surface);
 }
 
-.Select-option.is-focused {
-    background-color: #e5e7e0 !important; /* Surface soft */
-    color: #23251d !important;
+.CalendarDay__default {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-light);
+    color: var(--color-text);
 }
 
-/* Table styling override for light mode */
-.table {
-    color: #4d4f46 !important;
-}
-.table thead th {
-    border-bottom: 2px solid #bfc1b7 !important;
-    color: #23251d;
-}
-.table td, .table th {
-    border-top: 1px solid #dcdfd2 !important; /* Hairline Soft */
+.CalendarDay__selected, .CalendarDay__selected:hover {
+    background: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    color: #fff;
 }

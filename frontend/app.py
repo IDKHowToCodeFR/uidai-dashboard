@@ -44,7 +44,7 @@ def parse_contents(contents, filename):
         import numpy as np
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         df[numeric_cols] = df[numeric_cols].fillna(0)
-        object_cols = df.select_dtypes(include=['object']).columns
+        object_cols = df.select_dtypes(include=['object', 'string']).columns
         df[object_cols] = df[object_cols].fillna('Unknown')
         for col in object_cols:
             df[col] = df[col].astype(str).str.strip()
@@ -62,28 +62,50 @@ topbar = html.Div(
         html.Div([
             # Hamburger Button
             html.Button(
-                ">>",
+                html.I(className="bi bi-list", style={"fontSize": "28px"}),
                 id="open-offcanvas",
                 n_clicks=0,
                 className="btn btn-link text-dark p-0 me-4 text-decoration-none",
-                style={"border": "none", "background": "none", "fontWeight": "bold", "fontSize": "24px"}
-            ),
+                style={"border": "none", "background": "none"}
+            ), 
             html.H2("UIDAI", className="display-lg mb-0 me-4", style={"display": "inline-block"}),
         ], style={"display": "flex", "alignItems": "center"}),
         
-        # Modality Filter (Right Aligned)
+        # Filters and Controls (Right Aligned)
         html.Div([
-            html.Span("Modality: ", className="me-2 body-strong"),
+            # Date Picker
+            dcc.DatePickerRange(
+                id='date-picker-range',
+                start_date_placeholder_text="Start",
+                end_date_placeholder_text="End",
+                display_format='YYYY-MM-DD',
+                className="me-4"
+            ),
+            
+            # Compare Toggle
+            dbc.Switch(
+                id="compare-toggle",
+                label="Compare",
+                value=False,
+                className="me-4 body-strong mt-2"
+            ),
+
+            # Company Filter
+            html.Span("Company: ", className="me-2 body-strong"),
             dbc.Checklist(
                 options=[
-                    {"label": "Biometric", "value": "Biometric"},
-                    {"label": "Demographic", "value": "Demographic"}
+                    {"label": "Company A", "value": "Company A"},
+                    {"label": "Company B", "value": "Company B"}
                 ],
                 value=[],
                 id="modality-filter",
                 inline=True,
-                className="d-inline-flex gap-3"
-            )
+                className="d-inline-flex gap-3 me-4"
+            ),
+            
+            # Avatar Icon
+            html.I(className="bi bi-person-circle fs-3 text-secondary")
+            
         ], style={"display": "flex", "alignItems": "center"})
     ],
     className="topbar custom-card px-4",
@@ -93,12 +115,7 @@ topbar = html.Div(
         "left": 0, 
         "right": 0, 
         "height": "80px",
-        "borderRadius": "0", 
-        "borderLeft": "none", 
-        "borderRight": "none", 
-        "borderTop": "none", 
         "zIndex": 1000,
-        "backgroundColor": "#eeefe9",
         "display": "flex",
         "alignItems": "center",
         "justifyContent": "space-between"
@@ -107,14 +124,14 @@ topbar = html.Div(
 
 # --- OFFCANVAS SIDEBAR ---
 sidebar_content = html.Div([
-    html.H4("Navigation", className="mb-3"),
+    html.H6("MAIN", className="text-muted text-uppercase mb-3", style={"fontSize": "11px", "letterSpacing": "1px"}),
     dbc.Nav(
         [
             dbc.NavLink(
-                [html.I(className="bi bi-graph-up me-2"), page['name']], 
+                [html.I(className="bi bi-grid-1x2-fill me-3"), page['name']], 
                 href=page['relative_path'], 
                 active="exact", 
-                className="body-strong mb-2"
+                className="body-strong mb-2 d-flex align-items-center"
             )
             for page in dash.page_registry.values()
         ],
@@ -123,33 +140,39 @@ sidebar_content = html.Div([
         className="custom-sidebar-nav mb-5"
     ),
     
-    html.Hr(style={"borderColor": "#bfc1b7"}),
+    html.Hr(style={"borderColor": "#e2e8f0"}),
     
-    html.H5("Data Upload", className="mb-3 mt-4"),
+    html.H6("DATA", className="text-muted text-uppercase mb-3 mt-4", style={"fontSize": "11px", "letterSpacing": "1px"}),
     dcc.Upload(
         id='upload-data',
-        children=html.Div(['Drag and Drop or ', html.A('Select Files')]),
+        children=html.Div([
+            html.I(className="bi bi-cloud-arrow-up fs-4 mb-2 d-block"),
+            'Drag and Drop or ', html.A('Select Files', className="text-primary text-decoration-none")
+        ]),
         style={
             'width': '100%',
-            'height': '60px',
-            'lineHeight': '60px',
-            'borderWidth': '1px',
+            'padding': '1.5rem',
+            'borderWidth': '2px',
             'borderStyle': 'dashed',
-            'borderRadius': '6px',
+            'borderColor': '#cbd5e1',
+            'borderRadius': '12px',
             'textAlign': 'center',
-            'backgroundColor': '#ffffff',
-            'cursor': 'pointer'
+            'backgroundColor': '#f8fafc',
+            'cursor': 'pointer',
+            'color': '#64748b',
+            'transition': 'all 0.2s ease'
         },
-        multiple=False
+        multiple=False,
+        className="upload-box"
     )
 ])
 
 offcanvas = dbc.Offcanvas(
     sidebar_content,
     id="offcanvas-sidebar",
-    title="UIDAI Menu",
+    title="",
     is_open=False,
-    style={"backgroundColor": "#eeefe9", "borderRight": "1px solid #bfc1b7"}
+    className="offcanvas border-0 shadow-lg"
 )
 
 content = html.Div(
@@ -168,15 +191,20 @@ app.layout = html.Div([
 
 @callback(
     Output("offcanvas-sidebar", "is_open"),
-    Output("open-offcanvas", "children"),
     Input("open-offcanvas", "n_clicks"),
-    [State("offcanvas-sidebar", "is_open")],
+    State("offcanvas-sidebar", "is_open"),
+    prevent_initial_call=True,
 )
 def toggle_offcanvas(n1, is_open):
-    if n1:
-        new_is_open = not is_open
-        return new_is_open, "<<" if new_is_open else ">>"
-    return is_open, "<<" if is_open else ">>"
+    return not is_open
+
+@callback(
+    Output("open-offcanvas", "children"),
+    Input("offcanvas-sidebar", "is_open"),
+)
+def toggle_icon(is_open):
+    icon = "bi bi-x-lg" if is_open else "bi bi-list"
+    return html.I(className=icon, style={"fontSize": "28px"})
 
 @callback(
     Output('data-store', 'data'),

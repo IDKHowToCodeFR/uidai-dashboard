@@ -8,18 +8,18 @@ def get_plotly_template():
     template = pio.templates["plotly_white"]
     
     # Customize the template
-    template.layout.paper_bgcolor = '#ffffff'  # Card background color
-    template.layout.plot_bgcolor = '#ffffff'   # Inner plot background
-    template.layout.font.color = '#4d4f46'     # Body text color
-    template.layout.font.family = 'IBM Plex Sans Variable, IBM Plex Sans, sans-serif'
+    template.layout.paper_bgcolor = 'rgba(0,0,0,0)'  # Transparent
+    template.layout.plot_bgcolor = 'rgba(0,0,0,0)'   # Transparent
+    template.layout.font.color = '#334155'     # Body text color
+    template.layout.font.family = 'Inter, sans-serif'
     
     # Grid lines
-    template.layout.xaxis.gridcolor = '#dcdfd2' # Hairline soft
-    template.layout.yaxis.gridcolor = '#dcdfd2'
-    template.layout.xaxis.zerolinecolor = '#bfc1b7' # Hairline
-    template.layout.yaxis.zerolinecolor = '#bfc1b7'
+    template.layout.xaxis.gridcolor = '#f1f5f9' 
+    template.layout.yaxis.gridcolor = '#f1f5f9'
+    template.layout.xaxis.zerolinecolor = '#e2e8f0' 
+    template.layout.yaxis.zerolinecolor = '#e2e8f0'
     
-    # Default colors (PostHog Primary Yellow, Accent Blue, Accent Red)
-    template.layout.colorway = ['#f7a501', '#2c84e0', '#cd4239', '#2c8c66']
+    # Premium Palette
+    template.layout.colorway = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
     
     return template
