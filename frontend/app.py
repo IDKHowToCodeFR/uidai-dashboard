@@ -13,11 +13,11 @@ app = Dash(
     external_stylesheets=[
         dbc.themes.BOOTSTRAP,
         "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css",
-        "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+        "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
     ],
     suppress_callback_exceptions=True
 )
-app.title = "IVRS Dashboard"
+app.title = "UIDAI Dashboard"
 
 # Directory for processed data
 PROCESSED_DATA_DIR = "data/processed"
@@ -34,6 +34,10 @@ def get_initial_data():
     df = pd.read_excel(os.path.join(PROCESSED_DATA_DIR, files[0]), engine='openpyxl')
     return df.to_dict('records')
 
+def get_history_options():
+    files = [f for f in os.listdir(PROCESSED_DATA_DIR) if f.endswith('.xlsx')]
+    return [{'label': f, 'value': f} for f in files]
+
 def parse_contents(contents, filename):
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
@@ -44,167 +48,220 @@ def parse_contents(contents, filename):
             df = pd.read_excel(io.BytesIO(decoded), engine='openpyxl')
         else:
             return None
+        
+        import numpy as np
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        df[numeric_cols] = df[numeric_cols].fillna(0)
+        object_cols = df.select_dtypes(include=['object', 'string']).columns
+        df[object_cols] = df[object_cols].fillna('Unknown')
+        for col in object_cols:
+            df[col] = df[col].astype(str).str.strip()
+        df.dropna(how='all', inplace=True)
+        df.dropna(axis=1, how='all', inplace=True)
+        
+        # Save to processed directory for history
+        if not os.path.exists(PROCESSED_DATA_DIR):
+            os.makedirs(PROCESSED_DATA_DIR)
+        save_path = os.path.join(PROCESSED_DATA_DIR, filename)
+        df.to_excel(save_path, index=False, engine='openpyxl')
+        
         return df.to_dict('records')
     except Exception as e:
         print(e)
         return None
 
 style_dropdown_toggle = {
-    "backgroundColor": "#ffffff",
-    "color": "#23251d",
-    "border": "1px solid #bfc1b7",
-    "borderRadius": "6px",
-    "padding": "6px 12px",
-    "fontFamily": "'IBM Plex Sans', sans-serif",
+    "backgroundColor": "var(--color-surface)",
+    "color": "var(--color-text-heading)",
+    "border": "1px solid var(--color-border)",
+    "borderRadius": "8px",
+    "padding": "8px 16px",
+    "fontFamily": "'Inter', sans-serif",
     "fontSize": "14px",
-    "boxShadow": "none"
+    "fontWeight": "600",
+    "boxShadow": "0 2px 4px -1px rgba(0,0,0,0.05)",
+    "transition": "all 0.2s ease"
 }
 
 # --- TOPBAR (Combined with Filters) ---
 topbar = html.Div(
     [
         html.Div([
+            # Hamburger Button
             html.Button(
-                html.I(className="bi bi-list", style={"fontSize": "1.5rem", "color": "#23251d"}),
+                html.I(className="bi bi-list", style={"fontSize": "28px"}),
                 id="btn-sidebar",
-                className="btn me-3 border-0 bg-transparent",
-                style={"padding": "0"}
-            )
+                n_clicks=0,
+                className="btn btn-link text-dark p-0 me-4 text-decoration-none",
+                style={"border": "none", "background": "none"}
+            ),
+            html.H2("UIDAI", className="display-lg mb-0 me-4", style={"display": "inline-block"}),
         ], style={"display": "flex", "alignItems": "center"}),
         
         # Filters (Right Aligned in Header)
         html.Div([
-            html.Div([
-                html.Span("Date:", className="me-2 body-strong", style={"color": "#4d4f46", "fontWeight": "600"}),
-                dcc.DatePickerRange(
-                    id='date-picker-range',
-                    start_date_placeholder_text="Start",
-                    end_date_placeholder_text="End",
-                    display_format='YYYY-MM-DD',
-                    className="me-4"
-                )
-            ], className="d-flex align-items-center mb-0"),
+            # Date Picker
+            dcc.DatePickerRange(
+                id='date-picker-range',
+                start_date_placeholder_text="Start",
+                end_date_placeholder_text="End",
+                display_format='YYYY-MM-DD',
+                className="me-4"
+            ),
             
-            html.Div([
-                html.Span("Company:", className="me-2 body-strong", style={"color": "#4d4f46", "fontWeight": "600"}),
-                dbc.DropdownMenu(
-                    label="All Companies",
-                    id="company-dropdown-btn",
-                    toggleClassName="btn",
-                    toggle_style=style_dropdown_toggle,
-                    children=[
-                        html.Div([
-                            dbc.Checkbox(id="select-all-companies", label="Select All", value=True, className="px-3 pt-2", style={"fontWeight": "600", "color": "#23251d"}),
-                            html.Hr(className="my-2", style={"borderColor": "#dcdfd2"}),
-                            dbc.Checklist(id="modality-filter", options=[], value=[], className="px-3 pb-2", style={"color": "#4d4f46"})
-                        ], style={"maxHeight": "300px", "overflowY": "auto", "minWidth": "250px", "backgroundColor": "#ffffff"})
-                    ]
-                )
-            ], className="d-flex align-items-center me-4 mb-0"),
+            # Company Filter
+            html.Span("Company: ", className="me-2 body-strong"),
+            dbc.DropdownMenu(
+                label="All Companies",
+                id="company-dropdown-btn",
+                toggleClassName="btn",
+                toggle_style=style_dropdown_toggle,
+                children=[
+                    html.Div([
+                        dbc.Checkbox(id="select-all-companies", label="Select All", value=True, className="px-3 pt-2", style={"fontWeight": "600", "color": "var(--color-text-heading)"}),
+                        html.Hr(className="my-2", style={"borderColor": "var(--color-border)"}),
+                        dbc.Checklist(id="modality-filter", options=[], value=[], className="px-3 pb-2", style={"color": "var(--color-text-body)"})
+                    ], style={"maxHeight": "300px", "overflowY": "auto", "overflowX": "hidden", "minWidth": "250px", "backgroundColor": "var(--color-surface)", "borderRadius": "12px", "boxShadow": "0 10px 15px -3px rgba(0,0,0,0.1)", "border": "1px solid var(--color-border)", "padding": "8px 0"})
+                ]
+            ),
 
-            html.Div([
-                html.Span("Queue:", className="me-2 body-strong", style={"color": "#4d4f46", "fontWeight": "600"}),
-                dbc.DropdownMenu(
-                    label="All Queues",
-                    id="queue-dropdown-btn",
-                    toggleClassName="btn",
-                    toggle_style=style_dropdown_toggle,
-                    children=[
-                        html.Div([
-                            dbc.Checkbox(id="select-all-queues", label="Select All", value=True, className="px-3 pt-2", style={"fontWeight": "600", "color": "#23251d"}),
-                            html.Hr(className="my-2", style={"borderColor": "#dcdfd2"}),
-                            dbc.Checklist(id="queue-filter", options=[], value=[], className="px-3 pb-2", style={"color": "#4d4f46"})
-                        ], style={"maxHeight": "300px", "overflowY": "auto", "minWidth": "250px", "backgroundColor": "#ffffff"})
-                    ]
-                )
-            ], className="d-flex align-items-center me-4 mb-0"),
+            # Queue Filter
+            html.Span("Queue: ", className="ms-4 me-2 body-strong"),
+            dbc.DropdownMenu(
+                label="All Queues",
+                id="queue-dropdown-btn",
+                toggleClassName="btn",
+                toggle_style=style_dropdown_toggle,
+                children=[
+                    html.Div([
+                        dbc.Checkbox(id="select-all-queues", label="Select All", value=True, className="px-3 pt-2", style={"fontWeight": "600", "color": "var(--color-text-heading)"}),
+                        html.Hr(className="my-2", style={"borderColor": "var(--color-border)"}),
+                        dbc.Checklist(id="queue-filter", options=[], value=[], className="px-3 pb-2", style={"color": "var(--color-text-body)"})
+                    ], style={"maxHeight": "300px", "overflowY": "auto", "overflowX": "hidden", "minWidth": "250px", "backgroundColor": "var(--color-surface)", "borderRadius": "12px", "boxShadow": "0 10px 15px -3px rgba(0,0,0,0.1)", "border": "1px solid var(--color-border)", "padding": "8px 0"})
+                ]
+            ),
 
-            html.Div([
-                html.Span("Language:", className="me-2 body-strong", style={"color": "#4d4f46", "fontWeight": "600"}),
-                dbc.DropdownMenu(
-                    label="All Languages",
-                    id="language-dropdown-btn",
-                    toggleClassName="btn",
-                    toggle_style=style_dropdown_toggle,
-                    children=[
-                        html.Div([
-                            dbc.Checkbox(id="select-all-languages", label="Select All", value=True, className="px-3 pt-2", style={"fontWeight": "600", "color": "#23251d"}),
-                            html.Hr(className="my-2", style={"borderColor": "#dcdfd2"}),
-                            dbc.Checklist(id="language-filter", options=[], value=[], className="px-3 pb-2", style={"color": "#4d4f46"})
-                        ], style={"maxHeight": "300px", "overflowY": "auto", "minWidth": "250px", "backgroundColor": "#ffffff"})
-                    ]
-                )
-            ], className="d-flex align-items-center mb-0")
+            # Language Filter
+            html.Span("Language: ", className="ms-4 me-2 body-strong"),
+            dbc.DropdownMenu(
+                label="All Languages",
+                id="language-dropdown-btn",
+                toggleClassName="btn",
+                toggle_style=style_dropdown_toggle,
+                children=[
+                    html.Div([
+                        dbc.Checkbox(id="select-all-languages", label="Select All", value=True, className="px-3 pt-2", style={"fontWeight": "600", "color": "var(--color-text-heading)"}),
+                        html.Hr(className="my-2", style={"borderColor": "var(--color-border)"}),
+                        dbc.Checklist(id="language-filter", options=[], value=[], className="px-3 pb-2", style={"color": "var(--color-text-body)"})
+                    ], style={"maxHeight": "300px", "overflowY": "auto", "overflowX": "hidden", "minWidth": "250px", "backgroundColor": "var(--color-surface)", "borderRadius": "12px", "boxShadow": "0 10px 15px -3px rgba(0,0,0,0.1)", "border": "1px solid var(--color-border)", "padding": "8px 0"})
+                ]
+            ),
+            
+            # Export Data Button
+            html.Button(
+                [html.I(className="bi bi-download me-2"), "Export"],
+                id="btn-export",
+                className="btn btn-primary ms-4 body-strong"
+            ),
+            
+            # Avatar Icon
+            html.I(className="bi bi-person-circle fs-3 text-secondary ms-4")
+            
         ], style={"display": "flex", "alignItems": "center"})
     ],
     className="topbar custom-card px-4",
     style={
-        "height": "72px",
         "position": "fixed",
         "top": 0,
         "left": 0,
         "right": 0,
-        "zIndex": 1030,
+        "height": "80px",
+        "zIndex": 1000,
         "display": "flex",
-        "justifyContent": "space-between",
         "alignItems": "center",
-        "backgroundColor": "#ffffff",
-        "borderBottom": "1px solid #bfc1b7"
+        "justifyContent": "space-between"
     }
 )
 
 # --- SIDEBAR ---
-sidebar = dbc.Offcanvas(
-    html.Div([
-        html.Div([
-            dcc.Upload(
-                id='upload-data',
-                children=html.Div(['Drag and Drop or ', html.A('Select Files')]),
-                style={
-                    'width': '100%',
-                    'height': '60px',
-                    'lineHeight': '60px',
-                    'borderWidth': '1px',
-                    'borderStyle': 'dashed',
-                    'borderColor': '#f7a501',
-                    'borderRadius': '6px',
-                    'textAlign': 'center',
-                    'margin': '10px 0',
-                    'backgroundColor': '#e5e7e0',
-                    'cursor': 'pointer'
-                },
-                multiple=False
+sidebar_content = html.Div([
+    html.H6("MAIN", className="text-muted text-uppercase mb-3", style={"fontSize": "11px", "letterSpacing": "1px"}),
+    dbc.Nav(
+        [
+            dbc.NavLink(
+                [html.I(className="bi bi-grid-1x2-fill me-3"), "Dashboard"],
+                href="/",
+                active="exact",
+                className="body-strong mb-2 d-flex align-items-center"
             ),
-            html.Div(id='upload-status', className="text-muted small mt-2")
-        ], className="mb-4"),
-        
-        html.H6("CONTENTS", className="text-muted fw-bold mb-3 mt-4"),
-        dbc.Nav(
-            [
-                dbc.NavLink("Dashboard", href="/", active="exact", className="py-2"),
-                dbc.NavLink("Raw Data Explorer", href="/raw-data", active="exact", className="py-2"),
-            ],
-            vertical=True,
-            pills=True,
-            className="mb-4"
-        ),
-    ]),
+            dbc.NavLink(
+                [html.I(className="bi bi-table me-3"), "Raw Data Explorer"],
+                href="/raw-data",
+                active="exact",
+                className="body-strong mb-2 d-flex align-items-center"
+            ),
+        ],
+        vertical=True,
+        pills=True,
+        className="custom-sidebar-nav mb-5"
+    ),
+    
+    html.Hr(style={"borderColor": "#e2e8f0"}),
+    
+    html.H6("DATA", className="text-muted text-uppercase mb-3 mt-4", style={"fontSize": "11px", "letterSpacing": "1px"}),
+    dcc.Upload(
+        id='upload-data',
+        children=html.Div([
+            html.I(className="bi bi-cloud-arrow-up fs-4 mb-2 d-block"),
+            'Drag and Drop or ', html.A('Select Files', className="text-primary text-decoration-none")
+        ]),
+        style={
+            'width': '100%',
+            'padding': '1.5rem',
+            'borderWidth': '2px',
+            'borderStyle': 'dashed',
+            'borderColor': '#cbd5e1',
+            'borderRadius': '12px',
+            'textAlign': 'center',
+            'backgroundColor': '#f8fafc',
+            'cursor': 'pointer',
+            'color': '#64748b',
+            'transition': 'all 0.2s ease'
+        },
+        multiple=False,
+        className="upload-box mb-4"
+    ),
+    html.Div(id='upload-status', className="text-muted small mt-2"),
+
+    html.H6("HISTORY", className="text-muted text-uppercase mb-3", style={"fontSize": "11px", "letterSpacing": "1px"}),
+    dbc.RadioItems(
+        id="file-history",
+        options=get_history_options(),
+        value=get_history_options()[0]['value'] if get_history_options() else None,
+        className="mb-4"
+    )
+])
+
+sidebar = dbc.Offcanvas(
+    sidebar_content,
     id="sidebar",
-    title="IVRS Dashboard Navigation",
+    title="",
     is_open=False,
     className="offcanvas border-0 shadow-lg"
 )
 
-content = html.Div([
-    dash.page_container
-], style={"marginTop": "96px", "padding": "2rem"})
+content = html.Div(
+    dash.page_container,
+    style={"marginTop": "80px", "padding": "2rem"}
+)
 
 app.layout = html.Div([
     dcc.Store(id='data-store', data=get_initial_data()),
+    dcc.Download(id="download-dataframe-csv"),
     topbar,
     sidebar,
     content
-], style={"minHeight": "100vh", "backgroundColor": "#eeefe9"})
+])
 
 @callback(
     Output("sidebar", "is_open"),
@@ -267,6 +324,8 @@ def sync_filters(data):
 @callback(
     Output('data-store', 'data', allow_duplicate=True),
     Output('upload-status', 'children'),
+    Output('file-history', 'options'),
+    Output('file-history', 'value'),
     Input('upload-data', 'contents'),
     State('upload-data', 'filename'),
     prevent_initial_call=True
@@ -275,9 +334,56 @@ def update_output(contents, filename):
     if contents is not None:
         data = parse_contents(contents, filename)
         if data is not None:
-            return data, f"Loaded {filename} successfully."
-        return dash.no_update, "Error parsing file."
-    return dash.no_update, ""
+            opts = get_history_options()
+            return data, f"Loaded {filename} successfully.", opts, filename
+        return dash.no_update, "Error parsing file.", dash.no_update, dash.no_update
+    return dash.no_update, "", dash.no_update, dash.no_update
+
+@callback(
+    Output('data-store', 'data', allow_duplicate=True),
+    Input('file-history', 'value'),
+    prevent_initial_call=True
+)
+def load_from_history(filename):
+    if filename:
+        file_path = os.path.join(PROCESSED_DATA_DIR, filename)
+        if os.path.exists(file_path):
+            df = pd.read_excel(file_path, engine='openpyxl')
+            return df.to_dict('records')
+    return dash.no_update
+
+@callback(
+    Output("download-dataframe-csv", "data"),
+    Input("btn-export", "n_clicks"),
+    State('data-store', 'data'),
+    State('modality-filter', 'value'),
+    State('queue-filter', 'value'),
+    State('language-filter', 'value'),
+    State('date-picker-range', 'start_date'),
+    State('date-picker-range', 'end_date'),
+    prevent_initial_call=True
+)
+def export_data(n_clicks, data, companies, queues, languages, start_date, end_date):
+    if not data:
+        return dash.no_update
+        
+    df = pd.DataFrame(data)
+    
+    if companies and 'Company' in df.columns:
+        df = df[df['Company'].isin(companies)]
+    if queues and 'Queue Name' in df.columns:
+        df = df[df['Queue Name'].isin(queues)]
+    if languages and 'Language' in df.columns:
+        df = df[df['Language'].isin(languages)]
+        
+    if start_date and end_date:
+        date_col = 'Timestamp' if 'Timestamp' in df.columns else 'Call Start Time'
+        if date_col in df.columns:
+            temp_date = pd.to_datetime(df[date_col]).dt.date
+            df = df[(temp_date >= pd.to_datetime(start_date).date()) &
+                    (temp_date <= pd.to_datetime(end_date).date())]
+                    
+    return dcc.send_data_frame(df.to_csv, "export.csv", index=False)
 
 def sync_checklist_all(select_all, selected_items, options, trigger_id, select_all_id, filter_id):
     all_items = [opt['value'] for opt in options] if options else []
