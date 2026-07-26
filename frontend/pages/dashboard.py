@@ -73,11 +73,13 @@ layout = Container([
     Output('time-hist', 'figure'),
     Output('recent-table-container', 'children'),
     Input('data-store', 'data'),
-    Input('modality-filter', 'value'),
+    Input('company-filter', 'value'),
+    Input('queue-filter', 'value'),
+    Input('language-filter', 'value'),
     Input('date-picker-range', 'start_date'),
     Input('date-picker-range', 'end_date')
 )
-def update_dashboard(data, modality_filter, start_date, end_date):
+def update_dashboard(data, company_filter, queue_filter, language_filter, start_date, end_date):
     df = pd.DataFrame(data)
 
     if df.empty:
@@ -90,20 +92,30 @@ def update_dashboard(data, modality_filter, start_date, end_date):
             {'Biometric': 'Company A', 'Demographic': 'Company B'}
         ).fillna('Company A')
 
-    if 'Date' in df.columns:
-        df['Date'] = pd.to_datetime(df['Date'])
+    date_col = None
+    if 'Timestamp' in df.columns:
+        date_col = 'Timestamp'
+    elif 'Date' in df.columns:
+        date_col = 'Date'
     elif 'Call Start Time' in df.columns:
-        df['Date'] = pd.to_datetime(df['Call Start Time'])
+        date_col = 'Call Start Time'
+
+    if date_col:
+        df['Date'] = pd.to_datetime(df[date_col])
     else:
         df['Date'] = pd.NaT
 
-    # Apply Company Filter
-    if modality_filter is not None:
-        df = df[df['Company'].isin(modality_filter)]
+    # Apply Filters
+    if company_filter:
+        df = df[df['Company'].isin(company_filter)]
+    if queue_filter and 'Queue Name' in df.columns:
+        df = df[df['Queue Name'].isin(queue_filter)]
+    if language_filter and 'Language' in df.columns:
+        df = df[df['Language'].isin(language_filter)]
 
     # Time Filter
     df_current = df.copy()
-    if start_date and end_date:
+    if start_date and end_date and date_col:
         start_dt, end_dt = pd.to_datetime(start_date), pd.to_datetime(end_date)
         df_current = df[(df['Date'] >= start_dt) & (df['Date'] <= end_dt)].copy()
 
