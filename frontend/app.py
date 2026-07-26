@@ -5,6 +5,7 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import base64
 import io
+from datetime import datetime, timedelta
 
 app = Dash(
     __name__,
@@ -36,7 +37,49 @@ def get_initial_data():
 
 def get_history_options():
     files = [f for f in os.listdir(PROCESSED_DATA_DIR) if f.endswith('.xlsx')]
-    return [{'label': f, 'value': f} for f in files]
+    
+    file_times = []
+    for f in files:
+        file_path = os.path.join(PROCESSED_DATA_DIR, f)
+        mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
+        file_times.append({'name': f, 'time': mtime})
+        
+    file_times.sort(key=lambda x: x['time'], reverse=True)
+    
+    now = datetime.now()
+    today = now.date()
+    
+    options = []
+    current_group = None
+    
+    for item in file_times:
+        mtime = item['time']
+        date = mtime.date()
+        age_days = (today - date).days
+        
+        if age_days == 0:
+            group_name = "Today"
+        elif age_days == 1:
+            group_name = "Yesterday"
+        elif age_days <= 30:
+            group_name = mtime.strftime("%b %d")
+        elif age_days <= 90:
+            group_name = mtime.strftime("%B")
+        else:
+            group_name = "Earlier"
+            
+        if group_name != current_group:
+            options.append({
+                'label': html.Div(group_name, className="history-group-header small text-muted fw-bold mt-3 mb-1 text-uppercase", style={'fontSize': '10px', 'letterSpacing': '1px'}), 
+                'value': f'HEADER_{group_name}', 
+                'disabled': True
+            })
+            current_group = group_name
+            
+        label = html.Span(item['name'], className="text-truncate ms-2")
+        options.append({'label': label, 'value': item['name']})
+        
+    return options
 
 def parse_contents(contents, filename):
     content_type, content_string = contents.split(',')
@@ -83,90 +126,87 @@ style_dropdown_toggle = {
     "transition": "all 0.2s ease"
 }
 
-# --- TOPBAR (Combined with Filters) ---
+# --- FILTER DRAWER (Right Side) ---
+filter_drawer = dbc.Offcanvas(
+    html.Div([
+        html.H6("TIME RANGE", className="text-muted text-uppercase mb-2", style={"fontSize": "11px", "letterSpacing": "1px"}),
+        dcc.DatePickerRange(
+            id='date-picker-range',
+            start_date_placeholder_text="Start",
+            end_date_placeholder_text="End",
+            display_format='YYYY-MM-DD',
+            className="mb-4 w-100"
+        ),
+        
+        html.H6("COMPANY", className="text-muted text-uppercase mb-2 mt-2", style={"fontSize": "11px", "letterSpacing": "1px"}),
+        dcc.Dropdown(
+            id="company-filter",
+            options=[],
+            value=[],
+            multi=True,
+            placeholder="Search Companies...",
+            className="mb-4"
+        ),
+
+        html.H6("QUEUE", className="text-muted text-uppercase mb-2", style={"fontSize": "11px", "letterSpacing": "1px"}),
+        dcc.Dropdown(
+            id="queue-filter",
+            options=[],
+            value=[],
+            multi=True,
+            placeholder="Search Queues...",
+            className="mb-4"
+        ),
+
+        html.H6("LANGUAGE", className="text-muted text-uppercase mb-2", style={"fontSize": "11px", "letterSpacing": "1px"}),
+        dcc.Dropdown(
+            id="language-filter",
+            options=[],
+            value=[],
+            multi=True,
+            placeholder="Search Languages...",
+            className="mb-4"
+        ),
+    ]),
+    id="filter-drawer",
+    title="Dashboard Filters",
+    is_open=False,
+    placement="end",
+    className="offcanvas border-0 shadow-lg"
+)
+
+# --- TOPBAR ---
 topbar = html.Div(
     [
         html.Div([
-            # Hamburger Button
+            # Hamburger Menu Button
             html.Button(
-                html.I(className="bi bi-list", style={"fontSize": "28px"}),
-                id="btn-sidebar",
+                html.I(className="bi bi-list fs-4"),
+                id="btn-sidebar-toggle",
                 n_clicks=0,
-                className="btn btn-link text-dark p-0 me-4 text-decoration-none",
-                style={"border": "none", "background": "none"}
+                className="btn btn-light me-3 body-strong rounded-circle shadow-sm",
+                style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
             ),
             html.H2("UIDAI", className="display-lg mb-0 me-4", style={"display": "inline-block"}),
         ], style={"display": "flex", "alignItems": "center"}),
         
-        # Filters (Right Aligned in Header)
+        # Right aligned action buttons
         html.Div([
-            # Date Picker
-            dcc.DatePickerRange(
-                id='date-picker-range',
-                start_date_placeholder_text="Start",
-                end_date_placeholder_text="End",
-                display_format='YYYY-MM-DD',
-                className="me-4"
+            # Filters Drawer Button
+            html.Button(
+                html.I(className="bi bi-funnel-fill"),
+                id="btn-filters",
+                n_clicks=0,
+                className="btn btn-light me-3 body-strong rounded-circle shadow-sm",
+                style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
             ),
-            
-            # Company Filter
-            html.Span("Company: ", className="me-2 body-strong"),
-            dbc.DropdownMenu(
-                label="All Companies",
-                id="company-dropdown-btn",
-                toggleClassName="btn",
-                toggle_style=style_dropdown_toggle,
-                children=[
-                    html.Div([
-                        dbc.Checkbox(id="select-all-companies", label="Select All", value=True, className="px-3 pt-2", style={"fontWeight": "600", "color": "var(--color-text-heading)"}),
-                        html.Hr(className="my-2", style={"borderColor": "var(--color-border)"}),
-                        dbc.Checklist(id="modality-filter", options=[], value=[], className="px-3 pb-2", style={"color": "var(--color-text-body)"})
-                    ], style={"maxHeight": "300px", "overflowY": "auto", "overflowX": "hidden", "minWidth": "250px", "backgroundColor": "var(--color-surface)", "borderRadius": "12px", "boxShadow": "0 10px 15px -3px rgba(0,0,0,0.1)", "border": "1px solid var(--color-border)", "padding": "8px 0"})
-                ]
-            ),
-
-            # Queue Filter
-            html.Span("Queue: ", className="ms-4 me-2 body-strong"),
-            dbc.DropdownMenu(
-                label="All Queues",
-                id="queue-dropdown-btn",
-                toggleClassName="btn",
-                toggle_style=style_dropdown_toggle,
-                children=[
-                    html.Div([
-                        dbc.Checkbox(id="select-all-queues", label="Select All", value=True, className="px-3 pt-2", style={"fontWeight": "600", "color": "var(--color-text-heading)"}),
-                        html.Hr(className="my-2", style={"borderColor": "var(--color-border)"}),
-                        dbc.Checklist(id="queue-filter", options=[], value=[], className="px-3 pb-2", style={"color": "var(--color-text-body)"})
-                    ], style={"maxHeight": "300px", "overflowY": "auto", "overflowX": "hidden", "minWidth": "250px", "backgroundColor": "var(--color-surface)", "borderRadius": "12px", "boxShadow": "0 10px 15px -3px rgba(0,0,0,0.1)", "border": "1px solid var(--color-border)", "padding": "8px 0"})
-                ]
-            ),
-
-            # Language Filter
-            html.Span("Language: ", className="ms-4 me-2 body-strong"),
-            dbc.DropdownMenu(
-                label="All Languages",
-                id="language-dropdown-btn",
-                toggleClassName="btn",
-                toggle_style=style_dropdown_toggle,
-                children=[
-                    html.Div([
-                        dbc.Checkbox(id="select-all-languages", label="Select All", value=True, className="px-3 pt-2", style={"fontWeight": "600", "color": "var(--color-text-heading)"}),
-                        html.Hr(className="my-2", style={"borderColor": "var(--color-border)"}),
-                        dbc.Checklist(id="language-filter", options=[], value=[], className="px-3 pb-2", style={"color": "var(--color-text-body)"})
-                    ], style={"maxHeight": "300px", "overflowY": "auto", "overflowX": "hidden", "minWidth": "250px", "backgroundColor": "var(--color-surface)", "borderRadius": "12px", "boxShadow": "0 10px 15px -3px rgba(0,0,0,0.1)", "border": "1px solid var(--color-border)", "padding": "8px 0"})
-                ]
-            ),
-            
             # Export Data Button
             html.Button(
-                [html.I(className="bi bi-download me-2"), "Export"],
+                html.I(className="bi bi-download"),
                 id="btn-export",
-                className="btn btn-primary ms-4 body-strong"
-            ),
-            
-            # Avatar Icon
-            html.I(className="bi bi-person-circle fs-3 text-secondary ms-4")
-            
+                className="btn btn-primary body-strong rounded-circle shadow-sm",
+                style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center"}
+            )
         ], style={"display": "flex", "alignItems": "center"})
     ],
     className="topbar custom-card px-4",
@@ -185,17 +225,17 @@ topbar = html.Div(
 
 # --- SIDEBAR ---
 sidebar_content = html.Div([
-    html.H6("MAIN", className="text-muted text-uppercase mb-3", style={"fontSize": "11px", "letterSpacing": "1px"}),
+    html.H6("MAIN", className="sidebar-section-title text-muted text-uppercase mb-3", style={"fontSize": "11px", "letterSpacing": "1px"}),
     dbc.Nav(
         [
             dbc.NavLink(
-                [html.I(className="bi bi-grid-1x2-fill me-3"), "Dashboard"],
+                [html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")],
                 href="/",
                 active="exact",
                 className="body-strong mb-2 d-flex align-items-center"
             ),
             dbc.NavLink(
-                [html.I(className="bi bi-table me-3"), "Raw Data Explorer"],
+                [html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")],
                 href="/raw-data",
                 active="exact",
                 className="body-strong mb-2 d-flex align-items-center"
@@ -208,51 +248,44 @@ sidebar_content = html.Div([
     
     html.Hr(style={"borderColor": "#e2e8f0"}),
     
-    html.H6("DATA", className="text-muted text-uppercase mb-3 mt-4", style={"fontSize": "11px", "letterSpacing": "1px"}),
-    dcc.Upload(
-        id='upload-data',
-        children=html.Div([
-            html.I(className="bi bi-cloud-arrow-up fs-4 mb-2 d-block"),
-            'Drag and Drop or ', html.A('Select Files', className="text-primary text-decoration-none")
-        ]),
-        style={
-            'width': '100%',
-            'padding': '1.5rem',
-            'borderWidth': '2px',
-            'borderStyle': 'dashed',
-            'borderColor': '#cbd5e1',
-            'borderRadius': '12px',
-            'textAlign': 'center',
-            'backgroundColor': '#f8fafc',
-            'cursor': 'pointer',
-            'color': '#64748b',
-            'transition': 'all 0.2s ease'
-        },
-        multiple=False,
-        className="upload-box mb-4"
-    ),
-    html.Div(id='upload-status', className="text-muted small mt-2"),
+    html.H6("DATA", className="sidebar-section-title text-muted text-uppercase mb-3 mt-4", style={"fontSize": "11px", "letterSpacing": "1px"}),
+    html.Div([
+        dcc.Upload(
+            id='upload-data',
+            children=html.Div([
+                html.I(className="bi bi-cloud-arrow-up fs-4 mb-2 d-block"),
+                html.Span(['Drag and Drop or ', html.A('Select Files', className="text-primary text-decoration-none")], className="nav-link-text")
+            ]),
+            multiple=False,
+            className="upload-box mb-4"
+        )
+    ]),
+    html.Div(id='upload-status', className="nav-link-text text-muted small mt-2"),
 
-    html.H6("HISTORY", className="text-muted text-uppercase mb-3", style={"fontSize": "11px", "letterSpacing": "1px"}),
-    dbc.RadioItems(
-        id="file-history",
-        options=get_history_options(),
-        value=get_history_options()[0]['value'] if get_history_options() else None,
-        className="mb-4"
+    html.H6("HISTORY", className="sidebar-section-title text-muted text-uppercase mb-3 mt-4", style={"fontSize": "11px", "letterSpacing": "1px"}),
+    html.Div(
+        dbc.RadioItems(
+            id="file-history",
+            options=get_history_options(),
+            value=get_history_options()[0]['value'] if get_history_options() else None,
+            className="mb-4 history-radio-group"
+        )
     )
-])
+], className="sidebar-content-wrapper")
 
 sidebar = dbc.Offcanvas(
     sidebar_content,
     id="sidebar",
-    title="",
+    title="Main Menu",
+    placement="start",
     is_open=False,
-    className="offcanvas border-0 shadow-lg"
+    className="premium-offcanvas sidebar-container"
 )
 
 content = html.Div(
     dash.page_container,
-    style={"marginTop": "80px", "padding": "2rem"}
+    id="main-content",
+    className="main-content"
 )
 
 app.layout = html.Div([
@@ -260,22 +293,33 @@ app.layout = html.Div([
     dcc.Download(id="download-dataframe-csv"),
     topbar,
     sidebar,
+    filter_drawer,
     content
 ])
 
 @callback(
-    Output("sidebar", "is_open"),
-    Input("btn-sidebar", "n_clicks"),
-    State("sidebar", "is_open"),
+    Output("filter-drawer", "is_open"),
+    Input("btn-filters", "n_clicks"),
+    State("filter-drawer", "is_open"),
 )
-def toggle_sidebar(n, is_open):
+def toggle_filter_drawer(n, is_open):
     if n:
         return not is_open
     return is_open
 
 @callback(
-    Output('modality-filter', 'options'),
-    Output('modality-filter', 'value'),
+    Output("sidebar", "is_open"),
+    Input("btn-sidebar-toggle", "n_clicks"),
+    State("sidebar", "is_open"),
+)
+def toggle_left_sidebar(n, is_open):
+    if n:
+        return not is_open
+    return is_open
+
+@callback(
+    Output('company-filter', 'options'),
+    Output('company-filter', 'value'),
     Output('queue-filter', 'options'),
     Output('queue-filter', 'value'),
     Output('language-filter', 'options'),
@@ -312,10 +356,18 @@ def sync_filters(data):
         l_values = langs
         
     min_date = max_date = start_date = end_date = None
+    date_col = None
     if 'Timestamp' in df.columns:
-        df['Timestamp'] = pd.to_datetime(df['Timestamp'])
-        min_date = df['Timestamp'].min().date()
-        max_date = df['Timestamp'].max().date()
+        date_col = 'Timestamp'
+    elif 'Date' in df.columns:
+        date_col = 'Date'
+    elif 'Call Start Time' in df.columns:
+        date_col = 'Call Start Time'
+
+    if date_col:
+        df[date_col] = pd.to_datetime(df[date_col])
+        min_date = df[date_col].min().date()
+        max_date = df[date_col].max().date()
         start_date = min_date
         end_date = max_date
         
@@ -356,7 +408,7 @@ def load_from_history(filename):
     Output("download-dataframe-csv", "data"),
     Input("btn-export", "n_clicks"),
     State('data-store', 'data'),
-    State('modality-filter', 'value'),
+    State('company-filter', 'value'),
     State('queue-filter', 'value'),
     State('language-filter', 'value'),
     State('date-picker-range', 'start_date'),
@@ -377,7 +429,14 @@ def export_data(n_clicks, data, companies, queues, languages, start_date, end_da
         df = df[df['Language'].isin(languages)]
         
     if start_date and end_date:
-        date_col = 'Timestamp' if 'Timestamp' in df.columns else 'Call Start Time'
+        date_col = None
+        if 'Timestamp' in df.columns:
+            date_col = 'Timestamp'
+        elif 'Date' in df.columns:
+            date_col = 'Date'
+        elif 'Call Start Time' in df.columns:
+            date_col = 'Call Start Time'
+
         if date_col in df.columns:
             temp_date = pd.to_datetime(df[date_col]).dt.date
             df = df[(temp_date >= pd.to_datetime(start_date).date()) &
@@ -385,90 +444,7 @@ def export_data(n_clicks, data, companies, queues, languages, start_date, end_da
                     
     return dcc.send_data_frame(df.to_csv, "export.csv", index=False)
 
-def sync_checklist_all(select_all, selected_items, options, trigger_id, select_all_id, filter_id):
-    all_items = [opt['value'] for opt in options] if options else []
-    
-    if trigger_id == select_all_id:
-        if select_all:
-            return all_items, True
-        else:
-            return [], False
-    elif trigger_id == filter_id:
-        selected = selected_items or []
-        if len(selected) == len(all_items) and len(all_items) > 0:
-            return dash.no_update, True
-        else:
-            return dash.no_update, False
-    return dash.no_update, dash.no_update
-
-def update_btn_label(selected_items, options, entity_name):
-    if not options:
-        return f"Select {entity_name}..."
-    all_items = [opt['value'] for opt in options]
-    selected = selected_items or []
-    if len(selected) == len(all_items) or len(selected) == 0:
-        return f"All {entity_name}"
-    elif len(selected) == 1:
-        return selected[0]
-    else:
-        return f"{len(selected)} {entity_name} Selected"
-
-@callback(
-    Output('modality-filter', 'value', allow_duplicate=True),
-    Output('select-all-companies', 'value'),
-    Input('select-all-companies', 'value'),
-    Input('modality-filter', 'value'),
-    State('modality-filter', 'options'),
-    prevent_initial_call=True
-)
-def sync_companies(select_all, selected, options):
-    return sync_checklist_all(select_all, selected, options, ctx.triggered_id, 'select-all-companies', 'modality-filter')
-
-@callback(
-    Output('company-dropdown-btn', 'label'),
-    Input('modality-filter', 'value'),
-    State('modality-filter', 'options')
-)
-def label_companies(selected, options):
-    return update_btn_label(selected, options, "Companies")
-
-@callback(
-    Output('queue-filter', 'value', allow_duplicate=True),
-    Output('select-all-queues', 'value'),
-    Input('select-all-queues', 'value'),
-    Input('queue-filter', 'value'),
-    State('queue-filter', 'options'),
-    prevent_initial_call=True
-)
-def sync_queues(select_all, selected, options):
-    return sync_checklist_all(select_all, selected, options, ctx.triggered_id, 'select-all-queues', 'queue-filter')
-
-@callback(
-    Output('queue-dropdown-btn', 'label'),
-    Input('queue-filter', 'value'),
-    State('queue-filter', 'options')
-)
-def label_queues(selected, options):
-    return update_btn_label(selected, options, "Queues")
-
-@callback(
-    Output('language-filter', 'value', allow_duplicate=True),
-    Output('select-all-languages', 'value'),
-    Input('select-all-languages', 'value'),
-    Input('language-filter', 'value'),
-    State('language-filter', 'options'),
-    prevent_initial_call=True
-)
-def sync_languages(select_all, selected, options):
-    return sync_checklist_all(select_all, selected, options, ctx.triggered_id, 'select-all-languages', 'language-filter')
-
-@callback(
-    Output('language-dropdown-btn', 'label'),
-    Input('language-filter', 'value'),
-    State('language-filter', 'options')
-)
-def label_languages(selected, options):
-    return update_btn_label(selected, options, "Languages")
+# (Redundant sync callbacks removed)
 
 if __name__ == '__main__':
     app.run(debug=True, port=8050)
