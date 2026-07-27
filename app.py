@@ -241,6 +241,12 @@ sidebar_content = html.Div([
                 className="body-strong mb-2 d-flex align-items-center"
             ),
             dbc.NavLink(
+                [html.I(className="bi bi-clock-history me-3"), html.Span("Hourly Insights", className="nav-link-text")],
+                href="/hourly",
+                active="exact",
+                className="body-strong mb-2 d-flex align-items-center"
+            ),
+            dbc.NavLink(
                 [html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")],
                 href="/raw-data",
                 active="exact",

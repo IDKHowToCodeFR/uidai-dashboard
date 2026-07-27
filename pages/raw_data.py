@@ -23,12 +23,11 @@ layout = html.Div([
     Output('raw-data-table-container', 'children'),
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
-    Input('queue-filter', 'value'),
     Input('language-filter', 'value'),
     Input('date-picker-range', 'start_date'),
     Input('date-picker-range', 'end_date')
 )
-def update_table(data, companies, queues, languages, start_date, end_date):
+def update_table(data, companies, languages, start_date, end_date):
     if not data:
         return html.Div("No data available. Please upload a file.", className="text-center p-5 text-muted")
 
@@ -36,9 +35,6 @@ def update_table(data, companies, queues, languages, start_date, end_date):
 
     if companies and 'Company' in df.columns:
         df = df[df['Company'].isin(companies)]
-
-    if queues and 'Queue Name' in df.columns:
-        df = df[df['Queue Name'].isin(queues)]
 
     if languages and 'Language' in df.columns:
         df = df[df['Language'].isin(languages)]

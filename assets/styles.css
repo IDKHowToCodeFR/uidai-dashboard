@@ -1,0 +1,305 @@
+/* Offcanvas Base Styling */
+.premium-offcanvas {
+    border: none !important;
+    box-shadow: 0 0 25px rgba(0,0,0,0.1);
+    background-color: var(--color-surface);
+}
+
+/* Sidebar Internal Padding */
+.sidebar-content-wrapper {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem; 
+}
+
+/* Strip hardcoded Bootstrap margins to enforce consistent gap density */
+.sidebar-content-wrapper .mb-5,
+.sidebar-content-wrapper .mb-4,
+.sidebar-content-wrapper .mb-3,
+.sidebar-content-wrapper .mb-2 { 
+    margin-bottom: 0 !important; 
+}
+
+/* Sidebar Nav Links */
+.custom-sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.custom-sidebar-nav .nav-link {
+    display: flex !important;
+    align-items: center;
+    border-radius: 12px !important;
+    transition: all 0.2s ease;
+    width: 100%;
+    justify-content: flex-start !important;
+    padding: 0.75rem 1.5rem !important;
+}
+
+.sidebar-content-wrapper hr { 
+    margin: 0.5rem 0 !important; 
+    opacity: 0.3; 
+}
+
+/* Upload Box */
+.upload-box {
+    width: 100%;
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    color: var(--color-primary);
+    transition: all 0.2s ease;
+    border: 2px dashed #cbd5e1;
+    background-color: #f8fafc;
+    border-radius: 12px;
+}
+
+/* Main Content Area */
+.main-content {
+    margin-top: 80px;
+    margin-left: 0; /* Full width now */
+    padding: 2rem;
+    min-height: calc(100vh - 80px);
+}
+
+/* History Selection */
+.history-radio-group .form-check {
+    padding-left: 1.5em !important;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.history-radio-group .form-check-input {
+    display: block;
+    margin-top: 0;
+    margin-left: -1.5em;
+    cursor: pointer;
+}
+
+.history-radio-group .form-check-label {
+    width: 100%;
+    cursor: pointer;
+    background-color: transparent !important;
+    color: inherit !important;
+    padding: 0;
+}
+
+/* History Group Headers */
+.history-radio-group .form-check:has(.form-check-input:disabled) {
+    padding-left: 0 !important;
+    margin-top: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.history-radio-group .form-check-input:disabled {
+    display: none !important;
+}
+
+.history-radio-group .form-check-input:disabled ~ .form-check-label {
+    cursor: default;
+}
+
+.history-label-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.history-icon {
+    display: none; /* Hide since it's a standard list now */
+}
+
+/* Dropdown Premium Styling */
+.Select-control {
+    border: 1px solid var(--color-border) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 4px -1px rgba(0,0,0,0.05) !important;
+    background-color: var(--color-surface) !important;
+    font-family: 'Inter', sans-serif !important;
+    transition: all 0.2s ease !important;
+}
+
+.is-focused:not(.is-open) > .Select-control {
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+}
+
+.Select-value-label {
+    color: var(--color-text-heading) !important;
+}
+
+.Select-menu-outer {
+    border: 1px solid var(--color-border) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1) !important;
+    margin-top: 4px !important;
+}
+
+.Select-option {
+    padding: 8px 12px !important;
+}
+
+.Select-option.is-selected {
+    background-color: var(--color-bg) !important;
+}
+
+.Select-option.is-focused {
+    background-color: rgba(37, 99, 235, 0.05) !important;
+}
+/* Premium Light + Glassmorphism */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --color-primary: #2563eb;
+    --color-primary-light: #3b82f6;
+    --color-bg: #f8fafc;
+    --color-surface: #ffffff;
+    --color-border: #e2e8f0;
+    --color-border-light: #f1f5f9;
+    --color-text: #1e293b;
+    --color-text-heading: #0f172a;
+    --color-text-muted: #64748b;
+    --color-text-body: #334155;
+    --color-success: #10b981;
+    --color-danger: #ef4444;
+    --color-warning: #f59e0b;
+}
+
+body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: 'Inter', sans-serif !important;
+}
+
+.topbar {
+    background: #ffffff !important;
+    border-bottom: 1px solid var(--color-border) !important;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+}
+
+.custom-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.custom-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.card-header {
+    background-color: transparent !important;
+    border-bottom: 1px solid var(--color-border) !important;
+    font-weight: 600;
+    color: var(--color-text-body);
+    padding: 1.25rem 1.5rem !important;
+    border-top-left-radius: 16px !important;
+    border-top-right-radius: 16px !important;
+}
+
+.card-body {
+    padding: 1.5rem !important;
+}
+
+.display-lg {
+    font-weight: 800;
+    color: var(--color-text-heading);
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.display-xl {
+    font-weight: 800;
+    color: var(--color-text-heading);
+}
+
+.text-muted {
+    color: var(--color-text-muted) !important;
+}
+
+/* Sidebar styling */
+.offcanvas {
+    background: var(--color-surface) !important;
+    backdrop-filter: blur(10px);
+}
+
+.custom-sidebar-nav .nav-link {
+    color: var(--color-text-body) !important;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    padding: 10px 16px;
+    transition: all 0.2s ease;
+}
+
+.custom-sidebar-nav .nav-link:hover {
+    background-color: var(--color-border-light);
+    color: var(--color-text-heading) !important;
+}
+
+.custom-sidebar-nav .nav-link.active {
+    background-color: #eff6ff !important;
+    color: var(--color-primary) !important;
+    font-weight: 600;
+}
+
+/* Ag Grid Customization */
+.ag-theme-alpine {
+    --ag-background-color: var(--color-surface);
+    --ag-foreground-color: var(--color-text);
+    --ag-border-color: var(--color-border);
+    --ag-header-background-color: var(--color-bg);
+    --ag-header-foreground-color: var(--color-text-body);
+    --ag-row-hover-color: var(--color-border-light);
+    --ag-selected-row-background-color: #eff6ff;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Fix DatePickerRange white patches in topbar */
+.topbar .SingleDatePickerInput,
+.topbar .DateRangePickerInput,
+.topbar .DateInput {
+    background-color: transparent !important;
+}
+
+.topbar .DateInput_input {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    color: var(--color-text-body);
+    font-size: 14px;
+    padding: 6px 10px;
+    width: 100px;
+}
+
+.topbar .DateRangePickerInput_arrow_svg {
+    fill: var(--color-text-muted);
+}
+
+.topbar .DateInput_input__focused {
+    border-color: var(--color-primary);
+}
+
+/* calendar popup itself */
+.DayPicker, .CalendarMonth, .CalendarMonth_table {
+    background-color: var(--color-surface);
+}
+
+.CalendarDay__default {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-light);
+    color: var(--color-text);
+}
+
+.CalendarDay__selected, .CalendarDay__selected:hover {
+    background: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    color: #fff;
+}
