@@ -26,7 +26,7 @@ if %errorlevel% equ 0 (
 
 echo.
 echo [2/3] Processing raw data...
-.venv\Scripts\python.exe backend\preprocess.py
+.venv\Scripts\python.exe preprocess.py
 if errorlevel 1 (
     echo Error during data processing. Please check the logs above.
     pause
@@ -36,7 +36,7 @@ if errorlevel 1 (
 echo.
 echo [3/3] Starting the Server...
 echo The application will be available at http://127.0.0.1:8050
-.venv\Scripts\python.exe frontend\app.py
+.venv\Scripts\python.exe app.py
 if errorlevel 1 (
     echo Error starting the application. Please check the logs above.
     pause
