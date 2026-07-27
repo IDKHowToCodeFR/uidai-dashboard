@@ -1,0 +1,29 @@
+## GOT VALUES :
+
+"The data reprsented here is only for the company "DIGITECH" and it holde 60% of the total things, for NSB assume simlar trend with "40%" contribution"
+
+Date : Monthly (july)
+Day : Monday To Sunday
+Vendor : "Digitech", "NSB"
+Language : Hindi, English, Kannada, Assamese, Bengali, Punjabi, Marathi , Gujrati, Odia, Tamil, Telegu, Malyalam
+ACD{Answered} Calls in 10 Sec(monthly) : ~2.5L
+ACD{Answered} Calls in 20 Sec(monthly) : ~2.8L
+ABAN{Abandoned} Calls in 10 Sec(monthly) : ~20K
+Call Offered(monthly) : ACD + ABAN Calls
+ACD{Answered} Calls (monthly): ~8-10L
+ABAN{Abandoned} Calls (monthly) : ~2-4L
+ACD{Answering} Time(hr) : ~60-80K
+ACW{Wait/Hold} Time(hr) : ~1-1.5K
+Hold Time(hr) : ~2-2.5K
+Held/Total Calls : ~1.3-1.7L
+
+## DERIVED QUANTITES :
+
+% Within Service Level : ACD Calls in 20 sec / (Call Offered - ABAN Calls in 10 seconds) * 100
+Avg Hold Time : Hold Time / ACD Calls * 100
+Avg handeling Time : ACD + ACW + Hold Time / ACD Calls * 100
+
+## Accepted scores and panelties (useful for showing data and all in a nice manner and distinguishable)
+Service Level -> >85% = good , else =  penalty
+Avg Handle Time -> <= 240 sec = good, else penalty
+Avg Hold Time -> <= 20 sec = good, else penalty

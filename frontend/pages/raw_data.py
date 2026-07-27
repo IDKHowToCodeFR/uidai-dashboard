@@ -1,5 +1,5 @@
 import dash
-from dash import html, dcc, callback, Input, Output
+from dash import html, callback, Input, Output
 import dash_bootstrap_components as dbc
 import dash_ag_grid as dag
 import numpy as np
@@ -70,5 +70,5 @@ def update_table(data, companies, queues, languages, start_date, end_date):
         defaultColDef={"sortable": True, "filter": True, "resizable": True},
         className="ag-theme-alpine",
         style={"height": "600px", "width": "100%"},
-        dashGridOptions={"pagination": True, "paginationPageSize": 20}
+        dashGridOptions={"pagination": True, "paginationPageSize": 50}
     )

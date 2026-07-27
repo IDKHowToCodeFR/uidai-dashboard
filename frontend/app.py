@@ -24,19 +24,19 @@ app.title = "UIDAI Dashboard"
 PROCESSED_DATA_DIR = "data/processed"
 
 def get_initial_data():
-    target_file = "ivrs_call_logs_sample_processed.xlsx"
+    target_file = "july_trend_data_processed.csv"
     if os.path.exists(os.path.join(PROCESSED_DATA_DIR, target_file)):
-        df = pd.read_excel(os.path.join(PROCESSED_DATA_DIR, target_file), engine='openpyxl')
+        df = pd.read_csv(os.path.join(PROCESSED_DATA_DIR, target_file))
         return df.to_dict('records')
 
-    files = [f for f in os.listdir(PROCESSED_DATA_DIR) if f.endswith('.xlsx')]
+    files = [f for f in os.listdir(PROCESSED_DATA_DIR) if f.endswith('.csv')]
     if not files:
         return pd.DataFrame().to_dict('records')
-    df = pd.read_excel(os.path.join(PROCESSED_DATA_DIR, files[0]), engine='openpyxl')
+    df = pd.read_csv(os.path.join(PROCESSED_DATA_DIR, files[0]))
     return df.to_dict('records')
 
 def get_history_options():
-    files = [f for f in os.listdir(PROCESSED_DATA_DIR) if f.endswith('.xlsx')]
+    files = [f for f in os.listdir(PROCESSED_DATA_DIR) if f.endswith('.csv')]
     
     file_times = []
     for f in files:
@@ -82,20 +82,37 @@ def get_history_options():
     return options
 
 def parse_contents(contents, filename):
+    out_filename = os.path.splitext(filename)[0] + "_processed.csv"
+    save_path = os.path.join(PROCESSED_DATA_DIR, out_filename)
+    
+    if os.path.exists(save_path):
+        try:
+            df = pd.read_csv(save_path)
+            return df.to_dict('records')
+        except Exception as e:
+            print(f"Error reading existing file: {e}")
+            
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
     try:
         if 'csv' in filename:
             df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
         elif 'xls' in filename:
-            df = pd.read_excel(io.BytesIO(decoded), engine='openpyxl')
+            excel_file = pd.ExcelFile(io.BytesIO(decoded), engine='openpyxl')
+            dfs = []
+            for sheet_name in excel_file.sheet_names:
+                sheet_df = pd.read_excel(excel_file, sheet_name=sheet_name)
+                if 'Company' not in sheet_df.columns:
+                    sheet_df['Company'] = sheet_name
+                dfs.append(sheet_df)
+            df = pd.concat(dfs, ignore_index=True)
         else:
             return None
         
         import numpy as np
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        numeric_cols = df.select_dtypes(include='number').columns
         df[numeric_cols] = df[numeric_cols].fillna(0)
-        object_cols = df.select_dtypes(include=['object', 'string']).columns
+        object_cols = df.select_dtypes(include=['object', 'string']).columns # type: ignore
         df[object_cols] = df[object_cols].fillna('Unknown')
         for col in object_cols:
             df[col] = df[col].astype(str).str.strip()
@@ -105,8 +122,7 @@ def parse_contents(contents, filename):
         # Save to processed directory for history
         if not os.path.exists(PROCESSED_DATA_DIR):
             os.makedirs(PROCESSED_DATA_DIR)
-        save_path = os.path.join(PROCESSED_DATA_DIR, filename)
-        df.to_excel(save_path, index=False, engine='openpyxl')
+        df.to_csv(save_path, index=False)
         
         return df.to_dict('records')
     except Exception as e:
@@ -145,16 +161,6 @@ filter_drawer = dbc.Offcanvas(
             value=[],
             multi=True,
             placeholder="Search Companies...",
-            className="mb-4"
-        ),
-
-        html.H6("QUEUE", className="text-muted text-uppercase mb-2", style={"fontSize": "11px", "letterSpacing": "1px"}),
-        dcc.Dropdown(
-            id="queue-filter",
-            options=[],
-            value=[],
-            multi=True,
-            placeholder="Search Queues...",
             className="mb-4"
         ),
 
@@ -320,8 +326,6 @@ def toggle_left_sidebar(n, is_open):
 @callback(
     Output('company-filter', 'options'),
     Output('company-filter', 'value'),
-    Output('queue-filter', 'options'),
-    Output('queue-filter', 'value'),
     Output('language-filter', 'options'),
     Output('language-filter', 'value'),
     Output('date-picker-range', 'min_date_allowed'),
@@ -337,7 +341,6 @@ def sync_filters(data):
     df = pd.DataFrame(data)
     
     c_options, c_values = [], []
-    q_options, q_values = [], []
     l_options, l_values = [], []
     
     if 'Company' in df.columns:
@@ -345,10 +348,6 @@ def sync_filters(data):
         c_options = [{'label': c, 'value': c} for c in companies]
         c_values = companies
         
-    if 'Queue Name' in df.columns:
-        queues = df['Queue Name'].dropna().unique().tolist()
-        q_options = [{'label': q, 'value': q} for q in queues]
-        q_values = queues
         
     if 'Language' in df.columns:
         langs = df['Language'].dropna().unique().tolist()
@@ -371,7 +370,7 @@ def sync_filters(data):
         start_date = min_date
         end_date = max_date
         
-    return c_options, c_values, q_options, q_values, l_options, l_values, min_date, max_date, start_date, end_date
+    return c_options, c_values, l_options, l_values, min_date, max_date, start_date, end_date
 
 @callback(
     Output('data-store', 'data', allow_duplicate=True),
@@ -400,7 +399,7 @@ def load_from_history(filename):
     if filename:
         file_path = os.path.join(PROCESSED_DATA_DIR, filename)
         if os.path.exists(file_path):
-            df = pd.read_excel(file_path, engine='openpyxl')
+            df = pd.read_csv(file_path)
             return df.to_dict('records')
     return dash.no_update
 
@@ -409,13 +408,12 @@ def load_from_history(filename):
     Input("btn-export", "n_clicks"),
     State('data-store', 'data'),
     State('company-filter', 'value'),
-    State('queue-filter', 'value'),
     State('language-filter', 'value'),
     State('date-picker-range', 'start_date'),
     State('date-picker-range', 'end_date'),
     prevent_initial_call=True
 )
-def export_data(n_clicks, data, companies, queues, languages, start_date, end_date):
+def export_data(n_clicks, data, companies, languages, start_date, end_date):
     if not data:
         return dash.no_update
         
@@ -423,8 +421,6 @@ def export_data(n_clicks, data, companies, queues, languages, start_date, end_da
     
     if companies and 'Company' in df.columns:
         df = df[df['Company'].isin(companies)]
-    if queues and 'Queue Name' in df.columns:
-        df = df[df['Queue Name'].isin(queues)]
     if languages and 'Language' in df.columns:
         df = df[df['Language'].isin(languages)]
         

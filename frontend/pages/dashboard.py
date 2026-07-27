@@ -8,20 +8,24 @@ from utils.theme import get_plotly_template
 
 dash.register_page(__name__, path='/', name='Dashboard')
 
+def make_kpi_card(title, value, status="neutral"):
+    color_class = "text-primary"
+    if status == "Good":
+        color_class = "text-success"
+    elif status == "Penalty":
+        color_class = "text-danger"
 
-def make_kpi_card(title, value):
     return Card([
         CardBody([
             html.H6(title, className="text-muted text-uppercase mb-2", style={"fontSize": "12px", "fontWeight": "700", "letterSpacing": "0.5px"}),
-            html.H3(value, className="mb-0 display-lg")
+            html.H3(value, className=f"mb-0 display-lg {color_class}")
         ])
     ], className="custom-card h-100")
-
 
 layout = Container([
     Row([
         Col([
-            html.H2("Authentication Overview", className="display-xl mb-4")
+            html.H2("Call Center Performance", className="display-xl mb-4")
         ], width=12)
     ]),
 
@@ -32,31 +36,45 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader("Call Status"),
-                CardBody(dcc.Graph(id='status-pie', config={'displayModeBar': False}))
+                CardHeader("Service Level Trend (%)"),
+                CardBody(dcc.Graph(id='sl-trend', config={'displayModeBar': False}))
             ], className="custom-card h-100")
-        ], width=12, lg=5, className="mb-4"),
+        ], width=12, lg=7, className="mb-4"),
 
         Col([
             Card([
-                CardHeader("Volume by Region"),
-                CardBody(dcc.Graph(id='state-bar', config={'displayModeBar': False}))
+                CardHeader("Volume by Language"),
+                CardBody(dcc.Graph(id='lang-pie', config={'displayModeBar': False}))
             ], className="custom-card h-100")
-        ], width=12, lg=7, className="mb-4"),
+        ], width=12, lg=5, className="mb-4"),
     ]),
 
     # Charts Row 2
     Row([
         Col([
             Card([
-                CardHeader("Call Duration Distribution (s)"),
-                CardBody(dcc.Graph(id='time-hist', config={'displayModeBar': False}))
+                CardHeader(html.Div([
+                    html.Span("AHT vs Abandonment (Daily)"),
+                    dcc.Dropdown(
+                        id="aht-dropdown",
+                        options=[
+                            {'label': 'Total AHT', 'value': 'Total AHT'},
+                            {'label': 'Talk Time', 'value': 'Talk Time'},
+                            {'label': 'Hold Time', 'value': 'Hold Time Avg'},
+                            {'label': 'Wrap Time', 'value': 'Wrap Time'},
+                        ],
+                        value='Total AHT',
+                        clearable=False,
+                        style={"width": "180px", "display": "inline-block", "float": "right", "marginTop": "-5px"}
+                    )
+                ])),
+                CardBody(dcc.Graph(id='aht-scatter', config={'displayModeBar': False}))
             ], className="custom-card h-100")
         ], width=12, lg=6, className="mb-4"),
 
         Col([
             Card([
-                CardHeader("Recent Calls"),
+                CardHeader("Daily SLA & Abandonment Log"),
                 CardBody([
                     html.Div(id='recent-table-container')
                 ])
@@ -65,32 +83,25 @@ layout = Container([
     ])
 ], fluid=True, className="px-4")
 
-
 @callback(
     Output('kpi-row', 'children'),
-    Output('status-pie', 'figure'),
-    Output('state-bar', 'figure'),
-    Output('time-hist', 'figure'),
+    Output('sl-trend', 'figure'),
+    Output('lang-pie', 'figure'),
+    Output('aht-scatter', 'figure'),
     Output('recent-table-container', 'children'),
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
-    Input('queue-filter', 'value'),
     Input('language-filter', 'value'),
     Input('date-picker-range', 'start_date'),
-    Input('date-picker-range', 'end_date')
+    Input('date-picker-range', 'end_date'),
+    Input('aht-dropdown', 'value')
 )
-def update_dashboard(data, company_filter, queue_filter, language_filter, start_date, end_date):
+def update_dashboard(data, company_filter, language_filter, start_date, end_date, aht_metric):
     df = pd.DataFrame(data)
 
     if df.empty:
         empty_fig = px.pie(title="No Data")
         return [], empty_fig, empty_fig, empty_fig, "No data available."
-
-    # Demo Mock Data if real columns are missing
-    if 'Company' not in df.columns:
-        df['Company'] = df.get('Modality', 'Company A').map(
-            {'Biometric': 'Company A', 'Demographic': 'Company B'}
-        ).fillna('Company A')
 
     date_col = None
     if 'Timestamp' in df.columns:
@@ -106,72 +117,165 @@ def update_dashboard(data, company_filter, queue_filter, language_filter, start_
         df['Date'] = pd.NaT
 
     # Apply Filters
-    if company_filter:
+    if company_filter and 'Company' in df.columns:
         df = df[df['Company'].isin(company_filter)]
-    if queue_filter and 'Queue Name' in df.columns:
-        df = df[df['Queue Name'].isin(queue_filter)]
     if language_filter and 'Language' in df.columns:
         df = df[df['Language'].isin(language_filter)]
 
-    # Time Filter
     df_current = df.copy()
     if start_date and end_date and date_col:
         start_dt, end_dt = pd.to_datetime(start_date), pd.to_datetime(end_date)
         df_current = df[(df['Date'] >= start_dt) & (df['Date'] <= end_dt)].copy()
+        
+    if df_current.empty:
+        empty_fig = px.pie(title="No Data for Selection")
+        return [], empty_fig, empty_fig, empty_fig, "No data available."
 
     # Calculate KPIs
-    total_auths = len(df_current)
-    avg_processing_time = df_current['Call Duration (seconds)'].mean() if 'Call Duration (seconds)' in df_current.columns else 0
-    success_rate = (
-        len(df_current[df_current['Resolution Status'] == 'Resolved']) / total_auths * 100
-    ) if (total_auths > 0 and 'Resolution Status' in df_current.columns) else 0
-    top_state = df_current['Region'].mode()[0] if ('Region' in df_current.columns and not df_current['Region'].empty) else "N/A"
+    if 'Call Offered' in df_current.columns:
+        total_calls = df_current['Call Offered'].sum()
+    else:
+        total_calls = len(df_current)
+        
+    # Service Level (Overall)
+    overall_sl = 0
+    sl_status = "neutral"
+    if all(c in df_current.columns for c in ['ACD Calls in 20 Sec', 'Call Offered', 'ABAN Calls in 10 Sec']):
+        num = df_current['ACD Calls in 20 Sec'].sum()
+        den = df_current['Call Offered'].sum() - df_current['ABAN Calls in 10 Sec'].sum()
+        overall_sl = (num / den * 100) if den > 0 else 0
+        sl_status = "Good" if overall_sl > 85 else "Penalty"
+
+    # AHT (Overall)
+    overall_aht = 0
+    aht_status = "neutral"
+    if all(c in df_current.columns for c in ['ACD Time', 'ACW Time', 'Hold Time', 'ACD Calls']):
+        num = df_current['ACD Time'].sum() + df_current['ACW Time'].sum() + df_current['Hold Time'].sum()
+        den = df_current['ACD Calls'].sum()
+        overall_aht = (num / den) if den > 0 else 0
+        aht_status = "Good" if overall_aht <= 240 else "Penalty"
+
+    # Avg Hold Time (Overall)
+    overall_hold = 0
+    hold_status = "neutral"
+    if 'Hold Time' in df_current.columns and 'ACD Calls' in df_current.columns:
+        num = df_current['Hold Time'].sum()
+        den = df_current['ACD Calls'].sum()
+        overall_hold = (num / den) if den > 0 else 0
+        hold_status = "Good" if overall_hold <= 20 else "Penalty"
+
+    # Abandonment Rate
+    aban_rate = 0
+    if 'ABAN Calls' in df_current.columns and total_calls > 0:
+        aban_rate = (df_current['ABAN Calls'].sum() / total_calls) * 100
 
     kpis = [
-        Col(make_kpi_card("Total Calls", html.Div([f"{total_auths}"])), width=12, sm=6, lg=3, className="mb-4"),
-        Col(make_kpi_card("Resolution Rate", f"{success_rate:.1f}%"), width=12, sm=6, lg=3, className="mb-4"),
-        Col(make_kpi_card("Avg Call Duration", f"{avg_processing_time:.0f} s"), width=12, sm=6, lg=3, className="mb-4"),
-        Col(make_kpi_card("Top Region", top_state), width=12, sm=6, lg=3, className="mb-4"),
+        Col(make_kpi_card("Total Calls", f"{int(total_calls):,}"), className="col-6 col-lg mb-4"),
+        Col(make_kpi_card("Service Level", f"{overall_sl:.1f}%", sl_status), className="col-6 col-lg mb-4"),
+        Col(make_kpi_card("Abandon Rate", f"{aban_rate:.1f}%"), className="col-6 col-lg mb-4"),
+        Col(make_kpi_card("Avg Handle Time", f"{overall_aht:.0f}s", aht_status), className="col-6 col-lg mb-4"),
+        Col(make_kpi_card("Avg Hold Time", f"{overall_hold:.0f}s", hold_status), className="col-6 col-lg mb-4"),
     ]
 
-    # Status Pie (Current only)
-    if 'Call Status' in df_current.columns:
-        status_counts = df_current['Call Status'].value_counts().reset_index()
-        status_counts.columns = ['Status', 'Count']
-        fig_status = px.pie(status_counts, names='Status', values='Count', hole=0.5, color_discrete_sequence=['#2c84e0', '#cd4239', '#f7a501'])
-        fig_status.update_traces(textposition='inside', textinfo='percent+label', hoverinfo='label+percent+name', pull=[0.05]*len(status_counts))
+    # Chart 1: SL Trend
+    if all(c in df_current.columns for c in ['Date', 'ACD Calls in 20 Sec', 'Call Offered', 'ABAN Calls in 10 Sec']):
+        daily_grp = df_current.groupby('Date').sum(numeric_only=True).reset_index()
+        denom = daily_grp['Call Offered'] - daily_grp['ABAN Calls in 10 Sec']
+        daily_grp['SL %'] = (daily_grp['ACD Calls in 20 Sec'] / denom * 100).fillna(0)
+        
+        fig_sl = px.line(daily_grp, x='Date', y='SL %')
+        fig_sl.add_hline(y=85, line_dash="dash", line_color="green", annotation_text="85% Target")
     else:
-        fig_status = px.pie(title="No Call Status Data")
-    fig_status.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), showlegend=False)
+        fig_sl = px.line(title="No SL Data")
+    fig_sl.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10))
 
-    # State Bar
-    if 'Region' in df_current.columns:
-        state_counts = df_current.groupby('Region').size().reset_index(name='Count')
-        state_counts = state_counts.sort_values(by='Count', ascending=False)
-        fig_state = px.bar(state_counts, x='Region', y='Count', text='Count',
-                            labels={'Count': 'Total Calls'})
-        fig_state.update_traces(texttemplate='%{text:.2s}', textposition='outside', marker_line_width=1.5, marker_line_color="rgba(0,0,0,0.1)")
+    # Chart 2: Language Pie
+    if 'Language' in df_current.columns and 'Call Offered' in df_current.columns:
+        lang_grp = df_current.groupby('Language')['Call Offered'].sum().reset_index()
+        fig_lang = px.pie(lang_grp, names='Language', values='Call Offered', hole=0.6,
+                          color_discrete_sequence=px.colors.qualitative.Pastel)
+        fig_lang.update_traces(textposition='inside', textinfo='percent+label', hoverinfo='label+value',
+                               marker=dict(line=dict(color='#ffffff', width=2)))
+        fig_lang.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
     else:
-        fig_state = px.bar(title="No Region Data")
-    fig_state.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), showlegend=False,
-                             uniformtext_minsize=8, uniformtext_mode='hide')
+        fig_lang = px.pie(title="No Language Data")
+        fig_lang.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), showlegend=False)
 
-    # Time Hist
-    if 'Call Duration (seconds)' in df_current.columns:
-        fig_time = px.histogram(df_current, x='Call Duration (seconds)', nbins=30, marginal='box')
-        fig_time.update_traces(opacity=0.75)
+    # Chart 3: AHT vs Abandonment Scatter
+    if all(c in df_current.columns for c in ['Date', 'Company', 'Call Offered', 'ABAN Calls', 'ACD Time', 'ACW Time', 'Hold Time', 'ACD Calls']):
+        daily_comp_grp = df_current.groupby(['Date', 'Company']).sum(numeric_only=True).reset_index()
+        
+        daily_comp_grp['Abandon Rate (%)'] = (daily_comp_grp['ABAN Calls'] / daily_comp_grp['Call Offered'] * 100).fillna(0)
+        den = daily_comp_grp['ACD Calls']
+        
+        daily_comp_grp['Talk Time'] = (daily_comp_grp['ACD Time'] / den).fillna(0)
+        daily_comp_grp['Wrap Time'] = (daily_comp_grp['ACW Time'] / den).fillna(0)
+        daily_comp_grp['Hold Time Avg'] = (daily_comp_grp['Hold Time'] / den).fillna(0)
+        daily_comp_grp['Total AHT'] = daily_comp_grp['Talk Time'] + daily_comp_grp['Wrap Time'] + daily_comp_grp['Hold Time Avg']
+        
+        # Determine fallback if empty selection
+        if daily_comp_grp.empty:
+            fig_agent = px.scatter(title="No Data")
+        else:
+            fig_agent = px.scatter(daily_comp_grp, x='Abandon Rate (%)', y=aht_metric, color='Company',
+                                   hover_name='Date', size='Call Offered',
+                                   color_discrete_sequence=px.colors.qualitative.Set1,
+                                   labels={aht_metric: f'{aht_metric} (s)'})
+            if aht_metric == 'Total AHT':
+                fig_agent.add_hline(y=240, line_dash="dash", line_color="red", annotation_text="SLA 240s")
     else:
-        fig_time = px.histogram(title="No Duration Data")
-    fig_time.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), showlegend=False)
+        fig_agent = px.scatter(title="No Company AHT Data")
+    fig_agent.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), showlegend=True)
 
-    # Table
-    table = dag.AgGrid(
-        rowData=df_current.head(100).to_dict("records"),
-        columnDefs=[{"field": i} for i in df_current.columns],
-        defaultColDef={"sortable": True, "filter": True, "resizable": True},
-        className="ag-theme-alpine",
-        style={"height": "400px", "width": "100%"},
-        dashGridOptions={"pagination": True, "paginationPageSize": 10}
-    )
+    # Table: Daily SLA Log
+    import numpy as np
+    if all(c in df_current.columns for c in ['Date', 'Company', 'Call Offered', 'ABAN Calls', 'ACD Calls in 20 Sec', 'ABAN Calls in 10 Sec', 'ACD Time', 'ACW Time', 'Hold Time', 'ACD Calls']):
+        log_grp = df_current.groupby(['Date', 'Company']).sum(numeric_only=True).reset_index()
+        
+        log_grp['Abandon Rate (%)'] = (log_grp['ABAN Calls'] / log_grp['Call Offered'] * 100).fillna(0).round(1)
+        
+        den_sl = log_grp['Call Offered'] - log_grp['ABAN Calls in 10 Sec']
+        log_grp['Service Level (%)'] = np.where(den_sl > 0, (log_grp['ACD Calls in 20 Sec'] / den_sl * 100), 0)
+        log_grp['Service Level (%)'] = log_grp['Service Level (%)'].round(1)
+        
+        den_aht = log_grp['ACD Calls']
+        num_aht = log_grp['ACD Time'] + log_grp.get('ACW Time', 0) + log_grp.get('Hold Time', 0)
+        log_grp['Total AHT (s)'] = np.where(den_aht > 0, (num_aht / den_aht), 0)
+        log_grp['Total AHT (s)'] = log_grp['Total AHT (s)'].round(1)
+        
+        log_grp['DateStr'] = log_grp['Date'].dt.strftime('%Y-%m-%d')
+        
+        log_table_df = log_grp[['DateStr', 'Company', 'Call Offered', 'Abandon Rate (%)', 'Service Level (%)', 'Total AHT (s)']].sort_values(by='Abandon Rate (%)', ascending=False)
+        log_table_df.rename(columns={'DateStr': 'Date'}, inplace=True)
+        
+        table = dag.AgGrid(
+            rowData=log_table_df.to_dict("records"),
+            columnDefs=[
+                {"field": "Date"},
+                {"field": "Company"},
+                {"field": "Call Offered", "type": "numericColumn"},
+                {"field": "Abandon Rate (%)", "valueFormatter": {"function": "d3.format('.1f')(params.value) + '%'"}},
+                {"field": "Service Level (%)", "valueFormatter": {"function": "d3.format('.1f')(params.value) + '%'"}},
+                {"field": "Total AHT (s)", "valueFormatter": {"function": "d3.format('.1f')(params.value) + 's'"}}
+            ],
+            defaultColDef={"sortable": True, "filter": True, "resizable": True},
+            className="ag-theme-alpine",
+            style={"height": "400px", "width": "100%"},
+            dashGridOptions={"pagination": True, "paginationPageSize": 10}
+        )
+    else:
+        # Fallback
+        table_df = df_current.copy()
+        if 'Date' in table_df.columns:
+            table_df['Date'] = table_df['Date'].dt.strftime('%Y-%m-%d')
+            
+        table = dag.AgGrid(
+            rowData=table_df.head(100).to_dict("records"),
+            columnDefs=[{"field": i} for i in table_df.columns],
+            defaultColDef={"sortable": True, "filter": True, "resizable": True},
+            className="ag-theme-alpine",
+            style={"height": "400px", "width": "100%"},
+            dashGridOptions={"pagination": True, "paginationPageSize": 10}
+        )
 
-    return kpis, fig_status, fig_state, fig_time, table
+    return kpis, fig_sl, fig_lang, fig_agent, table
