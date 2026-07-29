@@ -6,6 +6,7 @@ import pandas as pd
 import base64
 import io
 from datetime import datetime, timedelta
+import numpy as np
 
 app = Dash(
     __name__,
@@ -37,26 +38,26 @@ def get_initial_data():
 
 def get_history_options():
     files = [f for f in os.listdir(PROCESSED_DATA_DIR) if f.endswith('.csv')]
-    
+
     file_times = []
     for f in files:
         file_path = os.path.join(PROCESSED_DATA_DIR, f)
         mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
         file_times.append({'name': f, 'time': mtime})
-        
+
     file_times.sort(key=lambda x: x['time'], reverse=True)
-    
+
     now = datetime.now()
     today = now.date()
-    
+
     options = []
     current_group = None
-    
+
     for item in file_times:
         mtime = item['time']
         date = mtime.date()
         age_days = (today - date).days
-        
+
         if age_days == 0:
             group_name = "Today"
         elif age_days == 1:
@@ -67,31 +68,31 @@ def get_history_options():
             group_name = mtime.strftime("%B")
         else:
             group_name = "Earlier"
-            
+
         if group_name != current_group:
             options.append({
-                'label': html.Div(group_name, className="history-group-header small text-muted fw-bold mt-3 mb-1 text-uppercase", style={'fontSize': '10px', 'letterSpacing': '1px'}), 
-                'value': f'HEADER_{group_name}', 
+                'label': html.Div(group_name, className="history-group-header small text-muted fw-bold mt-3 mb-1 text-uppercase", style={'fontSize': '10px', 'letterSpacing': '1px'}),
+                'value': f'HEADER_{group_name}',
                 'disabled': True
             })
             current_group = group_name
-            
+
         label = html.Span(item['name'], className="text-truncate ms-2")
         options.append({'label': label, 'value': item['name']})
-        
+
     return options
 
 def parse_contents(contents, filename):
     out_filename = os.path.splitext(filename)[0] + "_processed.csv"
     save_path = os.path.join(PROCESSED_DATA_DIR, out_filename)
-    
+
     if os.path.exists(save_path):
         try:
             df = pd.read_csv(save_path)
             return df.to_dict('records')
         except Exception as e:
             print(f"Error reading existing file: {e}")
-            
+
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
     try:
@@ -108,8 +109,7 @@ def parse_contents(contents, filename):
             df = pd.concat(dfs, ignore_index=True)
         else:
             return None
-        
-        import numpy as np
+
         numeric_cols = df.select_dtypes(include='number').columns
         df[numeric_cols] = df[numeric_cols].fillna(0)
         object_cols = df.select_dtypes(include=['object', 'string']).columns # type: ignore
@@ -118,12 +118,12 @@ def parse_contents(contents, filename):
             df[col] = df[col].astype(str).str.strip()
         df.dropna(how='all', inplace=True)
         df.dropna(axis=1, how='all', inplace=True)
-        
+
         # Save to processed directory for history
         if not os.path.exists(PROCESSED_DATA_DIR):
             os.makedirs(PROCESSED_DATA_DIR)
         df.to_csv(save_path, index=False)
-        
+
         return df.to_dict('records')
     except Exception as e:
         print(e)
@@ -153,7 +153,7 @@ filter_drawer = dbc.Offcanvas(
             display_format='YYYY-MM-DD',
             className="mb-4 w-100"
         ),
-        
+
         html.H6("COMPANY", className="text-muted text-uppercase mb-2 mt-2", style={"fontSize": "11px", "letterSpacing": "1px"}),
         dcc.Dropdown(
             id="company-filter",
@@ -195,7 +195,7 @@ topbar = html.Div(
             ),
             html.H2("UIDAI", className="display-lg mb-0 me-4", style={"display": "inline-block"}),
         ], style={"display": "flex", "alignItems": "center"}),
-        
+
         # Right aligned action buttons
         html.Div([
             # Filters Drawer Button
@@ -241,6 +241,12 @@ sidebar_content = html.Div([
                 className="body-strong mb-2 d-flex align-items-center"
             ),
             dbc.NavLink(
+                [html.I(className="bi bi-calendar-range me-3"), html.Span("Date Comparison", className="nav-link-text")],
+                href="/date-comparison",
+                active="exact",
+                className="body-strong mb-2 d-flex align-items-center"
+            ),
+            dbc.NavLink(
                 [html.I(className="bi bi-clock-history me-3"), html.Span("Hourly Insights", className="nav-link-text")],
                 href="/hourly",
                 active="exact",
@@ -257,9 +263,9 @@ sidebar_content = html.Div([
         pills=True,
         className="custom-sidebar-nav mb-5"
     ),
-    
+
     html.Hr(style={"borderColor": "#e2e8f0"}),
-    
+
     html.H6("DATA", className="sidebar-section-title text-muted text-uppercase mb-3 mt-4", style={"fontSize": "11px", "letterSpacing": "1px"}),
     html.Div([
         dcc.Upload(
@@ -301,6 +307,7 @@ content = html.Div(
 )
 
 app.layout = html.Div([
+    dcc.Location(id='url', refresh=False),
     dcc.Store(id='data-store', data=get_initial_data()),
     dcc.Download(id="download-dataframe-csv"),
     topbar,
@@ -343,23 +350,23 @@ def toggle_left_sidebar(n, is_open):
 def sync_filters(data):
     if not data:
         return dash.no_update
-    
+
     df = pd.DataFrame(data)
-    
+
     c_options, c_values = [], []
     l_options, l_values = [], []
-    
+
     if 'Company' in df.columns:
         companies = df['Company'].dropna().unique().tolist()
         c_options = [{'label': c, 'value': c} for c in companies]
         c_values = companies
-        
-        
+
+
     if 'Language' in df.columns:
         langs = df['Language'].dropna().unique().tolist()
         l_options = [{'label': l, 'value': l} for l in langs]
         l_values = langs
-        
+
     min_date = max_date = start_date = end_date = None
     date_col = None
     if 'Timestamp' in df.columns:
@@ -375,7 +382,7 @@ def sync_filters(data):
         max_date = df[date_col].max().date()
         start_date = min_date
         end_date = max_date
-        
+
     return c_options, c_values, l_options, l_values, min_date, max_date, start_date, end_date
 
 @callback(
@@ -422,14 +429,14 @@ def load_from_history(filename):
 def export_data(n_clicks, data, companies, languages, start_date, end_date):
     if not data:
         return dash.no_update
-        
+
     df = pd.DataFrame(data)
-    
+
     if companies and 'Company' in df.columns:
         df = df[df['Company'].isin(companies)]
     if languages and 'Language' in df.columns:
         df = df[df['Language'].isin(languages)]
-        
+
     if start_date and end_date:
         date_col = None
         if 'Timestamp' in df.columns:
@@ -443,7 +450,7 @@ def export_data(n_clicks, data, companies, languages, start_date, end_date):
             temp_date = pd.to_datetime(df[date_col]).dt.date
             df = df[(temp_date >= pd.to_datetime(start_date).date()) &
                     (temp_date <= pd.to_datetime(end_date).date())]
-                    
+
     return dcc.send_data_frame(df.to_csv, "export.csv", index=False)
 
 # (Redundant sync callbacks removed)
