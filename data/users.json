@@ -1,0 +1,14 @@
+{
+  "admin": {
+    "password": "admin",
+    "user": "Admin"
+  },
+  "digitech": {
+    "password": "digitech",
+    "user": "Digitech"
+  },
+  "nsb": {
+    "password": "nsb",
+    "user": "NSB"
+  }
+}
