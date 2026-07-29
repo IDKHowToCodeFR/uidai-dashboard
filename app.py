@@ -215,8 +215,28 @@ topbar = html.Div(
                 html.I(className="bi bi-box-arrow-right"),
                 id="btn-logout",
                 n_clicks=0,
-                className="btn btn-light body-strong rounded-circle shadow-sm",
-                style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
+                className="btn body-strong rounded-circle shadow-sm",
+                style={
+                    "width": "42px", "height": "42px", "display": "flex",
+                    "alignItems": "center", "justifyContent": "center",
+                    "backgroundColor": "#0d6efd", "borderColor": "#0d6efd", "color": "#fff"
+                }
+            ),
+            dbc.Modal(
+                [
+                    dbc.ModalHeader(dbc.ModalTitle("Log Out")),
+                    dbc.ModalBody("Are you sure you want to log out?"),
+                    dbc.ModalFooter(
+                        [
+                            dbc.Button("Cancel", id="btn-logout-cancel", color="secondary", outline=True, size="sm", className="me-2"),
+                            dbc.Button("Log Out", id="btn-logout-confirm", color="primary", size="sm"),
+                        ]
+                    ),
+                ],
+                id="logout-confirm-modal",
+                is_open=False,
+                centered=True,
+                backdrop=True,
             )
         ], style={"display": "flex", "alignItems": "center"})
     ],
@@ -524,15 +544,30 @@ def handle_remove_company(n_clicks, username, version):
         return html.Span(msg, className="text-success"), None, (version or 0) + 1, False
     return html.Span(msg, className="text-danger"), dash.no_update, dash.no_update, True
 
+# --- LOGOUT: ASK CONFIRMATION ---
+@callback(
+    Output("logout-confirm-modal", "is_open"),
+    Input("btn-logout", "n_clicks"),
+    Input("btn-logout-cancel", "n_clicks"),
+    State("logout-confirm-modal", "is_open"),
+    prevent_initial_call=True
+)
+def toggle_logout_modal(open_clicks, cancel_clicks, is_open):
+    if ctx.triggered_id in ("btn-logout", "btn-logout-cancel"):
+        return not is_open
+    return is_open
+
+# --- LOGOUT: CONFIRMED ---
 @callback(
     Output("auth-state", "data", allow_duplicate=True),
-    Input("btn-logout", "n_clicks"),
+    Output("logout-confirm-modal", "is_open", allow_duplicate=True),
+    Input("btn-logout-confirm", "n_clicks"),
     prevent_initial_call=True
 )
 def handle_logout(n_clicks):
     if n_clicks:
-        return None
-    return dash.no_update
+        return None, False
+    return dash.no_update, dash.no_update
 
 @callback(
     Output('company-filter', 'options'),
