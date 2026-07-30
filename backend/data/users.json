@@ -1,14 +1,22 @@
 {
   "admin": {
-    "password": "admin",
-    "user": "Admin"
+    "password": "$2b$12$X50DPJYJecw2eYXRyNSoEeVXKBoB0cI81Wu6zDEAEYBrz07/pw4We",
+    "user": "Admin",
+    "permissions": []
+  },
+  "uidai": {
+    "password": "$2b$12$aUSO1G0HFd65c9qjV8oS8OGBMAtimCzgN.Jet95k6sQAp6IHtc9xC",
+    "user": "UIDAI",
+    "permissions": []
   },
   "digitech": {
-    "password": "digitech",
-    "user": "Digitech"
+    "password": "$2b$12$GgpVm1yfX3UkVNZy86x1luuJExeT4Gydg4zqKE7AVnkyXYL4y5eWu",
+    "user": "Digitech",
+    "permissions": []
   },
   "nsb": {
-    "password": "nsb",
-    "user": "NSB"
+    "password": "$2b$12$YGSWt0yqjviML6HVAcqqyO6OJ97ha3OA0gal/e7F4WhAkKJii2boy",
+    "user": "NSB",
+    "permissions": []
   }
 }

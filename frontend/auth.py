@@ -122,7 +122,7 @@ def handle_login(n_clicks, username, password, auth_state):
         response = requests.post(f"{API_BASE_URL}/login", data={"username": username, "password": password})
         if response.status_code == 200:
             data = response.json()
-            return {'user': data['role'], 'token': data['access_token']}, ""
+            return {'user': data['role'], 'token': data['access_token'], 'permissions': data.get('permissions', [])}, ""
         else:
             return dash.no_update, "Invalid credentials."
     except requests.exceptions.RequestException:
