@@ -95,50 +95,12 @@ login_page = html.Div(
     ],
 )
 
-# --- CREDENTIALS (persisted to JSON) ---
+# --- CREDENTIALS (now managed by FastAPI backend) ---
+import requests
 import json
 import os
 
-USERS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'users.json')
-
-DEFAULT_USERS = {
-    "admin": {"password": "admin", "user": "Admin"},
-    "digitech": {"password": "digitech", "user": "Digitech"},
-    "nsb": {"password": "nsb", "user": "NSB"},
-}
-
-def load_users():
-    if os.path.exists(USERS_FILE):
-        with open(USERS_FILE, 'r') as f:
-            return json.load(f)
-    save_users(DEFAULT_USERS)
-    return DEFAULT_USERS.copy()
-
-def save_users(users):
-    os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
-    with open(USERS_FILE, 'w') as f:
-        json.dump(users, f, indent=2)
-
-def add_user(username, password, company_name):
-    users = load_users()
-    key = username.lower().strip()
-    if key in users:
-        return False, "Username already exists."
-    users[key] = {"password": password, "user": company_name}
-    save_users(users)
-    return True, f"Company '{company_name}' added."
-
-def remove_user(username):
-    users = load_users()
-    key = username.lower().strip()
-    if key not in users:
-        return False, "Company not found."
-    if users[key].get("user") == "Admin":
-        return False, "Cannot remove an Admin account."
-    company_name = users[key].get("user", key)
-    del users[key]
-    save_users(users)
-    return True, f"Company '{company_name}' removed."
+API_BASE_URL = "http://localhost:8000"
 
 # --- LOGIN CALLBACK ---
 @callback(
@@ -156,12 +118,15 @@ def handle_login(n_clicks, username, password, auth_state):
     if not n_clicks:
         return dash.no_update, ""
 
-    users = load_users()
-    entry = users.get(username)
-    if entry and entry["password"] == password:
-        return {'user': entry["user"]}, ""
-
-    return dash.no_update, "Invalid credentials."
+    try:
+        response = requests.post(f"{API_BASE_URL}/login", data={"username": username, "password": password})
+        if response.status_code == 200:
+            data = response.json()
+            return {'user': data['role'], 'token': data['access_token']}, ""
+        else:
+            return dash.no_update, "Invalid credentials."
+    except requests.exceptions.RequestException:
+        return dash.no_update, "Error connecting to backend API."
 
 
 # --- CLEAR LOGIN FORM ON LOGOUT ---
