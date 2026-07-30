@@ -11,3 +11,6 @@ fastapi
 uvicorn
 python-jose[cryptography]
 python-multipart
+bcrypt==4.1.3
+passlib
+python-dotenv

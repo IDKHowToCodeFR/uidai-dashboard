@@ -139,24 +139,24 @@ filter_drawer = dbc.Offcanvas(
     className="offcanvas border-0 shadow-lg"
 )
 
-# --- TOPBAR ---
-topbar = html.Div(
-    [
-        html.Div([
-            # Hamburger Menu Button
-            html.Button(
-                html.I(className="bi bi-list fs-4"),
-                id="btn-sidebar-toggle",
-                n_clicks=0,
-                className="btn btn-light me-3 body-strong rounded-circle shadow-sm",
-                style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
-            ),
-            html.H2("UIDAI", className="display-lg mb-0 me-4", style={"display": "inline-block"}),
-        ], style={"display": "flex", "alignItems": "center"}),
-
-        # Right aligned action buttons
-        html.Div([
-            # Filters Drawer Button
+def get_topbar(user_role):
+    # Base topbar elements
+    left_elements = [
+        html.Button(
+            html.I(className="bi bi-list fs-4"),
+            id="btn-sidebar-toggle",
+            n_clicks=0,
+            className="btn btn-light me-3 body-strong rounded-circle shadow-sm",
+            style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
+        ),
+        html.H2("UIDAI", className="display-lg mb-0 me-4", style={"display": "inline-block"}),
+    ]
+    
+    right_elements = []
+    
+    # Only show filters and export for non-admins
+    if user_role != 'Admin':
+        right_elements.extend([
             html.Button(
                 html.I(className="bi bi-funnel-fill"),
                 id="btn-filters",
@@ -164,64 +164,111 @@ topbar = html.Div(
                 className="btn btn-light me-3 body-strong rounded-circle shadow-sm",
                 style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
             ),
-            # Export Data Button
             html.Button(
                 html.I(className="bi bi-download"),
                 id="btn-export",
                 className="btn btn-primary body-strong rounded-circle shadow-sm me-3",
                 style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center"}
-            ),
-            # Logout Button
-            html.Button(
-                html.I(className="bi bi-box-arrow-right"),
-                id="btn-logout",
-                n_clicks=0,
-                className="btn body-strong rounded-circle shadow-sm",
-                style={
-                    "width": "42px", "height": "42px", "display": "flex",
-                    "alignItems": "center", "justifyContent": "center",
-                    "backgroundColor": "#0d6efd", "borderColor": "#0d6efd", "color": "#fff"
-                }
-            ),
-            dbc.Modal(
+            )
+        ])
+        
+    # Logout is always present
+    right_elements.extend([
+        html.Button(
+            html.I(className="bi bi-box-arrow-right"),
+            id="btn-logout",
+            n_clicks=0,
+            className="btn body-strong rounded-circle shadow-sm",
+            style={
+                "width": "42px", "height": "42px", "display": "flex",
+                "alignItems": "center", "justifyContent": "center",
+                "backgroundColor": "#0d6efd", "borderColor": "#0d6efd", "color": "#fff"
+            }
+        ),
+        dbc.Modal(
+            [
+                dbc.ModalHeader(dbc.ModalTitle("Log Out")),
+                dbc.ModalBody("Are you sure you want to log out?"),
+                dbc.ModalFooter(
+                    [
+                        dbc.Button("Cancel", id="btn-logout-cancel", color="secondary", outline=True, size="sm", className="me-2"),
+                        dbc.Button("Log Out", id="btn-logout-confirm", color="primary", size="sm"),
+                    ]
+                ),
+            ],
+            id="logout-confirm-modal",
+            is_open=False,
+            centered=True,
+            backdrop=True,
+        )
+    ])
+    
+    return html.Div(
+        [
+            html.Div(left_elements, style={"display": "flex", "alignItems": "center"}),
+            html.Div(right_elements, style={"display": "flex", "alignItems": "center"})
+        ],
+        className="topbar custom-card px-4",
+        style={
+            "position": "fixed",
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "height": "80px",
+            "zIndex": 1000,
+            "display": "flex",
+            "alignItems": "center",
+            "justifyContent": "space-between"
+        }
+    )
+
+def get_sidebar(user_role, token, permissions):
+    if user_role == 'Admin':
+        sidebar_content = html.Div([
+            html.H6("ADMINISTRATOR", className="sidebar-section-title text-muted text-uppercase mb-3", style={"fontSize": "11px", "letterSpacing": "1px"}),
+            dbc.Nav(
                 [
-                    dbc.ModalHeader(dbc.ModalTitle("Log Out")),
-                    dbc.ModalBody("Are you sure you want to log out?"),
-                    dbc.ModalFooter(
-                        [
-                            dbc.Button("Cancel", id="btn-logout-cancel", color="secondary", outline=True, size="sm", className="me-2"),
-                            dbc.Button("Log Out", id="btn-logout-confirm", color="primary", size="sm"),
-                        ]
+                    dbc.NavLink(
+                        [html.I(className="bi bi-people-fill me-3"), html.Span("Manage Users", className="nav-link-text")],
+                        href="/admin-manage",
+                        active="exact",
+                        className="body-strong mb-2 d-flex align-items-center"
+                    ),
+                    dbc.NavLink(
+                        [html.I(className="bi bi-card-list me-3"), html.Span("System Logs", className="nav-link-text")],
+                        href="/admin-logs",
+                        active="exact",
+                        className="body-strong mb-2 d-flex align-items-center"
+                    ),
+                    dbc.NavLink(
+                        [html.I(className="bi bi-folder-fill me-3"), html.Span("File Repository", className="nav-link-text")],
+                        href="/admin-files",
+                        active="exact",
+                        className="body-strong mb-2 d-flex align-items-center"
                     ),
                 ],
-                id="logout-confirm-modal",
-                is_open=False,
-                centered=True,
-                backdrop=True,
+                vertical=True,
+                pills=True,
+                className="custom-sidebar-nav mb-5"
             )
-        ], style={"display": "flex", "alignItems": "center"})
-    ],
-    className="topbar custom-card px-4",
-    style={
-        "position": "fixed",
-        "top": 0,
-        "left": 0,
-        "right": 0,
-        "height": "80px",
-        "zIndex": 1000,
-        "display": "flex",
-        "alignItems": "center",
-        "justifyContent": "space-between"
-    }
-)
-
-def get_sidebar(user_role, token):
+        ], className="sidebar-content-wrapper")
+        return dbc.Offcanvas(
+            sidebar_content,
+            id="sidebar",
+            title="Admin Console",
+            placement="start",
+            is_open=False,
+            className="premium-offcanvas sidebar-container"
+        )
+        
     opts = get_history_options(token)
     val = None
     for opt in opts:
         if not opt['value'].startswith('HEADER_'):
             val = opt['value']
             break
+            
+    can_upload = 'can_upload' in permissions
 
     sidebar_content = html.Div([
         html.H6("MAIN", className="sidebar-section-title text-muted text-uppercase mb-3", style={"fontSize": "11px", "letterSpacing": "1px"}),
@@ -259,19 +306,21 @@ def get_sidebar(user_role, token):
 
         html.Hr(style={"borderColor": "#e2e8f0"}),
 
-        html.H6("DATA", className="sidebar-section-title text-muted text-uppercase mb-3 mt-4", style={"fontSize": "11px", "letterSpacing": "1px"}),
         html.Div([
-            dcc.Upload(
-                id='upload-data',
-                children=html.Div([
-                    html.I(className="bi bi-cloud-arrow-up fs-4 mb-2 d-block"),
-                    html.Span(['Drag and Drop or ', html.A('Select Files', className="text-primary text-decoration-none")], className="nav-link-text")
-                ]),
-                multiple=False,
-                className="upload-box mb-4"
-            )
-        ]),
-        html.Div(id='upload-status', className="nav-link-text text-muted small mt-2"),
+            html.H6("DATA", className="sidebar-section-title text-muted text-uppercase mb-3 mt-4", style={"fontSize": "11px", "letterSpacing": "1px"}),
+            html.Div([
+                dcc.Upload(
+                    id='upload-data',
+                    children=html.Div([
+                        html.I(className="bi bi-cloud-arrow-up fs-4 mb-2 d-block"),
+                        html.Span(['Drag and Drop or ', html.A('Select Files', className="text-primary text-decoration-none")], className="nav-link-text")
+                    ]),
+                    multiple=False,
+                    className="upload-box mb-4"
+                )
+            ]),
+            html.Div(id='upload-status', className="nav-link-text text-muted small mt-2"),
+        ], style={"display": "block"} if can_upload else {"display": "none"}),
 
         html.H6("HISTORY", className="sidebar-section-title text-muted text-uppercase mb-3 mt-4", style={"fontSize": "11px", "letterSpacing": "1px"}),
         html.Div(
@@ -281,63 +330,7 @@ def get_sidebar(user_role, token):
                 value=val,
                 className="mb-4 history-radio-group"
             )
-        ),
-
-        # --- ADMIN SECTION (hidden by default, shown via callback) ---
-        html.Div(
-            id="admin-section",
-            style={"display": "block"} if user_role == 'Admin' else {"display": "none"},
-            children=[
-                html.Hr(style={"borderColor": "#e2e8f0"}),
-                html.H6("ADMIN", className="sidebar-section-title text-muted text-uppercase mb-3 mt-4", style={"fontSize": "11px", "letterSpacing": "1px"}),
-                dbc.Button(
-                    [html.I(className="bi bi-plus-circle me-2"), "Add New Company"],
-                    id="btn-open-add-company",
-                    color="primary",
-                    size="sm",
-                    className="w-100 mb-2"
-                ),
-                dbc.Button(
-                    [html.I(className="bi bi-dash-circle me-2"), "Remove Company"],
-                    id="btn-open-remove-company",
-                    color="danger",
-                    outline=True,
-                    size="sm",
-                    className="w-100"
-                ),
-            ]
-        ),
-
-        # --- ADD COMPANY MODAL ---
-        dbc.Modal([
-            dbc.ModalHeader(dbc.ModalTitle("Add New Company")),
-            dbc.ModalBody([
-                dbc.Label("Company Name", className="small text-muted text-uppercase", style={"fontSize": "10px", "letterSpacing": "1px"}),
-                dbc.Input(id="new-company-name", placeholder="e.g. Acme Corp", type="text", className="mb-3", size="sm"),
-                dbc.Label("Username", className="small text-muted text-uppercase", style={"fontSize": "10px", "letterSpacing": "1px"}),
-                dbc.Input(id="new-company-username", placeholder="Login username", type="text", className="mb-3", size="sm"),
-                dbc.Label("Password", className="small text-muted text-uppercase", style={"fontSize": "10px", "letterSpacing": "1px"}),
-                dbc.Input(id="new-company-password", placeholder="Login password", type="password", className="mb-3", size="sm"),
-                html.Div(id="add-company-status", className="small mt-1")
-            ]),
-            dbc.ModalFooter(
-                dbc.Button("Add Company", id="btn-add-company", color="primary", size="sm")
-            )
-        ], id="add-company-modal", is_open=False, centered=True),
-
-        # --- REMOVE COMPANY MODAL ---
-        dbc.Modal([
-            dbc.ModalHeader(dbc.ModalTitle("Remove Company")),
-            dbc.ModalBody([
-                dbc.Label("Select Company", className="small text-muted text-uppercase", style={"fontSize": "10px", "letterSpacing": "1px"}),
-                dcc.Dropdown(id="remove-company-select", options=[], placeholder="Choose a company...", className="mb-3"),
-                html.Div("This will permanently revoke the company's login access.", className="small text-muted mb-2"),
-                html.Div(id="remove-company-status", className="small mt-1")
-            ]),
-            dbc.ModalFooter(
-                dbc.Button("Remove Company", id="btn-remove-company", color="danger", size="sm")
-            )
-        ], id="remove-company-modal", is_open=False, centered=True)
+        )
     ], className="sidebar-content-wrapper")
 
     return dbc.Offcanvas(
@@ -355,14 +348,16 @@ content = html.Div(
     className="main-content"
 )
 
-app.layout = html.Div([
-    dcc.Location(id='url', refresh=False),
-    dcc.Store(id='data-store', data=[]),
-    dcc.Store(id='auth-state', storage_type='session'),
-    dcc.Store(id='company-list-version', data=0),
-    dcc.Download(id="download-dataframe-csv"),
-    html.Div(id="app-container")
-])
+app.layout = html.Div(
+    [
+        dcc.Location(id="url", refresh=True),
+        dcc.Store(id="auth-state", storage_type="session"),
+        dcc.Store(id="company-list-version", data=0),
+        dcc.Store(id="data-store", storage_type="memory"),
+        dcc.Download(id="download-dataframe-csv"),
+        html.Div(id="app-container")
+    ]
+)
 
 @callback(
     Output("filter-drawer", "is_open"),
@@ -395,7 +390,8 @@ def render_page(auth_state):
     if auth_state and auth_state.get('user') and auth_state.get('token'):
         user_role = auth_state.get('user')
         token = auth_state.get('token')
-        sidebar = get_sidebar(user_role, token)
+        permissions = auth_state.get('permissions', [])
+        sidebar = get_sidebar(user_role, token, permissions)
         
         # Determine initial data based on history
         opts = get_history_options(token)
@@ -415,6 +411,17 @@ def render_page(auth_state):
             except Exception:
                 pass
 
+        topbar = get_topbar(user_role)
+        
+        if user_role == 'Admin':
+            return html.Div([
+                sidebar,
+                html.Div([
+                    topbar,
+                    html.Div(content, style={"marginTop": "80px", "padding": "2rem"})
+                ], style={"flex": "1", "display": "flex", "flexDirection": "column", "backgroundColor": "var(--color-background)", "minHeight": "100vh"}),
+            ], style={"display": "flex"}), []
+            
         return html.Div([
             topbar,
             sidebar,
@@ -422,6 +429,25 @@ def render_page(auth_state):
             content
         ]), data
     return login_page, []
+
+@callback(
+    Output("url", "pathname"),
+    Input("auth-state", "data"),
+    Input("url", "pathname")
+)
+def guard_routes(auth_state, pathname):
+    if not auth_state or not pathname:
+        return dash.no_update
+        
+    user_role = auth_state.get('user')
+    if user_role == 'Admin':
+        if pathname in ['/', '/date-comparison', '/hourly', '/raw-data']:
+            return '/admin-manage'
+    elif user_role:
+        if pathname.startswith('/admin'):
+            return '/'
+            
+    return dash.no_update
 
 # --- ADMIN: OPEN ADD MODAL ---
 @callback(
@@ -545,6 +571,97 @@ def handle_remove_company(n_clicks, username, version, auth_state):
             return html.Span(response.json().get("detail", "Error"), className="text-danger"), dash.no_update, dash.no_update, True
     except:
         return html.Span("API Error", className="text-danger"), dash.no_update, dash.no_update, True
+
+# --- ADMIN: MANAGE PERMISSIONS MODAL ---
+@callback(
+    Output("manage-perms-modal", "is_open"),
+    Input("btn-open-manage-permissions", "n_clicks"),
+    State("manage-perms-modal", "is_open"),
+    prevent_initial_call=True
+)
+def toggle_manage_perms_modal(n, is_open):
+    if n:
+        return not is_open
+    return is_open
+
+@callback(
+    Output("manage-perms-user-select", "options"),
+    Input("manage-perms-modal", "is_open"),
+    State("auth-state", "data")
+)
+def populate_manage_perms_options(is_open, auth_state):
+    if not is_open or not auth_state:
+        return []
+    token = auth_state.get('token')
+    if not token:
+        return []
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        response = requests.get(f"{API_BASE_URL}/users", headers=headers)
+        if response.status_code == 200:
+            users = response.json()
+            options = [
+                {"label": u["user"], "value": key}
+                for key, u in users.items()
+                if u.get("user") != "Admin"
+            ]
+            return options
+    except:
+        pass
+    return []
+
+@callback(
+    Output("manage-perms-switches", "value"),
+    Input("manage-perms-user-select", "value"),
+    State("auth-state", "data"),
+    prevent_initial_call=True
+)
+def update_switches_for_user(username, auth_state):
+    if not username or not auth_state:
+        return []
+    token = auth_state.get('token')
+    if not token:
+        return []
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        response = requests.get(f"{API_BASE_URL}/users", headers=headers)
+        if response.status_code == 200:
+            users = response.json()
+            user_data = users.get(username, {})
+            return user_data.get("permissions", [])
+    except:
+        pass
+    return []
+
+@callback(
+    Output("manage-perms-status", "children"),
+    Output("manage-perms-modal", "is_open", allow_duplicate=True),
+    Input("btn-save-permissions", "n_clicks"),
+    State("manage-perms-user-select", "value"),
+    State("manage-perms-switches", "value"),
+    State("auth-state", "data"),
+    prevent_initial_call=True
+)
+def handle_save_permissions(n_clicks, username, switches, auth_state):
+    if not n_clicks:
+        return dash.no_update, dash.no_update
+    if not username:
+        return html.Span("Select a user first.", className="text-danger"), True
+        
+    token = auth_state.get('token') if auth_state else None
+    if not token:
+        return html.Span("Unauthorized.", className="text-danger"), True
+        
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        payload = {"username": username, "permissions": switches}
+        response = requests.post(f"{API_BASE_URL}/users/permissions", headers=headers, json=payload)
+        if response.status_code == 200:
+            return html.Span(response.json().get("message"), className="text-success"), False
+        else:
+            return html.Span(response.json().get("detail", "Error"), className="text-danger"), True
+    except:
+        return html.Span("API Error", className="text-danger"), True
 
 # --- LOGOUT: ASK CONFIRMATION ---
 @callback(

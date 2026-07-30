@@ -11,17 +11,22 @@ if %errorlevel% equ 0 (
         echo Creating virtual environment using uv...
         uv venv
     )
+    echo Adding additionl dependencies
+    uv add -r requirements.txt
     echo Syncing dependencies using uv...
-    uv lock
     uv sync
+    uv lock
 ) else (
     if not exist ".venv" (
-        echo Creating virtual environment using python venv...
-        python -m venv .venv
+        echo Creating virtual environment using python venv
+        pip install uv
+        uv venv .venv
     )
-    echo Syncing dependencies using pip...
-    .venv\Scripts\python.exe -m pip install --upgrade pip
-    .venv\Scripts\pip install -r requirements.txt
+    echo Syncing dependencies using uv...
+    uv pip install --upgrade pip
+    uv add -r requirements.txt
+    uv sync
+    uv lock
 )
 
 echo.
@@ -48,4 +53,3 @@ if errorlevel 1 (
 )
 
 pause
-
