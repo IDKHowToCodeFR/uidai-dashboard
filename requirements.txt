@@ -7,3 +7,7 @@ plotly
 openpyxl
 requests
 matplotlib
+fastapi
+uvicorn
+python-jose[cryptography]
+python-multipart

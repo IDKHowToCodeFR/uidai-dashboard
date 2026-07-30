@@ -5,9 +5,10 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import base64
 import io
+import requests
 from datetime import datetime, timedelta
 import numpy as np
-from auth import login_page, handle_login, add_user, remove_user  # noqa: F401
+from auth import login_page, handle_login, API_BASE_URL  # noqa: F401
 
 app = Dash(
     __name__,
@@ -22,34 +23,24 @@ app = Dash(
 )
 app.title = "UIDAI Dashboard"
 
-# Directory for processed data
-PROCESSED_DATA_DIR = "data/processed"
-
-def get_history_options(user_role):
-    if not os.path.exists(PROCESSED_DATA_DIR):
+def get_history_options(token):
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        response = requests.get(f"{API_BASE_URL}/history", headers=headers)
+        if response.status_code == 200:
+            file_times = response.json()
+        else:
+            return []
+    except Exception:
         return []
-    
-    files = [f for f in os.listdir(PROCESSED_DATA_DIR) if f.endswith('.csv')]
-    if user_role and user_role != 'Admin':
-        prefix = f"{user_role}_"
-        files = [f for f in files if f.startswith(prefix)]
-
-    file_times = []
-    for f in files:
-        file_path = os.path.join(PROCESSED_DATA_DIR, f)
-        mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
-        file_times.append({'name': f, 'time': mtime})
-
-    file_times.sort(key=lambda x: x['time'], reverse=True)
 
     now = datetime.now()
     today = now.date()
-
     options = []
     current_group = None
 
     for item in file_times:
-        mtime = item['time']
+        mtime = datetime.fromisoformat(item['time'])
         date = mtime.date()
         age_days = (today - date).days
 
@@ -77,52 +68,22 @@ def get_history_options(user_role):
 
     return options
 
-def parse_contents(contents, filename, user_role):
-    prefix = f"{user_role}_" if user_role and user_role != 'Admin' else "Admin_"
-    out_filename = prefix + os.path.splitext(filename)[0] + "_processed.csv"
-    save_path = os.path.join(PROCESSED_DATA_DIR, out_filename)
-
-    if os.path.exists(save_path):
-        try:
-            df = pd.read_csv(save_path)
-            return df.to_dict('records')
-        except Exception as e:
-            print(f"Error reading existing file: {e}")
-
-    content_type, content_string = contents.split(',')
-    decoded = base64.b64decode(content_string)
+def upload_file_to_api(contents, filename, token):
     try:
-        if 'csv' in filename:
-            df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
-        elif 'xls' in filename:
-            excel_file = pd.ExcelFile(io.BytesIO(decoded), engine='openpyxl')
-            dfs = []
-            for sheet_name in excel_file.sheet_names:
-                sheet_df = pd.read_excel(excel_file, sheet_name=sheet_name)
-                if 'Company' not in sheet_df.columns:
-                    sheet_df['Company'] = sheet_name
-                dfs.append(sheet_df)
-            df = pd.concat(dfs, ignore_index=True)
+        content_type, content_string = contents.split(',')
+        decoded = base64.b64decode(content_string)
+        
+        headers = {"Authorization": f"Bearer {token}"}
+        files = {"file": (filename, decoded)}
+        
+        response = requests.post(f"{API_BASE_URL}/upload", headers=headers, files=files)
+        if response.status_code == 200:
+            return response.json()
         else:
+            print(f"Upload error: {response.text}")
             return None
-
-        numeric_cols = df.select_dtypes(include='number').columns
-        df[numeric_cols] = df[numeric_cols].fillna(0)
-        object_cols = df.select_dtypes(include=['object', 'string']).columns # type: ignore
-        df[object_cols] = df[object_cols].fillna('Unknown')
-        for col in object_cols:
-            df[col] = df[col].astype(str).str.strip()
-        df.dropna(how='all', inplace=True)
-        df.dropna(axis=1, how='all', inplace=True)
-
-        # Save to processed directory for history
-        if not os.path.exists(PROCESSED_DATA_DIR):
-            os.makedirs(PROCESSED_DATA_DIR)
-        df.to_csv(save_path, index=False)
-
-        return df.to_dict('records')
     except Exception as e:
-        print(e)
+        print(f"Exception during upload: {e}")
         return None
 
 style_dropdown_toggle = {
@@ -254,8 +215,8 @@ topbar = html.Div(
     }
 )
 
-def get_sidebar(user_role):
-    opts = get_history_options(user_role)
+def get_sidebar(user_role, token):
+    opts = get_history_options(token)
     val = None
     for opt in opts:
         if not opt['value'].startswith('HEADER_'):
@@ -431,12 +392,13 @@ def toggle_left_sidebar(n, is_open):
     prevent_initial_call=True
 )
 def render_page(auth_state):
-    if auth_state and auth_state.get('user'):
+    if auth_state and auth_state.get('user') and auth_state.get('token'):
         user_role = auth_state.get('user')
-        sidebar = get_sidebar(user_role)
+        token = auth_state.get('token')
+        sidebar = get_sidebar(user_role, token)
         
         # Determine initial data based on history
-        opts = get_history_options(user_role)
+        opts = get_history_options(token)
         val = None
         data = []
         for opt in opts:
@@ -445,10 +407,13 @@ def render_page(auth_state):
                 break
                 
         if val:
-            file_path = os.path.join(PROCESSED_DATA_DIR, val)
-            if os.path.exists(file_path):
-                df = pd.read_csv(file_path)
-                data = df.to_dict('records')
+            try:
+                headers = {"Authorization": f"Bearer {token}"}
+                response = requests.get(f"{API_BASE_URL}/data/{val}", headers=headers)
+                if response.status_code == 200:
+                    data = response.json()
+            except Exception:
+                pass
 
         return html.Div([
             topbar,
@@ -483,17 +448,29 @@ def toggle_add_company_modal(n, is_open):
     State("new-company-username", "value"),
     State("new-company-password", "value"),
     State("company-list-version", "data"),
+    State("auth-state", "data"),
     prevent_initial_call=True
 )
-def handle_add_company(n_clicks, company_name, username, password, version):
+def handle_add_company(n_clicks, company_name, username, password, version, auth_state):
     if not n_clicks:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
     if not company_name or not username or not password:
         return html.Span("All fields required.", className="text-danger"), dash.no_update, dash.no_update, dash.no_update, dash.no_update, True
-    ok, msg = add_user(username, password, company_name)
-    if ok:
-        return html.Span(msg, className="text-success"), "", "", "", (version or 0) + 1, False
-    return html.Span(msg, className="text-danger"), dash.no_update, dash.no_update, dash.no_update, dash.no_update, True
+    
+    token = auth_state.get('token') if auth_state else None
+    if not token:
+        return html.Span("Unauthorized.", className="text-danger"), dash.no_update, dash.no_update, dash.no_update, dash.no_update, True
+        
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        req_data = {"username": username, "password": password, "company_name": company_name}
+        response = requests.post(f"{API_BASE_URL}/users/add", headers=headers, json=req_data)
+        if response.status_code == 200:
+            return html.Span(response.json().get("message"), className="text-success"), "", "", "", (version or 0) + 1, False
+        else:
+            return html.Span(response.json().get("detail", "Error"), className="text-danger"), dash.no_update, dash.no_update, dash.no_update, dash.no_update, True
+    except Exception as e:
+        return html.Span("API Error", className="text-danger"), dash.no_update, dash.no_update, dash.no_update, dash.no_update, True
 
 # --- ADMIN: OPEN REMOVE MODAL ---
 @callback(
@@ -511,17 +488,31 @@ def toggle_remove_company_modal(n, is_open):
 @callback(
     Output("remove-company-select", "options"),
     Input("remove-company-modal", "is_open"),
-    Input("company-list-version", "data")
+    Input("company-list-version", "data"),
+    State("auth-state", "data")
 )
-def populate_remove_company_options(is_open, _version):
-    from auth import load_users
-    users = load_users()
-    options = [
-        {"label": u["user"], "value": key}
-        for key, u in users.items()
-        if u.get("user") != "Admin"
-    ]
-    return options
+def populate_remove_company_options(is_open, _version, auth_state):
+    if not is_open or not auth_state:
+        return []
+        
+    token = auth_state.get('token')
+    if not token:
+        return []
+        
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        response = requests.get(f"{API_BASE_URL}/users", headers=headers)
+        if response.status_code == 200:
+            users = response.json()
+            options = [
+                {"label": u["user"], "value": key}
+                for key, u in users.items()
+                if u.get("user") != "Admin"
+            ]
+            return options
+    except:
+        pass
+    return []
 
 # --- ADMIN: REMOVE COMPANY ---
 @callback(
@@ -532,17 +523,28 @@ def populate_remove_company_options(is_open, _version):
     Input("btn-remove-company", "n_clicks"),
     State("remove-company-select", "value"),
     State("company-list-version", "data"),
+    State("auth-state", "data"),
     prevent_initial_call=True
 )
-def handle_remove_company(n_clicks, username, version):
+def handle_remove_company(n_clicks, username, version, auth_state):
     if not n_clicks:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update
     if not username:
         return html.Span("Select a company first.", className="text-danger"), dash.no_update, dash.no_update, True
-    ok, msg = remove_user(username)
-    if ok:
-        return html.Span(msg, className="text-success"), None, (version or 0) + 1, False
-    return html.Span(msg, className="text-danger"), dash.no_update, dash.no_update, True
+        
+    token = auth_state.get('token') if auth_state else None
+    if not token:
+        return html.Span("Unauthorized.", className="text-danger"), dash.no_update, dash.no_update, True
+        
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        response = requests.post(f"{API_BASE_URL}/users/remove", headers=headers, json={"username": username})
+        if response.status_code == 200:
+            return html.Span(response.json().get("message"), className="text-success"), None, (version or 0) + 1, False
+        else:
+            return html.Span(response.json().get("detail", "Error"), className="text-danger"), dash.no_update, dash.no_update, True
+    except:
+        return html.Span("API Error", className="text-danger"), dash.no_update, dash.no_update, True
 
 # --- LOGOUT: ASK CONFIRMATION ---
 @callback(
@@ -593,18 +595,25 @@ def sync_filters(data, auth_state, _version):
     l_options, l_values = [], []
     c_disabled = False
     user_role = auth_state.get('user') if auth_state else None
+    token = auth_state.get('token') if auth_state else None
 
     if 'Company' in df.columns:
         companies = df['Company'].dropna().unique().tolist()
-        # Admin sees all companies + any registered company names from users.json
-        if user_role == 'Admin':
-            from auth import load_users
-            registered = [u['user'] for u in load_users().values() if u['user'] != 'Admin']
-            all_companies = sorted(set(companies + registered))
+        if user_role == 'Admin' and token:
+            try:
+                headers = {"Authorization": f"Bearer {token}"}
+                response = requests.get(f"{API_BASE_URL}/users", headers=headers)
+                if response.status_code == 200:
+                    registered = [u['user'] for u in response.json().values() if u['user'] != 'Admin']
+                    all_companies = sorted(set(companies + registered))
+                else:
+                    all_companies = sorted(set(companies))
+            except:
+                all_companies = sorted(set(companies))
+            
             c_options = [{'label': c, 'value': c} for c in all_companies]
-            c_values = companies  # default select only those with data
+            c_values = companies
         else:
-            # Non-admin: lock to their company
             c_options = [{'label': user_role, 'value': user_role}]
             c_values = [user_role]
             c_disabled = True
@@ -644,10 +653,13 @@ def sync_filters(data, auth_state, _version):
 )
 def update_output(contents, filename, auth_state):
     if contents is not None:
-        user_role = auth_state.get('user') if auth_state else None
-        data = parse_contents(contents, filename, user_role)
+        token = auth_state.get('token') if auth_state else None
+        if not token:
+            return dash.no_update, "Unauthorized", dash.no_update, dash.no_update
+            
+        data = upload_file_to_api(contents, filename, token)
         if data is not None:
-            opts = get_history_options(user_role)
+            opts = get_history_options(token)
             return data, f"Loaded {filename} successfully.", opts, opts[1]['value'] if len(opts)>1 else dash.no_update
         return dash.no_update, "Error parsing file.", dash.no_update, dash.no_update
     return dash.no_update, "", dash.no_update, dash.no_update
@@ -655,14 +667,20 @@ def update_output(contents, filename, auth_state):
 @callback(
     Output('data-store', 'data', allow_duplicate=True),
     Input('file-history', 'value'),
+    State('auth-state', 'data'),
     prevent_initial_call=True
 )
-def load_from_history(filename):
+def load_from_history(filename, auth_state):
     if filename and not str(filename).startswith('HEADER_'):
-        file_path = os.path.join(PROCESSED_DATA_DIR, filename)
-        if os.path.exists(file_path):
-            df = pd.read_csv(file_path)
-            return df.to_dict('records')
+        token = auth_state.get('token') if auth_state else None
+        if token:
+            try:
+                headers = {"Authorization": f"Bearer {token}"}
+                response = requests.get(f"{API_BASE_URL}/data/{filename}", headers=headers)
+                if response.status_code == 200:
+                    return response.json()
+            except:
+                pass
     return dash.no_update
 
 @callback(

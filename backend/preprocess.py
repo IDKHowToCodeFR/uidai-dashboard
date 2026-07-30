@@ -2,8 +2,9 @@ import os
 import pandas as pd
 import numpy as np
 
-RAW_DIR = "data/unprocessed"
-PROCESSED_DIR = "data/processed"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+RAW_DIR = os.path.join(BASE_DIR, "data", "unprocessed")
+PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed")
 
 def process_data():
     if not os.path.exists(PROCESSED_DIR):
