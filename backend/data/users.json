@@ -7,7 +7,11 @@
   "uidai": {
     "password": "$2b$12$aUSO1G0HFd65c9qjV8oS8OGBMAtimCzgN.Jet95k6sQAp6IHtc9xC",
     "user": "UIDAI",
-    "permissions": []
+    "permissions": [
+      "can_view_global",
+      "can_view_scoped",
+      "can_upload_files"
+    ]
   },
   "digitech": {
     "password": "$2b$12$GgpVm1yfX3UkVNZy86x1luuJExeT4Gydg4zqKE7AVnkyXYL4y5eWu",
