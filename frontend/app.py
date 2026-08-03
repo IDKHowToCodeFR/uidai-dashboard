@@ -153,26 +153,68 @@ filter_drawer = dbc.Offcanvas(
 )
 
 def get_topbar(user_role):
-    # Base topbar elements
     left_elements = [
-        html.Img(src="/assets/aadhaar-logo.png", style={"height": "40px", "marginRight": "15px"}),
-        html.H5("Unique Identification Authority of India", className="display-lg mb-0", style={"display": "inline-block", "fontWeight": "700"}),
+        html.Button(
+            html.I(className="bi bi-list fs-5"),
+            id="btn-sidebar-toggle",
+            n_clicks=0,
+            className="btn btn-light me-3 body-strong rounded-circle",
+            style={
+                "width": "36px", "height": "36px",
+                "display": "flex", "alignItems": "center", "justifyContent": "center",
+                "border": "1px solid var(--color-border)",
+                "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
+            }
+        ),
+        html.Img(src="/assets/aadhaar-logo.png", style={"height": "32px", "marginRight": "12px"}),
+        html.Div([
+            html.H5(
+                "Unique Identification Authority of India",
+                className="mb-0",
+                style={
+                    "fontWeight": "700",
+                    "fontSize": "17px",
+                    "lineHeight": "1.2",
+                    "color": "#3b5b8c",  # muted professional blue, was highly saturated
+                    "fontFamily": "'Inter', sans-serif"
+                }
+            ),
+            html.Span(
+                "Internal Administrator Dashboard",
+                style={
+                    "fontSize": "11px",
+                    "color": "var(--color-text-muted, #6c757d)",
+                    "letterSpacing": "0.3px",
+                    "fontFamily": "'Inter', sans-serif"
+                }
+            )
+        ], style={"display": "flex", "flexDirection": "column", "justifyContent": "center"})
     ]
-    
+
     right_elements = [
         html.Button(
-            html.I(className="bi bi-funnel-fill"),
+            html.I(className="bi bi-funnel-fill fs-6"),
             id="btn-filters",
             n_clicks=0,
-            className="btn btn-light me-3 body-strong rounded-circle shadow-sm",
-            style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
+            className="btn btn-light me-3 body-strong rounded-circle",
+            style={
+                "width": "36px", "height": "36px",
+                "display": "flex", "alignItems": "center", "justifyContent": "center",
+                "border": "1px solid var(--color-border)",
+                "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
+            }
         ),
         html.Button(
-            html.I(className="bi bi-box-arrow-right"),
+            html.I(className="bi bi-box-arrow-right fs-6"),
             id="btn-logout",
             n_clicks=0,
-            className="btn btn-light me-3 body-strong rounded-circle shadow-sm",
-            style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
+            className="btn btn-light body-strong rounded-circle",
+            style={
+                "width": "36px", "height": "36px",
+                "display": "flex", "alignItems": "center", "justifyContent": "center",
+                "border": "1px solid var(--color-border)",
+                "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
+            }
         ),
         dbc.Modal(
             [
@@ -190,31 +232,28 @@ def get_topbar(user_role):
             centered=True,
             backdrop=True,
         ),
-        html.Button(
-            html.I(className="bi bi-list fs-4"),
-            id="btn-sidebar-toggle",
-            n_clicks=0,
-            className="btn btn-light body-strong rounded-circle shadow-sm",
-            style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
-        )
     ]
-    
+
     return html.Div(
         [
             html.Div(left_elements, style={"display": "flex", "alignItems": "center"}),
             html.Div(right_elements, style={"display": "flex", "alignItems": "center"})
         ],
-        className="topbar custom-card px-4",
+        className="topbar px-4",
         style={
             "position": "fixed",
             "top": 0,
             "left": 0,
             "right": 0,
-            "height": "80px",
+            "height": "64px",  # was 80px
             "zIndex": 1000,
             "display": "flex",
             "alignItems": "center",
-            "justifyContent": "space-between"
+            "justifyContent": "space-between",
+            "backgroundColor": "var(--color-surface, #fff)",
+            "borderBottom": "1px solid var(--color-border, #e2e8f0)",
+            "borderRadius": "0 0 6px 6px",  # was likely more rounded via custom-card
+            "boxShadow": "0 1px 3px rgba(0,0,0,0.04)"  # subtler than old custom-card shadow
         }
     )
 
