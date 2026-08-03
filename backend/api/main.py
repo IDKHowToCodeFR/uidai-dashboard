@@ -13,10 +13,15 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from backend.api.auth_utils import (
     load_users, verify_password, create_access_token, get_current_user,
-    add_user, remove_user, update_permissions, BASE_DIR, add_log, load_logs
+    add_user, remove_user, update_permissions, BASE_DIR, add_log, load_logs, archive_old_logs
 )
 
 app = FastAPI(title="UIDAI Backend API")
+
+@app.on_event("startup")
+async def startup_event():
+    # Archive logs older than 90 days on startup
+    archive_old_logs(days=90)
 
 # Add CORS Middleware to restrict to Dash frontend origin
 origins = [
@@ -164,6 +169,7 @@ async def upload_file(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/history")
 async def get_history(current_user: dict = Depends(get_current_user)):
     user_role = current_user["role"]
@@ -248,6 +254,9 @@ async def download_file(filename: str, current_user: dict = Depends(get_current_
         
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
+        
+    if user_role != 'Admin' and 'can_download_files' not in permissions:
+        raise HTTPException(status_code=403, detail="Download permission denied")
         
     if user_role != 'Admin' and 'can_view_global' not in permissions:
         if 'can_view_scoped' not in permissions or not safe_filename.startswith(f"{user_role}_"):

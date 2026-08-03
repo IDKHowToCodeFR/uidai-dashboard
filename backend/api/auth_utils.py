@@ -49,6 +49,45 @@ def add_log(action: str, username: str, details: str = ""):
     with open(LOGS_FILE, 'w') as f:
         json.dump(logs, f, indent=2)
 
+def archive_old_logs(days=90):
+    logs = load_logs()
+    if not logs:
+        return
+    
+    cutoff_date = datetime.now() - timedelta(days=days)
+    recent_logs = []
+    archived_logs = []
+    
+    for log in logs:
+        try:
+            log_date = datetime.fromisoformat(log.get("timestamp", ""))
+            if log_date < cutoff_date:
+                archived_logs.append(log)
+            else:
+                recent_logs.append(log)
+        except Exception:
+            recent_logs.append(log)
+            
+    if archived_logs:
+        archive_filename = f"logs_archive_{datetime.now().strftime('%Y_%m')}.json"
+        archive_path = os.path.join(os.path.dirname(LOGS_FILE), archive_filename)
+        
+        existing_archive = []
+        if os.path.exists(archive_path):
+            try:
+                with open(archive_path, 'r') as f:
+                    existing_archive = json.load(f)
+            except Exception:
+                pass
+                
+        existing_archive.extend(archived_logs)
+        
+        with open(archive_path, 'w') as f:
+            json.dump(existing_archive, f, indent=2)
+            
+        with open(LOGS_FILE, 'w') as f:
+            json.dump(recent_logs, f, indent=2)
+
 def load_users():
     if os.path.exists(USERS_FILE):
         with open(USERS_FILE, 'r') as f:

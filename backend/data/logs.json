@@ -172,5 +172,11 @@
     "action": "PERMISSIONS_UPDATED",
     "username": "Admin",
     "details": "Updated permissions for 'digitech': ['can_view_scoped', 'can_upload_files']"
+  },
+  {
+    "timestamp": "2026-08-03T15:58:06.500402",
+    "action": "FILE_DOWNLOADED",
+    "username": "admin",
+    "details": "Downloaded file: NSB_test_processed.csv"
   }
 ]

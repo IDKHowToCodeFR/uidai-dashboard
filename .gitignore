@@ -7,5 +7,4 @@ wheels/
 .venv
 .idea
 uv.lock
-pyproject.toml
 CONTEXT.md

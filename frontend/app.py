@@ -417,7 +417,7 @@ def render_page(auth_state):
                 sidebar,
                 html.Div([
                     topbar,
-                    html.Div(content, style={"marginTop": "80px", "padding": "2rem"})
+                    content
                 ], style={"flex": "1", "display": "flex", "flexDirection": "column", "backgroundColor": "var(--color-background)", "minHeight": "100vh"}),
             ], style={"display": "flex"}), []
             
