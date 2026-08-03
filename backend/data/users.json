@@ -9,8 +9,8 @@
     "user": "UIDAI",
     "permissions": [
       "can_view_global",
-      "can_view_scoped",
-      "can_upload_files"
+      "can_upload_files",
+      "can_download_files"
     ]
   },
   "digitech": {

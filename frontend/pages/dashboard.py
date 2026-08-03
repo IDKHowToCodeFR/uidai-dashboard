@@ -136,18 +136,13 @@ def update_dashboard(data, company_filter, language_filter, start_date, end_date
     if df.empty:
         return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
 
-    date_col = None
-    if 'Timestamp' in df.columns:
-        date_col = 'Timestamp'
-    elif 'Date' in df.columns:
-        date_col = 'Date'
-    elif 'Call Start Time' in df.columns:
-        date_col = 'Call Start Time'
-
-    if date_col:
-        df['Date'] = pd.to_datetime(df[date_col])
-    else:
-        df['Date'] = pd.NaT
+    date_candidates = ['Timestamp', 'Call Timestamp', 'Date', 'Call Start Time']
+    df['Date'] = pd.NaT
+    for col in date_candidates:
+        if col in df.columns:
+            df['Date'] = df['Date'].fillna(pd.to_datetime(df[col], errors='coerce'))
+    
+    date_col = 'Date' if not df['Date'].isna().all() else None
 
     # Apply Filters
     if company_filter and 'Company' in df.columns:
@@ -255,9 +250,9 @@ def update_dashboard(data, company_filter, language_filter, start_date, end_date
         fig_hold = px.histogram(title="No Data")
 
     # Chart 6: Intraday Performance (Averaged across days)
-    if 'Call Timestamp' in df_current.columns:
+    if 'Date' in df_current.columns and not df_current['Date'].isna().all():
         # Extract just the time part for grouping
-        df_current['Time'] = pd.to_datetime(df_current['Call Timestamp']).dt.time
+        df_current['Time'] = df_current['Date'].dt.time
         intraday_grp = df_current.groupby(['Date', 'Time']).sum(numeric_only=True).reset_index()
         # Now average across days for each Time
         avg_intraday = intraday_grp.groupby('Time').mean(numeric_only=True).reset_index()
@@ -328,18 +323,13 @@ def export_csv_dashboard(n_clicks, data, company_filter, language_filter, start_
         return dash.no_update
     df = pd.DataFrame(data)
     
-    date_col = None
-    if 'Timestamp' in df.columns:
-        date_col = 'Timestamp'
-    elif 'Date' in df.columns:
-        date_col = 'Date'
-    elif 'Call Start Time' in df.columns:
-        date_col = 'Call Start Time'
-
-    if date_col:
-        df['Date'] = pd.to_datetime(df[date_col])
-    else:
-        df['Date'] = pd.NaT
+    date_candidates = ['Timestamp', 'Call Timestamp', 'Date', 'Call Start Time']
+    df['Date'] = pd.NaT
+    for col in date_candidates:
+        if col in df.columns:
+            df['Date'] = df['Date'].fillna(pd.to_datetime(df[col], errors='coerce'))
+    
+    date_col = 'Date' if not df['Date'].isna().all() else None
 
     if company_filter and 'Company' in df.columns:
         df = df[df['Company'].isin(company_filter)]

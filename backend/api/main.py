@@ -218,6 +218,27 @@ def load_data_cached(file_path: str, mtime: float):
     df = pd.read_csv(file_path)
     return df.to_dict('records')
 
+@app.get("/data/aggregate")
+async def get_aggregated_data(current_user: dict = Depends(get_current_user)):
+    user_role = current_user["role"]
+    permissions = current_user.get("permissions", [])
+    if user_role != 'Admin' and 'can_view_global' not in permissions:
+        raise HTTPException(status_code=403, detail="Global view denied")
+        
+    all_data = []
+    if not os.path.exists(PROCESSED_DATA_DIR):
+        return all_data
+        
+    for filename in os.listdir(PROCESSED_DATA_DIR):
+        if filename.endswith(".csv"):
+            file_path = os.path.join(PROCESSED_DATA_DIR, filename)
+            mtime = os.path.getmtime(file_path)
+            data = load_data_cached(file_path, mtime)
+            # Add company based on filename if possible, but Dashboard relies on 'Company' column
+            all_data.extend(data)
+            
+    return all_data
+
 @app.get("/data/{filename}")
 async def get_data(filename: str, current_user: dict = Depends(get_current_user)):
     user_role = current_user["role"]

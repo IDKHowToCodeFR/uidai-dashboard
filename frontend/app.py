@@ -28,7 +28,8 @@ app = Dash(
 )
 app.title = "UIDAI analytics Dashboard"
 
-def get_history_options(token):
+def get_history_options(token, user_role=None, permissions=None):
+    if permissions is None: permissions = []
     try:
         headers = {"Authorization": f"Bearer {token}"}
         response = http_session.get(f"{API_BASE_URL}/history", headers=headers)
@@ -70,6 +71,13 @@ def get_history_options(token):
 
         label = html.Span(item['name'], className="text-truncate ms-2")
         options.append({'label': label, 'value': item['name']})
+        
+    if user_role == 'Admin' or 'can_view_global' in permissions:
+        # Prepend the aggregate option
+        options.insert(0, {
+            'label': html.Span("All Companies (Aggregated)", className="text-truncate ms-2 text-primary fw-bold"),
+            'value': 'aggregate'
+        })
 
     return options
 
@@ -147,42 +155,24 @@ filter_drawer = dbc.Offcanvas(
 def get_topbar(user_role):
     # Base topbar elements
     left_elements = [
+        html.Img(src="/assets/aadhaar-logo.png", style={"height": "40px", "marginRight": "15px"}),
+        html.H5("Unique Identification Authority of India", className="display-lg mb-0", style={"display": "inline-block", "fontWeight": "700"}),
+    ]
+    
+    right_elements = [
         html.Button(
-            html.I(className="bi bi-list fs-4"),
-            id="btn-sidebar-toggle",
+            html.I(className="bi bi-funnel-fill"),
+            id="btn-filters",
             n_clicks=0,
             className="btn btn-light me-3 body-strong rounded-circle shadow-sm",
             style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
         ),
-        html.H5("Unique Identification Authority of India", className="display-lg mb-0 me-4", style={"display": "inline-block"}),
-    ]
-    
-    right_elements = []
-    
-    # Only show filters for non-admins
-    if user_role != 'Admin':
-        right_elements.extend([
-            html.Button(
-                html.I(className="bi bi-funnel-fill"),
-                id="btn-filters",
-                n_clicks=0,
-                className="btn btn-light me-3 body-strong rounded-circle shadow-sm",
-                style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
-            )
-        ])
-        
-    # Logout is always present
-    right_elements.extend([
         html.Button(
             html.I(className="bi bi-box-arrow-right"),
             id="btn-logout",
             n_clicks=0,
-            className="btn body-strong rounded-circle shadow-sm",
-            style={
-                "width": "42px", "height": "42px", "display": "flex",
-                "alignItems": "center", "justifyContent": "center",
-                "backgroundColor": "#0d6efd", "borderColor": "#0d6efd", "color": "#fff"
-            }
+            className="btn btn-primary me-3 body-strong rounded-circle shadow-sm",
+            style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center"}
         ),
         dbc.Modal(
             [
@@ -199,8 +189,15 @@ def get_topbar(user_role):
             is_open=False,
             centered=True,
             backdrop=True,
+        ),
+        html.Button(
+            html.I(className="bi bi-list fs-4"),
+            id="btn-sidebar-toggle",
+            n_clicks=0,
+            className="btn btn-light body-strong rounded-circle shadow-sm",
+            style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
         )
-    ])
+    ]
     
     return html.Div(
         [
@@ -255,17 +252,21 @@ def get_sidebar(user_role, token, permissions):
             sidebar_content,
             id="sidebar",
             title="Admin Console",
-            placement="start",
+            placement="end",
             is_open=False,
-            className="premium-offcanvas sidebar-container"
+            className="premium-offcanvas sidebar-container border-0 shadow-lg"
         )
         
-    opts = get_history_options(token)
+    opts = get_history_options(token, user_role, permissions)
     val = None
-    for opt in opts:
-        if not opt['value'].startswith('HEADER_'):
-            val = opt['value']
-            break
+    
+    if (user_role == 'Admin' or (permissions and 'can_view_global' in permissions)) and any(opt.get('value') == 'aggregate' for opt in opts):
+        val = 'aggregate'
+    else:
+        for opt in opts:
+            if not opt['value'].startswith('HEADER_'):
+                val = opt['value']
+                break
             
     can_upload = 'can_upload' in permissions
 
@@ -393,13 +394,17 @@ def render_page(auth_state):
         sidebar = get_sidebar(user_role, token, permissions)
         
         # Determine initial data based on history
-        opts = get_history_options(token)
+        opts = get_history_options(token, user_role, permissions)
         val = None
         data = []
-        for opt in opts:
-            if not opt['value'].startswith('HEADER_'):
-                val = opt['value']
-                break
+        
+        if (user_role == 'Admin' or (permissions and 'can_view_global' in permissions)) and any(opt.get('value') == 'aggregate' for opt in opts):
+            val = 'aggregate'
+        else:
+            for opt in opts:
+                if not opt['value'].startswith('HEADER_'):
+                    val = opt['value']
+                    break
                 
         if val:
             try:
@@ -412,21 +417,15 @@ def render_page(auth_state):
 
         topbar = get_topbar(user_role)
         
-        if user_role == 'Admin':
-            return html.Div([
-                sidebar,
-                html.Div([
-                    topbar,
-                    content
-                ], style={"flex": "1", "display": "flex", "flexDirection": "column", "backgroundColor": "var(--color-background)", "minHeight": "100vh"}),
-            ], style={"display": "flex"}), []
-            
+        # Everyone gets the same layout structure now! 
+        # The sidebar on the right handles everything (nav, filters, logout).
         return html.Div([
             topbar,
             sidebar,
             filter_drawer,
             content
-        ]), data
+        ], style={"backgroundColor": "var(--color-background)", "minHeight": "100vh"}), data
+        
     return login_page, []
 
 @callback(
@@ -740,18 +739,16 @@ def sync_filters(data, auth_state, _version):
         l_values = langs
 
     min_date = max_date = start_date = end_date = None
-    date_col = None
-    if 'Timestamp' in df.columns:
-        date_col = 'Timestamp'
-    elif 'Date' in df.columns:
-        date_col = 'Date'
-    elif 'Call Start Time' in df.columns:
-        date_col = 'Call Start Time'
-
-    if date_col:
-        df[date_col] = pd.to_datetime(df[date_col])
-        min_date = df[date_col].min().date()
-        max_date = df[date_col].max().date()
+    
+    date_candidates = ['Timestamp', 'Call Timestamp', 'Date', 'Call Start Time']
+    df['ParsedDate'] = pd.NaT
+    for col in date_candidates:
+        if col in df.columns:
+            df['ParsedDate'] = df['ParsedDate'].fillna(pd.to_datetime(df[col], errors='coerce'))
+            
+    if not df['ParsedDate'].isna().all():
+        min_date = df['ParsedDate'].min().date()
+        max_date = df['ParsedDate'].max().date()
         start_date = min_date
         end_date = max_date
 
@@ -775,7 +772,7 @@ def update_output(contents, filename, auth_state):
             
         data = upload_file_to_api(contents, filename, token)
         if data is not None:
-            opts = get_history_options(token)
+            opts = get_history_options(token, auth_state.get('user'), auth_state.get('permissions', []))
             return data, f"Loaded {filename} successfully.", opts, opts[1]['value'] if len(opts)>1 else dash.no_update
         return dash.no_update, "Error parsing file.", dash.no_update, dash.no_update
     return dash.no_update, "", dash.no_update, dash.no_update

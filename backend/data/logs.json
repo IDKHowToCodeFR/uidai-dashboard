@@ -178,5 +178,29 @@
     "action": "FILE_DOWNLOADED",
     "username": "admin",
     "details": "Downloaded file: NSB_test_processed.csv"
+  },
+  {
+    "timestamp": "2026-08-03T17:42:44.282776",
+    "action": "LOGIN_SUCCESS",
+    "username": "digitech",
+    "details": "User digitech logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T17:45:29.563652",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T17:46:28.631253",
+    "action": "PERMISSIONS_UPDATED",
+    "username": "Admin",
+    "details": "Updated permissions for 'uidai': ['can_view_global', 'can_upload_files', 'can_download_files']"
+  },
+  {
+    "timestamp": "2026-08-03T17:46:41.262397",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
   }
 ]
