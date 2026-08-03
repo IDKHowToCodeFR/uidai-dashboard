@@ -1,5 +1,5 @@
 import dash
-from dash import html, dcc, callback, Input, Output, State, ctx
+from dash import html, dcc, callback, Input, Output, State, ctx, no_update, ALL
 import dash_bootstrap_components as dbc
 import requests
 from utils.api import http_session
@@ -7,92 +7,109 @@ from auth import API_BASE_URL
 
 dash.register_page(__name__, path='/admin-manage', name='Manage Users')
 
-permissions_options = [
-    {"label": " View Global Data (All Companies)", "value": "can_view_global"},
-    {"label": " View Scoped Data (Company Only)", "value": "can_view_scoped"},
-    {"label": " Upload Files", "value": "can_upload_files"}
-]
-
 layout = html.Div([
-    html.H2("Company & Permissions Management", className="mt-0 mb-3 text-primary fw-bold"),
+    html.Div([
+        html.H2("Company & Permissions", className="mt-0 mb-0 text-primary fw-bold"),
+        dbc.Button(
+            [html.I(className="bi bi-person-plus-fill me-2"), "Add Company"],
+            id="admin-btn-add-modal", color="primary"
+        ),
+    ], className="d-flex justify-content-between align-items-center mb-4"),
     
-    dbc.Row([
-        dbc.Col([
-            html.Div([
-                html.Div(html.H5("Add New Company", className="mb-0 fw-bold", style={"color": "var(--color-text-heading)"}), className="card-header"),
-                html.Div([
-                    dbc.Label("Company Name", className="small text-muted text-uppercase fw-bold"),
-                    dbc.Input(id="page-new-company-name", placeholder="e.g. Acme Corp", type="text", className="mb-3", size="sm"),
-                    
-                    dbc.Label("Username", className="small text-muted text-uppercase fw-bold"),
-                    dbc.Input(id="page-new-company-username", placeholder="Login username", type="text", className="mb-3", size="sm"),
-                    
-                    dbc.Label("Password", className="small text-muted text-uppercase fw-bold"),
-                    dbc.Input(id="page-new-company-password", placeholder="Login password", type="password", className="mb-3", size="sm"),
-                    
-                    dbc.Label("Initial Permissions", className="small text-muted text-uppercase fw-bold"),
-                    dbc.Checklist(
-                        options=permissions_options,
-                        value=["can_view_scoped"],
-                        id="page-new-company-perms",
-                        switch=True,
-                        className="mb-4"
-                    ),
-                    
-                    dbc.Button("Add Company", id="page-btn-add-company", color="primary", size="sm", className="w-100"),
-                    html.Div(id="page-add-company-status", className="small mt-2")
-                ], className="card-body")
-            ], className="custom-card mb-4")
-        ], md=5),
-        
-        dbc.Col([
-            html.Div([
-                html.Div(html.H5("Manage Existing Company", className="mb-0 fw-bold", style={"color": "var(--color-text-heading)"}), className="card-header"),
-                html.Div([
-                    dbc.Label("Select Company", className="small text-muted text-uppercase fw-bold"),
-                    dcc.Dropdown(id="page-manage-perms-user-select", options=[], placeholder="Choose a company...", className="mb-4"),
-                    
-                    html.Div(id="manage-perms-container", style={"display": "none"}, children=[
-                        dbc.Label("Granted Permissions", className="small text-muted text-uppercase fw-bold"),
-                        dbc.Checklist(
-                            options=permissions_options,
-                            value=[],
-                            id="page-manage-perms-switches",
-                            switch=True,
-                            className="mb-3"
-                        ),
-                        dbc.Button("Save Permissions", id="page-btn-save-permissions", color="primary", outline=True, size="sm", className="mb-4 w-100"),
-                        html.Div(id="page-manage-perms-status", className="small mt-2 mb-4"),
-                        
-                        html.Hr(),
-                        
-                        # Danger Zone
-                        html.Div([
-                            html.H6("Danger Zone", className="text-danger fw-bold mb-3"),
-                            html.Div([
-                                html.Div([
-                                    html.Strong("Deactivate Account", className="text-danger"),
-                                    html.P("Revoke all access. Historical logs and uploaded files will be preserved.", className="small text-muted mb-0")
-                                ], style={"flex": 1}),
-                                dbc.Button("Deactivate", id="page-btn-remove-company", color="danger", outline=True, size="sm", className="align-self-center ms-3")
-                            ], className="d-flex border border-danger rounded p-3 mb-2")
-                        ], className="mt-2")
-                    ])
-                ], className="card-body")
-            ], className="custom-card mb-4"),
+    html.Div(id="admin-manage-status", style={"display": "none"}), # Hidden trigger for reloads
+
+    # Cards Grid
+    html.Div(id="admin-cards-container", className="row g-4 mb-5"),
+
+    # Offcanvas Side-Panel
+    dbc.Offcanvas(
+        [
+            html.H4(id="offcanvas-username", className="fw-bold mb-4", style={"color": "var(--color-text-heading)"}),
+            dbc.Label("Granted Permissions", className="small text-muted text-uppercase fw-bold"),
+            dbc.Checklist(
+                options=[
+                    {"label": " View Global Data", "value": "can_view_global"},
+                    {"label": " View Scoped Data", "value": "can_view_scoped"},
+                    {"label": " Upload Files", "value": "can_upload_files"}
+                ],
+                value=[],
+                id="offcanvas-perms-switches",
+                switch=True,
+                className="mb-4"
+            ),
+            dbc.Button("Save Permissions", id="offcanvas-btn-save", color="primary", size="sm", className="w-100 mb-2"),
+            html.Div(id="offcanvas-save-status", className="small mt-2 mb-4"),
             
-            html.Div(id="page-remove-company-status", className="small mt-2")
-        ], md=7)
-    ])
+            html.Hr(),
+            html.H6("Danger Zone", className="text-danger fw-bold mb-3"),
+            dbc.Button("Deactivate User", id="offcanvas-btn-deactivate", color="danger", outline=True, size="sm", className="w-100"),
+        ],
+        id="admin-offcanvas",
+        is_open=False,
+        placement="end",
+        title="Manage User"
+    ),
+
+    # Add Modal
+    dbc.Modal([
+        dbc.ModalHeader(dbc.ModalTitle("Add New Company")),
+        dbc.ModalBody([
+            dbc.Label("Company Name", className="small text-muted text-uppercase fw-bold"),
+            dbc.Input(id="page-new-company-name", placeholder="e.g. Acme Corp", type="text", className="mb-3"),
+            
+            dbc.Label("Username", className="small text-muted text-uppercase fw-bold"),
+            dbc.Input(id="page-new-company-username", placeholder="Login username", type="text", className="mb-3"),
+            
+            dbc.Label("Password", className="small text-muted text-uppercase fw-bold"),
+            dbc.Input(id="page-new-company-password", placeholder="Login password", type="password", className="mb-3"),
+            
+            dbc.Label("Initial Permissions", className="small text-muted text-uppercase fw-bold"),
+            dbc.Checklist(
+                options=[
+                    {"label": " View Global Data", "value": "can_view_global"},
+                    {"label": " View Scoped Data", "value": "can_view_scoped"},
+                    {"label": " Upload Files", "value": "can_upload_files"}
+                ],
+                value=["can_view_scoped"],
+                id="page-new-company-perms",
+                switch=True,
+                className="mb-3"
+            ),
+            html.Div(id="page-add-company-status", className="small mt-2")
+        ]),
+        dbc.ModalFooter([
+            dbc.Button("Cancel", id="page-btn-add-cancel", color="secondary", outline=True),
+            dbc.Button("Add Company", id="page-btn-add-company", color="primary")
+        ])
+    ], id="admin-add-modal", is_open=False)
 ])
 
+def create_card(username, company_name, perms):
+    initials = company_name[:2].upper() if company_name else username[:2].upper()
+    total_perms = 3
+    granted_perms = len([p for p in perms if p in ["can_view_global", "can_view_scoped", "can_upload_files"]])
+    percentage = int((granted_perms / total_perms) * 100)
+    
+    return dbc.Col([
+        html.Div([
+            html.Div([
+                html.Div(initials, className="initials-bubble mx-auto mb-3"),
+                html.H5(company_name, className="fw-bold mb-1", style={"color": "var(--color-text-heading)"}),
+                html.P(f"User: {username} | Access: {percentage}%", className="small text-muted mb-3 fw-bold"),
+                dbc.Progress(value=percentage, color="primary", className="mb-4", style={"height": "6px", "borderRadius": "4px"}),
+                dbc.Button("Manage", id={"type": "manage-btn", "index": username}, color="primary", outline=True, size="sm", className="w-100 fw-bold")
+            ], className="card-body text-center p-4")
+        ], className="custom-card shadow-sm h-100 hover-lift")
+    ], xs=12, sm=6, md=4, lg=3)
+
+
 @callback(
-    Output("page-manage-perms-user-select", "options"),
+    Output("admin-cards-container", "children"),
     Input("auth-state", "data"),
-    Input("page-btn-add-company", "n_clicks"),
-    Input("page-btn-remove-company", "n_clicks")
+    Input("admin-manage-status", "children"),
+    prevent_initial_call=False
 )
-def populate_dropdowns(auth_state, add_clicks, remove_clicks):
+def load_cards(auth_state, status):
     if not auth_state:
         return []
     token = auth_state.get('token')
@@ -103,18 +120,119 @@ def populate_dropdowns(auth_state, add_clicks, remove_clicks):
         response = http_session.get(f"{API_BASE_URL}/users", headers=headers)
         if response.status_code == 200:
             users = response.json()
-            options = [
-                {"label": u["user"], "value": key}
-                for key, u in users.items()
-                if u.get("user") != "Admin"
-            ]
-            return options
+            cards = []
+            for username, data in users.items():
+                if data.get("user") == "Admin":
+                    continue
+                perms = data.get("permissions", [])
+                company_name = data.get("user", username)
+                cards.append(create_card(username, company_name, perms))
+            return cards
     except:
         pass
     return []
 
+# Open Offcanvas when Manage is clicked
+@callback(
+    Output("admin-offcanvas", "is_open"),
+    Output("offcanvas-username", "children"),
+    Output("offcanvas-perms-switches", "value"),
+    Output("offcanvas-save-status", "children", allow_duplicate=True),
+    Input({"type": "manage-btn", "index": ALL}, "n_clicks"),
+    State("auth-state", "data"),
+    State("admin-offcanvas", "is_open"),
+    prevent_initial_call=True
+)
+def open_offcanvas(manage_clicks, auth_state, is_open):
+    if not ctx.triggered_id:
+        return is_open, no_update, no_update, no_update
+    
+    # If all clicks are None (initial load of elements), do not open
+    if not any(manage_clicks):
+        return is_open, no_update, no_update, no_update
+        
+    username = ctx.triggered_id["index"]
+    token = auth_state.get('token') if auth_state else None
+    
+    # Fetch specific user permissions
+    perms = []
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        response = http_session.get(f"{API_BASE_URL}/users", headers=headers)
+        if response.status_code == 200:
+            users = response.json()
+            if username in users:
+                perms = users[username].get("permissions", [])
+    except:
+        pass
+
+    return True, username, perms, ""
+
+@callback(
+    Output("offcanvas-save-status", "children"),
+    Output("admin-manage-status", "children", allow_duplicate=True),
+    Input("offcanvas-btn-save", "n_clicks"),
+    State("offcanvas-username", "children"),
+    State("offcanvas-perms-switches", "value"),
+    State("auth-state", "data"),
+    prevent_initial_call=True
+)
+def save_perms(n_clicks, username, switches, auth_state):
+    if not n_clicks: return no_update, no_update
+    token = auth_state.get('token') if auth_state else None
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        req_data = {"username": username, "permissions": switches or []}
+        response = http_session.post(f"{API_BASE_URL}/users/permissions", headers=headers, json=req_data)
+        if response.status_code == 200:
+            return html.Span("Permissions saved successfully.", className="text-success"), "reload"
+        return html.Span("Error saving permissions.", className="text-danger"), no_update
+    except:
+        return html.Span("API Error.", className="text-danger"), no_update
+
+@callback(
+    Output("admin-offcanvas", "is_open", allow_duplicate=True),
+    Output("admin-manage-status", "children", allow_duplicate=True),
+    Input("offcanvas-btn-deactivate", "n_clicks"),
+    State("offcanvas-username", "children"),
+    State("auth-state", "data"),
+    prevent_initial_call=True
+)
+def deactivate_user(n_clicks, username, auth_state):
+    if not n_clicks: return no_update, no_update
+    token = auth_state.get('token') if auth_state else None
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        response = http_session.post(f"{API_BASE_URL}/users/remove", headers=headers, json={"username": username})
+        if response.status_code == 200:
+            return False, "reload"
+    except:
+        pass
+    return no_update, no_update
+
+@callback(
+    Output("admin-add-modal", "is_open"),
+    Input("admin-btn-add-modal", "n_clicks"),
+    Input("page-btn-add-cancel", "n_clicks"),
+    Input("page-btn-add-company", "n_clicks"),
+    State("admin-add-modal", "is_open"),
+    State("page-new-company-name", "value"),
+    State("page-new-company-username", "value"),
+    State("page-new-company-password", "value"),
+)
+def toggle_modal(btn1, btn2, btn3, is_open, name, user, pwd):
+    ctx_id = ctx.triggered_id
+    if not ctx_id:
+        return is_open
+    if ctx_id == "page-btn-add-company":
+        if not name or not user or not pwd:
+            return True
+        return False
+    return not is_open
+
 @callback(
     Output("page-add-company-status", "children"),
+    Output("admin-manage-status", "children", allow_duplicate=True),
     Input("page-btn-add-company", "n_clicks"),
     State("page-new-company-name", "value"),
     State("page-new-company-username", "value"),
@@ -124,84 +242,16 @@ def populate_dropdowns(auth_state, add_clicks, remove_clicks):
     prevent_initial_call=True
 )
 def add_company(n_clicks, company_name, username, password, perms, auth_state):
-    if not n_clicks: return dash.no_update
+    if not n_clicks: return no_update, no_update
     if not company_name or not username or not password:
-        return html.Span("All fields required.", className="text-danger")
+        return html.Span("All fields required.", className="text-danger"), no_update
     token = auth_state.get('token') if auth_state else None
     try:
         headers = {"Authorization": f"Bearer {token}"}
         req_data = {"username": username, "password": password, "company_name": company_name, "permissions": perms or []}
         response = http_session.post(f"{API_BASE_URL}/users/add", headers=headers, json=req_data)
         if response.status_code == 200:
-            return html.Span(response.json().get("message"), className="text-success fw-bold")
-        return html.Span(response.json().get("detail", "Error"), className="text-danger")
+            return "", "reload"
+        return html.Span(response.json().get("detail", "Error"), className="text-danger"), no_update
     except:
-        return html.Span("API Error", className="text-danger")
-
-@callback(
-    Output("manage-perms-container", "style"),
-    Output("page-manage-perms-switches", "value"),
-    Output("page-manage-perms-status", "children", allow_duplicate=True),
-    Input("page-manage-perms-user-select", "value"),
-    State("auth-state", "data"),
-    prevent_initial_call=True
-)
-def load_user_perms(username, auth_state):
-    if not username:
-        return {"display": "none"}, [], ""
-    token = auth_state.get('token') if auth_state else None
-    try:
-        headers = {"Authorization": f"Bearer {token}"}
-        response = http_session.get(f"{API_BASE_URL}/users", headers=headers)
-        if response.status_code == 200:
-            users = response.json()
-            if username in users:
-                perms = users[username].get("permissions", [])
-                return {"display": "block"}, perms, ""
-    except:
-        pass
-    return {"display": "block"}, [], html.Span("Error loading permissions", className="text-danger")
-
-@callback(
-    Output("page-remove-company-status", "children"),
-    Input("page-btn-remove-company", "n_clicks"),
-    State("page-manage-perms-user-select", "value"),
-    State("auth-state", "data"),
-    prevent_initial_call=True
-)
-def remove_company(n_clicks, username, auth_state):
-    if not n_clicks: return dash.no_update
-    if not username:
-        return html.Span("Select a company first.", className="text-danger")
-    token = auth_state.get('token') if auth_state else None
-    try:
-        headers = {"Authorization": f"Bearer {token}"}
-        response = http_session.post(f"{API_BASE_URL}/users/remove", headers=headers, json={"username": username})
-        if response.status_code == 200:
-            return html.Span(response.json().get("message"), className="text-success fw-bold")
-        return html.Span(response.json().get("detail", "Error"), className="text-danger")
-    except:
-        return html.Span("API Error", className="text-danger")
-
-@callback(
-    Output("page-manage-perms-status", "children"),
-    Input("page-btn-save-permissions", "n_clicks"),
-    State("page-manage-perms-user-select", "value"),
-    State("page-manage-perms-switches", "value"),
-    State("auth-state", "data"),
-    prevent_initial_call=True
-)
-def save_perms(n_clicks, username, switches, auth_state):
-    if not n_clicks: return dash.no_update
-    if not username:
-        return html.Span("Select a company.", className="text-danger")
-    token = auth_state.get('token') if auth_state else None
-    try:
-        headers = {"Authorization": f"Bearer {token}"}
-        req_data = {"username": username, "permissions": switches or []}
-        response = http_session.post(f"{API_BASE_URL}/users/permissions", headers=headers, json=req_data)
-        if response.status_code == 200:
-            return html.Span(response.json().get("message"), className="text-success fw-bold")
-        return html.Span(response.json().get("detail", "Error"), className="text-danger")
-    except:
-        return html.Span("API Error", className="text-danger")
+        return html.Span("API Error", className="text-danger"), no_update
