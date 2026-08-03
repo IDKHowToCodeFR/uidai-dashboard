@@ -1,11 +1,11 @@
 import dash
-from dash import html, dcc, callback, Input, Output
+from dash import html, dcc, callback, Input, Output, State
 from dash_bootstrap_components import Container, Row, Col, Card, CardHeader, CardBody
 import dash_ag_grid as dag
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from utils.theme import get_plotly_template
+from utils.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
 
 dash.register_page(__name__, path='/date-comparison', name='Date Comparison')
 
@@ -30,7 +30,10 @@ layout = Container([
         Col([
             html.H2("Specific Date Comparison", className="display-xl mb-2"),
             html.P("Compare key performance metrics across selected discrete dates and days of the week.", className="text-muted mb-4")
-        ], width=12)
+        ], width=8),
+        Col([
+            make_export_dropdown("compare")
+        ], width=4, className="d-flex align-items-center justify-content-end mb-4")
     ]),
 
     Row([
@@ -79,8 +82,8 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader("Company Performance (Volume & SL%)"),
-                CardBody(dcc.Graph(id='compare-volume-chart', config={'displayModeBar': False}))
+                CardHeader(make_header_with_download("Company Performance (Volume & SL%)", "compare-volume-chart")),
+                CardBody(wrap_graph_with_download("compare-volume-chart", dcc.Graph(id='compare-volume-chart', config={'displayModeBar': False})))
             ], className="custom-card h-100")
         ], width=12, className="mb-4"),
     ]),
@@ -89,8 +92,8 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader("Hourly Volume Trends"),
-                CardBody(dcc.Graph(id='compare-hourly-chart', config={'displayModeBar': False}))
+                CardHeader(make_header_with_download("Hourly Volume Trends", "compare-hourly-chart")),
+                CardBody(wrap_graph_with_download("compare-hourly-chart", dcc.Graph(id='compare-hourly-chart', config={'displayModeBar': False})))
             ], className="custom-card h-100")
         ], width=12, className="mb-4"),
     ]),
@@ -99,8 +102,8 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader("Abandonment Flow"),
-                CardBody(dcc.Graph(id='compare-funnel-chart', config={'displayModeBar': False}, style={'height': '450px'}))
+                CardHeader(make_header_with_download("Abandonment Flow", "compare-funnel-chart")),
+                CardBody(wrap_graph_with_download("compare-funnel-chart", dcc.Graph(id='compare-funnel-chart', config={'displayModeBar': False}, style={'height': '450px'})))
             ], className="custom-card h-100")
         ], width=12, className="mb-4"),
     ]),
@@ -109,15 +112,15 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader("Total Volume by Language"),
-                CardBody(dcc.Graph(id='compare-lang-chart', config={'displayModeBar': False}, style={'height': '450px'}))
+                CardHeader(make_header_with_download("Total Volume by Language", "compare-lang-chart")),
+                CardBody(wrap_graph_with_download("compare-lang-chart", dcc.Graph(id='compare-lang-chart', config={'displayModeBar': False}, style={'height': '450px'})))
             ], className="custom-card h-100")
         ], width=12, lg=6, className="mb-4"),
         
         Col([
             Card([
-                CardHeader("Vendor Performance Footprint (Averaged)"),
-                CardBody(dcc.Graph(id='compare-radar-chart', config={'displayModeBar': False}, style={'height': '450px'}))
+                CardHeader(make_header_with_download("Vendor Performance Footprint (Averaged)", "compare-radar-chart")),
+                CardBody(wrap_graph_with_download("compare-radar-chart", dcc.Graph(id='compare-radar-chart', config={'displayModeBar': False}, style={'height': '450px'})))
             ], className="custom-card h-100")
         ], width=12, lg=6, className="mb-4"),
     ]),
@@ -476,3 +479,72 @@ def update_comparison_charts(data, selected_dates, selected_days, companies, lan
     )
         
     return kpis, fig_vol, fig_heat, fig_funnel, fig_lang, fig_radar, data_table
+
+# CSV Export Callback
+@callback(
+    Output("download-dataframe-csv", "data", allow_duplicate=True),
+    Input("btn-export-csv-compare", "n_clicks"),
+    State('data-store', 'data'),
+    State('discrete-date-selector', 'value'),
+    State('day-of-week-selector', 'value'),
+    prevent_initial_call=True
+)
+def export_csv_compare(n_clicks, data, selected_dates, selected_days):
+    if not n_clicks or not data:
+        return dash.no_update
+    df = pd.DataFrame(data)
+    
+    date_col = 'Date' if 'Date' in df.columns else 'Timestamp' if 'Timestamp' in df.columns else 'Call Start Time' if 'Call Start Time' in df.columns else None
+    if date_col:
+        df['Date'] = pd.to_datetime(df[date_col])
+        df['DayOfWeek'] = df['Date'].dt.day_name()
+        
+        # Apply filters
+        if selected_dates and selected_days:
+            df = df[df['Date'].dt.strftime('%Y-%m-%d').isin(selected_dates) | df['DayOfWeek'].isin(selected_days)]
+        elif selected_dates:
+            df = df[df['Date'].dt.strftime('%Y-%m-%d').isin(selected_dates)]
+        elif selected_days:
+            df = df[df['DayOfWeek'].isin(selected_days)]
+            
+        if 'DayOfWeek' in df.columns:
+            df = df.drop(columns=['DayOfWeek'])
+
+    if 'Date' in df.columns:
+        df = df.drop(columns=['Date'])
+
+    return dcc.send_data_frame(df.to_csv, "comparison_data.csv", index=False)
+
+# PDF and JPG Page Export Callbacks
+dash.clientside_callback(
+    dash.ClientsideFunction(
+        namespace='clientside',
+        function_name='export_pdf'
+    ),
+    Output('btn-export-pdf-compare', 'title'), # Dummy output
+    Input('btn-export-pdf-compare', 'n_clicks'),
+    prevent_initial_call=True
+)
+
+dash.clientside_callback(
+    dash.ClientsideFunction(
+        namespace='clientside',
+        function_name='export_jpg'
+    ),
+    Output('btn-export-jpg-compare', 'title'), # Dummy output
+    Input('btn-export-jpg-compare', 'n_clicks'),
+    prevent_initial_call=True
+)
+
+# Individual Chart JPG Export Callbacks
+for graph_id in ['compare-volume-chart', 'compare-hourly-chart', 'compare-funnel-chart', 'compare-lang-chart', 'compare-radar-chart']:
+    dash.clientside_callback(
+        dash.ClientsideFunction(
+            namespace='clientside',
+            function_name='export_chart_jpg'
+        ),
+        Output(f"btn-download-{graph_id}", "title"), # Dummy output
+        Input(f"btn-download-{graph_id}", "n_clicks"),
+        State(graph_id, "id"),
+        prevent_initial_call=True
+    )

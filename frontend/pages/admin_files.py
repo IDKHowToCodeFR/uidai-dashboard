@@ -12,14 +12,18 @@ from auth import API_BASE_URL
 dash.register_page(__name__, path='/admin-files', name='File Repository')
 
 layout = html.Div([
-    html.H2("File Repository", className="mb-4 text-primary fw-bold"),
     html.Div([
-        dbc.Button(html.I(className="bi bi-arrow-clockwise"), id="btn-refresh-files", color="light", className="me-2 mb-3"),
-        dbc.Button([html.I(className="bi bi-download me-2"), "Export List"], id="btn-export-files", color="primary", outline=True, className="mb-3"),
+        html.H5("File Repository", className="mb-0 fw-bold", style={"color": "var(--color-text-heading)"}),
+        html.Div([
+            dbc.Button([html.I(className="bi bi-arrow-clockwise me-2"), "Refresh"], id="btn-refresh-files", color="primary", size="sm", className="me-2"),
+            dbc.Button([html.I(className="bi bi-download me-2"), "Export List"], id="btn-export-files", color="primary", outline=True, size="sm"),
+        ])
+    ], className="card-header d-flex justify-content-between align-items-center"),
+    html.Div([
         html.Div(id="files-table-container")
-    ]),
-    dcc.Download(id="download-raw-file")
-])
+    ], className="card-body")
+], className="custom-card mb-4"),
+dcc.Download(id="download-raw-file")
 
 def get_time_group(iso_time_str):
     try:

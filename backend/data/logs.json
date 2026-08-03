@@ -78,39 +78,51 @@
     "details": "User uidai logged in successfully"
   },
   {
-    "timestamp": "2026-08-03T11:36:17.610902",
+    "timestamp": "2026-08-03T11:24:11.680637",
     "action": "LOGIN_SUCCESS",
     "username": "admin",
     "details": "User admin logged in successfully"
   },
   {
-    "timestamp": "2026-08-03T11:43:33.088011",
-    "action": "LOGIN_SUCCESS",
-    "username": "admin",
-    "details": "User admin logged in successfully"
-  },
-  {
-    "timestamp": "2026-08-03T11:43:49.781826",
+    "timestamp": "2026-08-03T11:43:38.287966",
     "action": "LOGIN_SUCCESS",
     "username": "uidai",
     "details": "User uidai logged in successfully"
   },
   {
-    "timestamp": "2026-08-03T11:45:33.069787",
-    "action": "LOGIN_SUCCESS",
-    "username": "admin",
-    "details": "User admin logged in successfully"
-  },
-  {
-    "timestamp": "2026-08-03T11:46:12.473649",
+    "timestamp": "2026-08-03T11:53:44.760938",
     "action": "LOGIN_SUCCESS",
     "username": "uidai",
     "details": "User uidai logged in successfully"
   },
   {
-    "timestamp": "2026-08-03T12:07:38.688226",
+    "timestamp": "2026-08-03T11:53:55.323728",
     "action": "LOGIN_SUCCESS",
-    "username": "admin",
-    "details": "User admin logged in successfully"
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T11:56:52.216648",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T12:12:19.035041",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T12:16:18.832717",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T12:23:45.579689",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
   }
 ]

@@ -9,24 +9,29 @@ dash.register_page(__name__, path='/admin-logs', name='System Logs')
 
 layout = html.Div([
     html.Div([
-        html.H2("System Terminal Logs", className="mb-0 text-light fw-bold"),
         html.Div([
-            dbc.Button("Load All Logs", id="btn-load-all-logs", color="outline-light", size="sm", className="me-2"),
-            dbc.Button(html.I(className="bi bi-arrow-clockwise"), id="btn-refresh-logs", color="light", size="sm"),
-        ])
-    ], className="d-flex justify-content-between align-items-center mb-3 bg-dark p-3 rounded"),
-    
-    html.Div(
-        id="system-logs",
-        className="bg-dark text-success p-3 rounded",
-        style={
-            "height": "650px", 
-            "overflowY": "auto", 
-            "fontFamily": "monospace", 
-            "whiteSpace": "pre-wrap",
-            "border": "1px solid #444"
-        }
-    ),
+            html.H5("System Logs", className="mb-0 fw-bold", style={"color": "var(--color-text-heading)"}),
+            html.Div([
+                dbc.Button("Load All Logs", id="btn-load-all-logs", color="primary", outline=True, size="sm", className="me-2"),
+                dbc.Button(html.I(className="bi bi-arrow-clockwise"), id="btn-refresh-logs", color="primary", size="sm"),
+            ])
+        ], className="card-header d-flex justify-content-between align-items-center"),
+        
+        html.Div([
+            html.Div(
+                id="system-logs",
+                className="bg-light text-dark p-3 rounded",
+                style={
+                    "height": "650px", 
+                    "overflowY": "auto", 
+                    "fontFamily": "monospace", 
+                    "whiteSpace": "pre-wrap",
+                    "border": "1px solid var(--color-border-light)",
+                    "fontSize": "13px"
+                }
+            )
+        ], className="card-body")
+    ], className="custom-card mb-4"),
     
     # Hidden store to track if we should load all
     dcc.Store(id="store-load-all", data=False)

@@ -1,11 +1,12 @@
 import dash
-from dash import html, dcc, callback, Input, Output
+from dash import html, dcc, callback, Input, Output, State
 from dash_bootstrap_components import Container, Row, Col, Card, CardHeader, CardBody
 import dash_ag_grid as dag
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from utils.theme import get_plotly_template
+from utils.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
+import dash_bootstrap_components as dbc
 
 dash.register_page(__name__, path='/', name='Dashboard')
 
@@ -27,7 +28,10 @@ layout = Container([
     Row([
         Col([
             html.H2("Call Center Performance", className="display-xl mb-4")
-        ], width=12)
+        ], width=8),
+        Col([
+            make_export_dropdown("dashboard")
+        ], width=4, className="d-flex align-items-center justify-content-end mb-4")
     ]),
 
     # KPI Row
@@ -37,15 +41,15 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader("Service Level Trend (%)"),
-                CardBody(dcc.Graph(id='sl-trend', config={'displayModeBar': False}))
+                CardHeader(make_header_with_download("Service Level Trend (%)", "sl-trend")),
+                CardBody(wrap_graph_with_download("sl-trend", dcc.Graph(id='sl-trend', config={'displayModeBar': False})))
             ], className="custom-card h-100")
         ], width=12, lg=7, className="mb-4"),
 
         Col([
             Card([
-                CardHeader("Volume by Language"),
-                CardBody(dcc.Graph(id='lang-pie', config={'displayModeBar': False}))
+                CardHeader(make_header_with_download("Volume by Language", "lang-pie")),
+                CardBody(wrap_graph_with_download("lang-pie", dcc.Graph(id='lang-pie', config={'displayModeBar': False})))
             ], className="custom-card h-100")
         ], width=12, lg=5, className="mb-4"),
     ]),
@@ -54,22 +58,22 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader("Talk Time Distribution (s)"),
-                CardBody(dcc.Graph(id='talk-hist', config={'displayModeBar': False}))
+                CardHeader(make_header_with_download("Talk Time Distribution (s)", "talk-hist")),
+                CardBody(wrap_graph_with_download("talk-hist", dcc.Graph(id='talk-hist', config={'displayModeBar': False})))
             ], className="custom-card h-100")
         ], width=12, lg=4, className="mb-4"),
 
         Col([
             Card([
-                CardHeader("Wrap Time (ACW) Distribution (s)"),
-                CardBody(dcc.Graph(id='wrap-hist', config={'displayModeBar': False}))
+                CardHeader(make_header_with_download("Wrap Time (ACW) Distribution (s)", "wrap-hist")),
+                CardBody(wrap_graph_with_download("wrap-hist", dcc.Graph(id='wrap-hist', config={'displayModeBar': False})))
             ], className="custom-card h-100")
         ], width=12, lg=4, className="mb-4"),
         
         Col([
             Card([
-                CardHeader("Hold Time Distribution (s)"),
-                CardBody(dcc.Graph(id='hold-hist', config={'displayModeBar': False}))
+                CardHeader(make_header_with_download("Hold Time Distribution (s)", "hold-hist")),
+                CardBody(wrap_graph_with_download("hold-hist", dcc.Graph(id='hold-hist', config={'displayModeBar': False})))
             ], className="custom-card h-100")
         ], width=12, lg=4, className="mb-4")
     ]),
@@ -78,8 +82,8 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader("Average Intraday Performance (Volume & SL)"),
-                CardBody(dcc.Graph(id='intraday-chart-overall', config={'displayModeBar': False}, style={'height': '400px'}))
+                CardHeader(make_header_with_download("Average Intraday Performance (Volume & SL)", "intraday-chart-overall")),
+                CardBody(wrap_graph_with_download("intraday-chart-overall", dcc.Graph(id='intraday-chart-overall', config={'displayModeBar': False}, style={'height': '400px'})))
             ], className="custom-card h-100")
         ], width=12, className="mb-4")
     ]),
@@ -102,8 +106,8 @@ layout = Container([
                         clearable=False,
                         style={"width": "180px", "display": "inline-block", "float": "right", "marginTop": "-5px"}
                     )
-                ])),
-                CardBody(dcc.Graph(id='aht-line-chart', config={'displayModeBar': False}))
+                ], className="d-flex justify-content-between align-items-center w-100")),
+                CardBody(wrap_graph_with_download("aht-line-chart", dcc.Graph(id='aht-line-chart', config={'displayModeBar': False})))
             ], className="custom-card h-100")
         ], width=12, className="mb-4")
     ])
@@ -307,3 +311,80 @@ def update_dashboard(data, company_filter, language_filter, start_date, end_date
     fig_agent.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), showlegend=True)
 
     return kpis, fig_sl, fig_lang, fig_talk, fig_wrap, fig_hold, fig_intra, fig_agent
+
+# CSV Export Callback
+@callback(
+    Output("download-dataframe-csv", "data", allow_duplicate=True),
+    Input("btn-export-csv-dashboard", "n_clicks"),
+    State('data-store', 'data'),
+    State('company-filter', 'value'),
+    State('language-filter', 'value'),
+    State('date-picker-range', 'start_date'),
+    State('date-picker-range', 'end_date'),
+    prevent_initial_call=True
+)
+def export_csv_dashboard(n_clicks, data, company_filter, language_filter, start_date, end_date):
+    if not n_clicks or not data:
+        return dash.no_update
+    df = pd.DataFrame(data)
+    
+    date_col = None
+    if 'Timestamp' in df.columns:
+        date_col = 'Timestamp'
+    elif 'Date' in df.columns:
+        date_col = 'Date'
+    elif 'Call Start Time' in df.columns:
+        date_col = 'Call Start Time'
+
+    if date_col:
+        df['Date'] = pd.to_datetime(df[date_col])
+    else:
+        df['Date'] = pd.NaT
+
+    if company_filter and 'Company' in df.columns:
+        df = df[df['Company'].isin(company_filter)]
+    if language_filter and 'Language' in df.columns:
+        df = df[df['Language'].isin(language_filter)]
+
+    if start_date and end_date and date_col:
+        start_dt, end_dt = pd.to_datetime(start_date), pd.to_datetime(end_date)
+        df = df[(df['Date'] >= start_dt) & (df['Date'] <= end_dt)]
+
+    if 'Date' in df.columns:
+        df = df.drop(columns=['Date'])
+
+    return dcc.send_data_frame(df.to_csv, "dashboard_data.csv", index=False)
+
+# PDF and JPG Page Export Callbacks
+dash.clientside_callback(
+    dash.ClientsideFunction(
+        namespace='clientside',
+        function_name='export_pdf'
+    ),
+    Output('btn-export-pdf-dashboard', 'title'), # Dummy output
+    Input('btn-export-pdf-dashboard', 'n_clicks'),
+    prevent_initial_call=True
+)
+
+dash.clientside_callback(
+    dash.ClientsideFunction(
+        namespace='clientside',
+        function_name='export_jpg'
+    ),
+    Output('btn-export-jpg-dashboard', 'title'), # Dummy output
+    Input('btn-export-jpg-dashboard', 'n_clicks'),
+    prevent_initial_call=True
+)
+
+# Individual Chart JPG Export Callbacks
+for graph_id in ['sl-trend', 'lang-pie', 'talk-hist', 'wrap-hist', 'hold-hist', 'intraday-chart-overall', 'aht-line-chart']:
+    dash.clientside_callback(
+        dash.ClientsideFunction(
+            namespace='clientside',
+            function_name='export_chart_jpg'
+        ),
+        Output(f"btn-download-{graph_id}", "title"), # Dummy output
+        Input(f"btn-download-{graph_id}", "n_clicks"),
+        State(graph_id, "id"),
+        prevent_initial_call=True
+    )
