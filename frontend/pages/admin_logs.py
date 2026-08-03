@@ -16,7 +16,7 @@ layout = html.Div([
     ], className="d-flex justify-content-between align-items-center mb-3 bg-dark p-3 rounded"),
     
     html.Div(
-        id="logs-terminal-container",
+        id="system-logs",
         className="bg-dark text-success p-3 rounded",
         style={
             "height": "650px", 
