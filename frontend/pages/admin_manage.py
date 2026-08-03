@@ -30,7 +30,8 @@ layout = html.Div([
                 options=[
                     {"label": " View Global Data", "value": "can_view_global"},
                     {"label": " View Scoped Data", "value": "can_view_scoped"},
-                    {"label": " Upload Files", "value": "can_upload_files"}
+                    {"label": " Upload Files", "value": "can_upload_files"},
+                    {"label": " Download Files", "value": "can_download_files"}
                 ],
                 value=[],
                 id="offcanvas-perms-switches",
@@ -68,7 +69,8 @@ layout = html.Div([
                 options=[
                     {"label": " View Global Data", "value": "can_view_global"},
                     {"label": " View Scoped Data", "value": "can_view_scoped"},
-                    {"label": " Upload Files", "value": "can_upload_files"}
+                    {"label": " Upload Files", "value": "can_upload_files"},
+                    {"label": " Download Files", "value": "can_download_files"}
                 ],
                 value=["can_view_scoped"],
                 id="page-new-company-perms",
@@ -81,13 +83,27 @@ layout = html.Div([
             dbc.Button("Cancel", id="page-btn-add-cancel", color="secondary", outline=True),
             dbc.Button("Add Company", id="page-btn-add-company", color="primary")
         ])
-    ], id="admin-add-modal", is_open=False)
+    ], id="admin-add-modal", is_open=False),
+
+    # Safe Deletion Modal
+    dbc.Modal([
+        dbc.ModalHeader(dbc.ModalTitle("Confirm Deactivation", className="text-danger")),
+        dbc.ModalBody([
+            html.P("This action is destructive and will prevent the user from logging in or accessing the API."),
+            html.P(["Please type the username ", html.Strong(id="deactivate-target-username"), " to confirm."]),
+            dbc.Input(id="deactivate-confirm-input", placeholder="Type username here...", type="text", className="mb-3"),
+        ]),
+        dbc.ModalFooter([
+            dbc.Button("Cancel", id="modal-btn-deactivate-cancel", color="secondary", outline=True),
+            dbc.Button("Deactivate User", id="modal-btn-deactivate-confirm", color="danger", disabled=True)
+        ])
+    ], id="admin-deactivate-modal", is_open=False)
 ])
 
 def create_card(username, company_name, perms):
     initials = company_name[:2].upper() if company_name else username[:2].upper()
-    total_perms = 3
-    granted_perms = len([p for p in perms if p in ["can_view_global", "can_view_scoped", "can_upload_files"]])
+    total_perms = 4
+    granted_perms = len([p for p in perms if p in ["can_view_global", "can_view_scoped", "can_upload_files", "can_download_files"]])
     percentage = int((granted_perms / total_perms) * 100)
     
     return dbc.Col([
@@ -191,24 +207,50 @@ def save_perms(n_clicks, username, switches, auth_state):
         return html.Span("API Error.", className="text-danger"), no_update
 
 @callback(
+    Output("admin-deactivate-modal", "is_open"),
+    Output("deactivate-target-username", "children"),
+    Input("offcanvas-btn-deactivate", "n_clicks"),
+    Input("modal-btn-deactivate-cancel", "n_clicks"),
+    State("offcanvas-username", "children"),
+    State("admin-deactivate-modal", "is_open"),
+    prevent_initial_call=True
+)
+def toggle_deactivate_modal(n_open, n_close, username, is_open):
+    if ctx.triggered_id == "offcanvas-btn-deactivate":
+        return True, username
+    return False, no_update
+
+@callback(
+    Output("modal-btn-deactivate-confirm", "disabled"),
+    Input("deactivate-confirm-input", "value"),
+    State("deactivate-target-username", "children"),
+    prevent_initial_call=True
+)
+def validate_deactivate(typed_val, target_val):
+    if typed_val and target_val and typed_val.strip() == target_val.strip():
+        return False
+    return True
+
+@callback(
+    Output("admin-deactivate-modal", "is_open", allow_duplicate=True),
     Output("admin-offcanvas", "is_open", allow_duplicate=True),
     Output("admin-manage-status", "children", allow_duplicate=True),
-    Input("offcanvas-btn-deactivate", "n_clicks"),
-    State("offcanvas-username", "children"),
+    Input("modal-btn-deactivate-confirm", "n_clicks"),
+    State("deactivate-target-username", "children"),
     State("auth-state", "data"),
     prevent_initial_call=True
 )
 def deactivate_user(n_clicks, username, auth_state):
-    if not n_clicks: return no_update, no_update
+    if not n_clicks: return no_update, no_update, no_update
     token = auth_state.get('token') if auth_state else None
     try:
         headers = {"Authorization": f"Bearer {token}"}
         response = http_session.post(f"{API_BASE_URL}/users/remove", headers=headers, json={"username": username})
         if response.status_code == 200:
-            return False, "reload"
+            return False, False, "reload"
     except:
         pass
-    return no_update, no_update
+    return no_update, no_update, no_update
 
 @callback(
     Output("admin-add-modal", "is_open"),

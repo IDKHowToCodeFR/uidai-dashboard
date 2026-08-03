@@ -1,7 +1,6 @@
 import dash
-from dash import html, dcc, callback, Input, Output, State
+from dash import html, dcc, callback, Input, Output, State, ALL, MATCH
 import dash_bootstrap_components as dbc
-import dash_ag_grid as dag
 import requests
 from utils.api import http_session
 import pandas as pd
@@ -13,17 +12,30 @@ dash.register_page(__name__, path='/admin-files', name='File Repository')
 
 layout = html.Div([
     html.Div([
-        html.H5("File Repository", className="mb-0 fw-bold", style={"color": "var(--color-text-heading)"}),
         html.Div([
-            dbc.Button([html.I(className="bi bi-arrow-clockwise me-2"), "Refresh"], id="btn-refresh-files", color="primary", size="sm", className="me-2"),
-            dbc.Button([html.I(className="bi bi-download me-2"), "Export List"], id="btn-export-files", color="primary", outline=True, size="sm"),
-        ])
-    ], className="card-header d-flex justify-content-between align-items-center"),
+            html.H3("File Repository", className="display-xl mb-0"),
+            html.P("Manage and export uploaded datasets.", className="text-muted mb-0 mt-2"),
+        ]),
+        html.Div([
+            dcc.DatePickerRange(
+                id='file-date-picker',
+                min_date_allowed=date(2023, 1, 1),
+                max_date_allowed=date.today() + timedelta(days=1),
+                initial_visible_month=date.today(),
+                clearable=True,
+                className="me-3"
+            ),
+            dbc.Button("Export List", id="btn-export-files", color="success", outline=True, size="sm", className="me-2"),
+            dbc.Button(html.I(className="bi bi-arrow-clockwise"), id="btn-refresh-files", color="primary", size="sm"),
+        ], className="d-flex align-items-center")
+    ], className="d-flex justify-content-between align-items-center mb-4"),
+    
     html.Div([
         html.Div(id="files-table-container")
-    ], className="card-body")
-], className="custom-card mb-4"),
-dcc.Download(id="download-raw-file")
+    ], className="bg-transparent"),
+    
+    dcc.Download(id="download-raw-file"),
+], className="container-fluid py-4")
 
 def get_time_group(iso_time_str):
     try:
@@ -41,9 +53,11 @@ def get_time_group(iso_time_str):
 @callback(
     Output("files-table-container", "children"),
     Input("auth-state", "data"),
-    Input("btn-refresh-files", "n_clicks")
+    Input("btn-refresh-files", "n_clicks"),
+    Input("file-date-picker", "start_date"),
+    Input("file-date-picker", "end_date")
 )
-def load_files(auth_state, n_clicks):
+def load_files(auth_state, n_clicks, start_date, end_date):
     if not auth_state:
         return html.Div("Unauthorized")
     token = auth_state.get("token")
@@ -59,6 +73,25 @@ def load_files(auth_state, n_clicks):
                 
             df = pd.DataFrame(files)
             
+            # Filter by date
+            if 'time' in df.columns:
+                df['parsed_time'] = pd.to_datetime(df['time'])
+                
+                if start_date:
+                    start_dt = pd.to_datetime(start_date, utc=True).tz_localize(None)
+                    df = df[df['parsed_time'] >= start_dt]
+                    
+                if end_date:
+                    end_dt = pd.to_datetime(end_date, utc=True).tz_localize(None) + pd.Timedelta(days=1)
+                    df = df[df['parsed_time'] < end_dt]
+                    
+                df['Date Category'] = df['time'].apply(get_time_group)
+                df['time'] = df['parsed_time'].dt.strftime('%Y-%m-%d %H:%M:%S')
+                df = df.drop(columns=['parsed_time'])
+            
+            if df.empty:
+                return html.Div("No files match the selected date range.", className="text-muted")
+            
             # Format size nicely
             def format_size(size_bytes):
                 if size_bytes < 1024:
@@ -71,72 +104,104 @@ def load_files(auth_state, n_clicks):
             if 'size' in df.columns:
                 df['size'] = df['size'].apply(format_size)
                 
-            if 'time' in df.columns:
-                df['Date Category'] = df['time'].apply(get_time_group)
+            # Build List View
+            sections = []
+            
+            # Group by Date Category
+            grouped = df.groupby('Date Category')
+            
+            # Sort categories (1 - Today, 2 - Yesterday, etc.)
+            sorted_categories = sorted(grouped.groups.keys())
+            
+            for category in sorted_categories:
+                category_name = category.split(' - ')[1] if ' - ' in category else category
                 
-            # Add action button
-            df['action'] = "⬇ Download File"
+                # Header for the group
+                sections.append(
+                    html.H5(category_name, className="mt-4 mb-3 text-muted fw-bold", style={"fontSize": "0.9rem", "textTransform": "uppercase", "letterSpacing": "1px"})
+                )
                 
-            grid = dag.AgGrid(
-                id="files-grid",
-                rowData=df.to_dict("records"),
-                columnDefs=[
-                    {"field": "Date Category", "sortable": True, "filter": True},
-                    {"field": "name", "headerName": "File Name", "sortable": True, "filter": True, "flex": 1},
-                    {"field": "time", "headerName": "Upload Time", "sortable": True, "filter": True},
-                    {"field": "uploader", "headerName": "Uploader", "sortable": True, "filter": True},
-                    {"field": "size", "headerName": "Size", "sortable": True},
-                    {
-                        "field": "action", 
-                        "headerName": "Action", 
-                        "cellStyle": {"color": "blue", "cursor": "pointer", "textDecoration": "underline", "fontWeight": "bold"}
-                    }
-                ],
-                defaultColDef={"resizable": True},
-                dashGridOptions={"pagination": True, "paginationPageSize": 20},
-                csvExportParams={"fileName": "uploaded_files_list.csv"},
-                className="ag-theme-alpine",
-                style={"height": "650px"}
-            )
-            return grid
+                group_df = grouped.get_group(category)
+                
+                # Sort newest first inside group
+                group_df = group_df.sort_values(by='time', ascending=False)
+                
+                cards = []
+                for _, row in group_df.iterrows():
+                    filename = row.get('name', 'Unknown')
+                    upload_time = row.get('time', '')
+                    uploader = row.get('uploader', 'Unknown')
+                    size = row.get('size', '0 B')
+                    
+                    card = dbc.Card(
+                        dbc.CardBody([
+                            html.Div([
+                                html.Div([
+                                    html.I(className="bi bi-file-earmark-spreadsheet text-primary fs-3 me-3"),
+                                    html.Div([
+                                        html.H6(filename, className="mb-1 fw-bold text-dark"),
+                                        html.Small(f"Uploaded by {uploader} • {upload_time}", className="text-muted")
+                                    ])
+                                ], className="d-flex align-items-center"),
+                                
+                                html.Div([
+                                    html.Span(size, className="text-muted me-4 fw-medium"),
+                                    dbc.Button(
+                                        "Download", 
+                                        id={'type': 'btn-download-file', 'index': filename}, 
+                                        color="primary", 
+                                        outline=True, 
+                                        size="sm",
+                                        className="rounded-pill px-3 fw-bold"
+                                    )
+                                ], className="d-flex align-items-center")
+                                
+                            ], className="d-flex justify-content-between align-items-center")
+                        ]),
+                        className="mb-2 shadow-sm border-0",
+                        style={"borderRadius": "12px", "transition": "transform 0.2s, box-shadow 0.2s"}
+                    )
+                    cards.append(card)
+                    
+                sections.append(html.Div(cards))
+                
+            return html.Div(sections)
         return html.Div(f"Error fetching files: {response.text}", className="text-danger")
     except Exception as e:
         return html.Div(f"API Error: {str(e)}", className="text-danger")
 
 @callback(
     Output("download-raw-file", "data"),
-    Input("files-grid", "cellClicked"),
+    Input({'type': 'btn-download-file', 'index': ALL}, 'n_clicks'),
     State("auth-state", "data"),
     prevent_initial_call=True
 )
-def download_individual_file(cell_data, auth_state):
-    if not cell_data or not auth_state:
+def handle_download_click(n_clicks_list, auth_state):
+    ctx = dash.ctx
+    if not ctx.triggered or not auth_state:
         return dash.no_update
         
-    if cell_data.get('colId') == 'action':
-        row_data = cell_data.get('data', {})
-        filename = row_data.get('name')
-        if not filename:
-            return dash.no_update
-            
-        token = auth_state.get("token")
-        try:
-            headers = {"Authorization": f"Bearer {token}"}
-            response = http_session.get(f"{API_BASE_URL}/download/{filename}", headers=headers)
-            if response.status_code == 200:
-                encoded = base64.b64encode(response.content).decode()
-                return dict(content=encoded, filename=filename, base64=True)
-        except:
-            pass
-            
+    triggered_id = ctx.triggered_id
+    if not triggered_id or not isinstance(triggered_id, dict) or triggered_id.get('type') != 'btn-download-file':
+        return dash.no_update
+        
+    filename = triggered_id.get('index')
+    if not filename:
+        return dash.no_update
+        
+    token = auth_state.get("token")
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        response = http_session.get(f"{API_BASE_URL}/download/{filename}", headers=headers)
+        if response.status_code == 200:
+            encoded = base64.b64encode(response.content).decode()
+            return dict(content=encoded, filename=filename, base64=True)
+    except:
+        pass
+        
     return dash.no_update
 
-@callback(
-    Output("files-grid", "exportDataAsCsv"),
-    Input("btn-export-files", "n_clicks"),
-    prevent_initial_call=True
-)
-def export_files_grid(n):
-    if n:
-        return True
-    return False
+# We keep this just so btn-export-files has a callback, but since we removed Ag-Grid, 
+# we can remove the callback entirely, or change it to download the raw list if we want.
+# Actually, since we removed the grid, `files-grid` exportDataAsCsv doesn't exist.
+# Let's completely remove the export callback since we don't have a grid to export from anymore.
