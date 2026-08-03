@@ -8,6 +8,7 @@ from functools import lru_cache
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from backend.api.auth_utils import (
@@ -29,6 +30,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 PROCESSED_DATA_DIR = os.path.join(BASE_DIR, "data", "processed")
 
@@ -204,7 +206,7 @@ async def get_system_logs(current_user: dict = Depends(get_current_user)):
     logs.sort(key=lambda x: x['timestamp'], reverse=True)
     return logs
 
-@lru_cache(maxsize=10)
+@lru_cache(maxsize=32)
 def load_data_cached(file_path: str, mtime: float):
     # mtime is passed just to invalidate cache when file changes
     df = pd.read_csv(file_path)

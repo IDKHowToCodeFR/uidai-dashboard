@@ -3,100 +3,104 @@ from dash import html, dcc, Input, Output, State, callback
 import dash_bootstrap_components as dbc
 
 # --- LOGIN PAGE LAYOUT ---
-login_page = html.Div(
-    style={
-        "minHeight": "100vh",
-        "backgroundColor": "var(--color-bg)",
-        "display": "flex",
-        "flexDirection": "column",
-        "position": "relative",
-        "overflow": "hidden",
-    },
+login_page = dbc.Row(
+    className="g-0",
+    style={"minHeight": "100vh", "overflow": "hidden"},
     children=[
-        # --- Top brand bar ---
-        html.Div(
-            className="d-flex align-items-center px-4",
+        # --- LEFT PANE (Branding) ---
+        dbc.Col(
+            xs=0, sm=0, md=5, lg=6,
+            className="d-none d-md-flex flex-column align-items-center justify-content-center position-relative",
             style={
-                "height": "64px",
-                "backgroundColor": "var(--color-surface)",
-                "borderBottom": "1px solid var(--color-border)",
-                "position": "relative",
-                "zIndex": 2,
+                "backgroundColor": "var(--color-bg)",
+                "color": "var(--color-text-heading)",
+                "padding": "40px"
             },
             children=[
-                html.I(className="bi bi-shield-lock-fill me-2", style={"fontSize": "20px", "color": "var(--bs-primary, #4f46e5)"}),
-                html.Span("UIDAI", className="fw-bold", style={"fontSize": "16px", "letterSpacing": "0.5px", "color": "var(--color-text-heading)"}),
-            ],
-        ),
+                html.Div(
+                    style={"zIndex": 2, "textAlign": "center"},
+                    children=[
+                        html.Img(src="/assets/aadhaar-logo.png", height="80px", className="mb-4"),
+                        html.H2("Unique Identification Authority of India", className="fw-bold mb-3", style={"color": "var(--color-text-heading)"}),
+                        html.P("Internal Administrator Dashboard", className="lead text-muted")
+                    ]
+                ),
 
-        # --- Centered card ---
-        html.Div(
-            className="d-flex align-items-center justify-content-center flex-grow-1",
-            style={"position": "relative", "zIndex": 2, "padding": "40px 16px"},
+            ]
+        ),
+        
+        # --- RIGHT PANE (Auth Form) ---
+        dbc.Col(
+            xs=12, sm=12, md=7, lg=6,
+            className="d-flex align-items-center justify-content-center",
+            style={"backgroundColor": "var(--color-surface)", "padding": "40px"},
             children=[
                 html.Div(
-                    className="shadow-lg",
-                    style={
-                        "width": "100%",
-                        "maxWidth": "380px",
-                        "borderRadius": "14px",
-                        "backgroundColor": "var(--color-surface)",
-                        "border": "1px solid var(--color-border)",
-                        "padding": "36px 32px",
-                    },
+                    style={"width": "100%", "maxWidth": "360px"},
                     children=[
-                        html.H4("Sign In", className="mb-4 fw-bold", style={"color": "var(--color-text-heading)"}),
+                        # Show logo on mobile only
+                        html.Div(
+                            className="d-md-none text-center mb-5",
+                            children=[
+                                html.Img(src="/assets/aadhaar-logo.png", height="48px", className="mb-3"),
+                                html.H5("UIDAI Dashboard", className="fw-bold", style={"color": "var(--color-text-heading)"})
+                            ]
+                        ),
+                        
+                        html.H3("Welcome Back", className="fw-bold mb-1", style={"color": "var(--color-text-heading)"}),
+                        html.P("Please sign in to your account", className="text-muted mb-4 small"),
 
                         html.Label("Username", className="text-muted text-uppercase small mb-1 d-block", style={"fontSize": "10px", "letterSpacing": "1px"}),
                         dbc.Input(
                             id="login-username",
+                            autofocus=True,
                             type="text",
                             className="mb-3",
                             style={"borderRadius": "8px", "border": "1px solid var(--color-border)", "padding": "10px 12px"},
                         ),
 
                         html.Label("Password", className="text-muted text-uppercase small mb-1 d-block", style={"fontSize": "10px", "letterSpacing": "1px"}),
-                        dbc.Input(
-                            id="login-password",
-                            type="password",
-                            className="mb-2",
-                            style={"borderRadius": "8px", "border": "1px solid var(--color-border)", "padding": "10px 12px"},
+                        dbc.InputGroup(
+                            [
+                                dbc.Input(
+                                    id="login-password",
+                                    type="password",
+                                    style={"borderRight": "none", "borderRadius": "8px 0 0 8px", "padding": "10px 12px"}
+                                ),
+                                dbc.Button(
+                                    html.I(className="bi bi-eye-slash", id="toggle-password-icon"),
+                                    id="toggle-password-btn",
+                                    color="light",
+                                    style={"border": "1px solid var(--color-border)", "borderLeft": "none", "borderRadius": "0 8px 8px 0", "backgroundColor": "transparent"}
+                                ),
+                            ],
+                            className="mb-4"
                         ),
 
-                        html.Div(id="login-error", className="text-danger small mb-3", style={"minHeight": "18px"}),
-
-                        dbc.Button(
-                            "Sign In",
-                            id="login-btn",
-                            color="primary",
-                            className="w-100 fw-bold",
-                            style={"borderRadius": "8px", "padding": "10px 0", "border": "none"},
+                        dcc.Loading(
+                            type="circle",
+                            color="var(--bs-primary)",
+                            children=[
+                                html.Div(id="login-error", className="text-danger small mb-3", style={"minHeight": "18px"}),
+                                dbc.Button(
+                                    "Sign In",
+                                    id="login-btn",
+                                    color="primary",
+                                    className="w-100 fw-bold",
+                                    style={"borderRadius": "8px", "padding": "12px 0", "border": "none"},
+                                )
+                            ]
                         ),
-                    ],
+                    ]
                 )
-            ],
-        ),
-
-        # --- Decorative skyline footer (pure CSS, theme-colored) ---
-        html.Div(
-            style={
-                "position": "absolute",
-                "bottom": 0,
-                "left": 0,
-                "right": 0,
-                "height": "140px",
-                "background": "linear-gradient(180deg, transparent 0%, var(--color-border) 100%)",
-                "opacity": 0.35,
-                "zIndex": 1,
-                "clipPath": "polygon(0% 60%, 5% 55%, 10% 65%, 15% 40%, 20% 55%, 28% 45%, 35% 60%, 42% 35%, 50% 50%, 58% 30%, 65% 55%, 72% 40%, 80% 58%, 88% 45%, 95% 60%, 100% 50%, 100% 100%, 0% 100%)",
-                "backgroundColor": "var(--color-border)",
-            },
-        ),
-    ],
+            ]
+        )
+    ]
 )
 
 # --- CREDENTIALS (now managed by FastAPI backend) ---
 import requests
+from utils.api import http_session
 import json
 import os
 
@@ -106,27 +110,33 @@ API_BASE_URL = "http://localhost:8000"
 @callback(
     Output("auth-state", "data"),
     Output("login-error", "children"),
+    Output("login-error", "className"),
     Input("login-btn", "n_clicks"),
+    Input("login-username", "n_submit"),
+    Input("login-password", "n_submit"),
     State("login-username", "value"),
     State("login-password", "value"),
     State("auth-state", "data")
 )
-def handle_login(n_clicks, username, password, auth_state):
+def handle_login(n_clicks, n_submit_u, n_submit_p, username, password, auth_state):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update, dash.no_update
+        
     if auth_state and auth_state.get('user'):
-        return dash.no_update, ""
+        return dash.no_update, "", "text-danger small mb-3"
 
-    if not n_clicks:
-        return dash.no_update, ""
+    error_class = "text-danger small mb-3 shake"
 
     try:
-        response = requests.post(f"{API_BASE_URL}/login", data={"username": username, "password": password})
+        response = http_session.post(f"{API_BASE_URL}/login", data={"username": username, "password": password})
         if response.status_code == 200:
             data = response.json()
-            return {'user': data['role'], 'token': data['access_token'], 'permissions': data.get('permissions', [])}, ""
+            return {'user': data['role'], 'token': data['access_token'], 'permissions': data.get('permissions', [])}, "", "text-danger small mb-3"
         else:
-            return dash.no_update, "Invalid credentials."
+            return dash.no_update, "Invalid credentials.", error_class
     except requests.exceptions.RequestException:
-        return dash.no_update, "Error connecting to backend API."
+        return dash.no_update, "Error connecting to backend API.", error_class
 
 
 # --- CLEAR LOGIN FORM ON LOGOUT ---
@@ -139,3 +149,19 @@ def clear_login_form(auth_state):
     if not auth_state:
         return "", ""
     return dash.no_update, dash.no_update
+dash.clientside_callback(
+    """
+    function(n_clicks, type) {
+        if (!n_clicks) return [dash_clientside.no_update, dash_clientside.no_update];
+        if (type === 'password') {
+            return ['text', 'bi bi-eye'];
+        }
+        return ['password', 'bi bi-eye-slash'];
+    }
+    """,
+    Output('login-password', 'type'),
+    Output('toggle-password-icon', 'className'),
+    Input('toggle-password-btn', 'n_clicks'),
+    State('login-password', 'type'),
+    prevent_initial_call=True
+)
