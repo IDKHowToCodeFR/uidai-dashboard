@@ -72,12 +72,7 @@ def get_history_options(token, user_role=None, permissions=None):
         label = html.Span(item['name'], className="text-truncate ms-2")
         options.append({'label': label, 'value': item['name']})
         
-    if user_role == 'Admin' or 'can_view_global' in permissions:
-        # Prepend the aggregate option
-        options.insert(0, {
-            'label': html.Span("All Companies (Aggregated)", className="text-truncate ms-2 text-primary fw-bold"),
-            'value': 'aggregate'
-        })
+    # (Aggregate option removed as requested)
 
     return options
 
@@ -121,6 +116,7 @@ filter_drawer = dbc.Offcanvas(
             start_date_placeholder_text="Start",
             end_date_placeholder_text="End",
             display_format='YYYY-MM-DD',
+            minimum_nights=0,
             className="mb-4 w-100"
         ),
 

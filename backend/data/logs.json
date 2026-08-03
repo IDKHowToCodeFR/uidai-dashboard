@@ -238,5 +238,17 @@
     "action": "LOGIN_SUCCESS",
     "username": "uidai",
     "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-04T01:14:54.743027",
+    "action": "LOGIN_SUCCESS",
+    "username": "digitech",
+    "details": "User digitech logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-04T01:15:17.213586",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
   }
 ]

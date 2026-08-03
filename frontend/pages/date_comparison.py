@@ -3,6 +3,7 @@ from dash import html, dcc, callback, Input, Output, State
 from dash_bootstrap_components import Container, Row, Col, Card, CardHeader, CardBody
 import dash_ag_grid as dag
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from utils.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
@@ -238,26 +239,23 @@ def update_comparison_charts(data, selected_dates, selected_days, companies, lan
         grouped = pd.merge(grouped, vol_counts, on='Date_Str')
         
     if all(c in grouped.columns for c in ['ACD Calls in 20 Sec', 'Call Offered', 'ABAN Calls in 10 Sec']):
-        grouped['SL%'] = (grouped['ACD Calls in 20 Sec'] / (grouped['Call Offered'] - grouped['ABAN Calls in 10 Sec']) * 100).fillna(0)
+        denom = grouped['Call Offered'] - grouped['ABAN Calls in 10 Sec']
+        grouped['SL%'] = np.where(denom == 0, 0, (grouped['ACD Calls in 20 Sec'] / denom * 100))
     else:
         grouped['SL%'] = 0
         
     if all(c in grouped.columns for c in ['ACD Time', 'ACW Time', 'Hold Time', 'ACD Calls']):
-        valid_calls = grouped['ACD Calls'] > 0
-        grouped['Talk Time'] = 0.0
-        grouped['Hold Time Avg'] = 0.0
-        grouped['AHT'] = 0.0
-        
-        grouped.loc[valid_calls, 'Talk Time'] = grouped.loc[valid_calls, 'ACD Time'] / grouped.loc[valid_calls, 'ACD Calls']
-        grouped.loc[valid_calls, 'Hold Time Avg'] = grouped.loc[valid_calls, 'Hold Time'] / grouped.loc[valid_calls, 'ACD Calls']
-        grouped.loc[valid_calls, 'AHT'] = (grouped.loc[valid_calls, 'ACD Time'] + grouped.loc[valid_calls, 'ACW Time'] + grouped.loc[valid_calls, 'Hold Time']) / grouped.loc[valid_calls, 'ACD Calls']
+        den = grouped['ACD Calls']
+        grouped['Talk Time'] = np.where(den == 0, 0, grouped['ACD Time'] / den)
+        grouped['Hold Time Avg'] = np.where(den == 0, 0, grouped['Hold Time'] / den)
+        grouped['AHT'] = np.where(den == 0, 0, (grouped['ACD Time'] + grouped['ACW Time'] + grouped['Hold Time']) / den)
     else:
         grouped['Talk Time'] = 0
         grouped['Hold Time Avg'] = 0
         grouped['AHT'] = 0
         
     if 'ABAN Calls' in grouped.columns and 'Call Offered' in grouped.columns:
-        grouped['Abandon Rate %'] = (grouped['ABAN Calls'] / grouped['Call Offered'] * 100).fillna(0)
+        grouped['Abandon Rate %'] = np.where(grouped['Call Offered'] == 0, 0, (grouped['ABAN Calls'] / grouped['Call Offered'] * 100))
     else:
         grouped['Abandon Rate %'] = 0
 
@@ -326,7 +324,8 @@ def update_comparison_charts(data, selected_dates, selected_days, companies, lan
             vc = df.groupby(['Date_Str', 'Company']).size().reset_index(name='Volume')
             vol_comp_grouped = pd.merge(vol_comp_grouped, vc, on=['Date_Str', 'Company'])
             
-        vol_comp_grouped['SL%'] = (vol_comp_grouped['ACD Calls in 20 Sec'] / (vol_comp_grouped['Call Offered'] - vol_comp_grouped['ABAN Calls in 10 Sec']) * 100).fillna(0)
+        comp_denom = vol_comp_grouped['Call Offered'] - vol_comp_grouped['ABAN Calls in 10 Sec']
+        vol_comp_grouped['SL%'] = np.where(comp_denom == 0, 0, (vol_comp_grouped['ACD Calls in 20 Sec'] / comp_denom * 100))
         
         fig_vol = go.Figure()
         
@@ -407,6 +406,7 @@ def update_comparison_charts(data, selected_dates, selected_days, companies, lan
     if has_lang:
         lang_grp = df.groupby('Language').size().reset_index(name='Volume')
         fig_lang = px.pie(lang_grp, values='Volume', names='Language', hole=0.4, template=template)
+        fig_lang.update_traces(textinfo='percent+label', textposition='inside', hoverinfo='label+percent+value')
         fig_lang.update_layout(margin=dict(t=20, b=20, l=20, r=20))
     else:
         fig_lang = empty_fig
@@ -416,24 +416,28 @@ def update_comparison_charts(data, selected_dates, selected_days, companies, lan
         # Group by Company ONLY (averaging across dates effectively by summing first)
         comp_radar_grp = df.groupby('Company').sum(numeric_only=True).reset_index()
         
-        comp_radar_grp['SL%'] = (comp_radar_grp['ACD Calls in 20 Sec'] / (comp_radar_grp['Call Offered'] - comp_radar_grp['ABAN Calls in 10 Sec']) * 100).fillna(0)
-        comp_radar_grp['AHT'] = ((comp_radar_grp['ACD Time'] + comp_radar_grp['ACW Time'] + comp_radar_grp['Hold Time']) / comp_radar_grp['ACD Calls']).fillna(0)
+        rad_denom = comp_radar_grp['Call Offered'] - comp_radar_grp['ABAN Calls in 10 Sec']
+        comp_radar_grp['SL%'] = np.where(rad_denom == 0, 0, (comp_radar_grp['ACD Calls in 20 Sec'] / rad_denom * 100))
         
-        # calculate separate Talk and Wrap
-        comp_radar_grp['Talk Time'] = (comp_radar_grp['ACD Time'] / comp_radar_grp['ACD Calls']).fillna(0)
-        comp_radar_grp['Wrap Time'] = (comp_radar_grp['ACW Time'] / comp_radar_grp['ACD Calls']).fillna(0)
+        acd_den = comp_radar_grp['ACD Calls']
+        comp_radar_grp['AHT'] = np.where(acd_den == 0, 0, (comp_radar_grp['ACD Time'] + comp_radar_grp['ACW Time'] + comp_radar_grp['Hold Time']) / acd_den)
         
-        comp_radar_grp['Abandon%'] = (comp_radar_grp['ABAN Calls'] / comp_radar_grp['Call Offered'] * 100).fillna(0)
+        comp_radar_grp['Talk Time'] = np.where(acd_den == 0, 0, comp_radar_grp['ACD Time'] / acd_den)
+        comp_radar_grp['Wrap Time'] = np.where(acd_den == 0, 0, comp_radar_grp['ACW Time'] / acd_den)
+        comp_radar_grp['Hold Time'] = np.where(acd_den == 0, 0, comp_radar_grp['Hold Time'] / acd_den)
+        
+        comp_radar_grp['Abandon%'] = np.where(comp_radar_grp['Call Offered'] == 0, 0, (comp_radar_grp['ABAN Calls'] / comp_radar_grp['Call Offered'] * 100))
         
         # Normalize metrics to 0-100 scale for radar so they fit beautifully
         max_vol = comp_radar_grp['Call Offered'].max() if comp_radar_grp['Call Offered'].max() > 0 else 1
         max_aht = comp_radar_grp['AHT'].max() if comp_radar_grp['AHT'].max() > 0 else 1
         max_talk = comp_radar_grp['Talk Time'].max() if comp_radar_grp['Talk Time'].max() > 0 else 1
         max_wrap = comp_radar_grp['Wrap Time'].max() if comp_radar_grp['Wrap Time'].max() > 0 else 1
+        max_hold = comp_radar_grp['Hold Time'].max() if comp_radar_grp['Hold Time'].max() > 0 else 1
         max_aban = comp_radar_grp['Abandon%'].max() if comp_radar_grp['Abandon%'].max() > 0 else 1
         
         fig_radar = go.Figure()
-        categories = ['Volume', 'Service Level %', 'AHT', 'Talk Time', 'Wrap Time', 'Abandon %']
+        categories = ['Volume', 'Service Level %', 'AHT', 'Talk Time', 'Wrap Time', 'Hold Time', 'Abandon %']
         
         for idx, row in comp_radar_grp.iterrows():
             r_vals = [
@@ -442,6 +446,7 @@ def update_comparison_charts(data, selected_dates, selected_days, companies, lan
                 (row['AHT'] / max_aht) * 100,
                 (row['Talk Time'] / max_talk) * 100,
                 (row['Wrap Time'] / max_wrap) * 100,
+                (row['Hold Time'] / max_hold) * 100,
                 (row['Abandon%'] / max_aban) * 100
             ]
             r_vals.append(r_vals[0]) # Close the loop
@@ -459,7 +464,7 @@ def update_comparison_charts(data, selected_dates, selected_days, companies, lan
             polar=dict(
                 radialaxis=dict(visible=True, range=[0, 100], showticklabels=False),
             ),
-            showlegend=True, template=template, margin=dict(l=40, r=40, t=20, b=20)
+            showlegend=True, template=template, margin=dict(l=80, r=80, t=40, b=40)
         )
     else:
         fig_radar = empty_fig
