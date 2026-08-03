@@ -26,20 +26,19 @@ def get_plotly_template():
 
 def make_header_with_download(title, graph_id):
     from dash import html
-    return html.Span(title)
-
-def wrap_graph_with_download(graph_id, graph_component):
-    from dash import html
     return html.Div([
+        html.Span(title),
         html.Button(
             html.I(className="bi bi-download"),
             id=f"btn-download-{graph_id}",
             className="btn btn-sm btn-link p-0 download-chart-btn",
-            style={"position": "absolute", "top": "10px", "right": "10px", "zIndex": 10, "color": "var(--color-primary)", "border": "none", "background": "transparent", "cursor": "pointer"},
+            style={"color": "var(--color-primary)", "border": "none", "background": "transparent", "cursor": "pointer"},
             title="Download as JPG"
-        ),
-        graph_component
-    ], style={"position": "relative"})
+        )
+    ], className="d-flex justify-content-between align-items-center w-100")
+
+def wrap_graph_with_download(graph_id, graph_component):
+    return graph_component
 
 def make_export_dropdown(page_id):
     import dash_bootstrap_components as dbc
