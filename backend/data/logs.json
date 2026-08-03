@@ -136,5 +136,11 @@
     "action": "LOGIN_SUCCESS",
     "username": "uidai",
     "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T12:37:05.778671",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
   }
 ]

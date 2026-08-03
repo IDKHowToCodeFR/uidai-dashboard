@@ -20,9 +20,9 @@ login_page = dbc.Row(
                 html.Div(
                     style={"zIndex": 2, "textAlign": "center"},
                     children=[
-                        html.Img(src="/assets/aadhaar-logo.png", height="80px", className="mb-4"),
-                        html.H2("Unique Identification Authority of India", className="fw-bold mb-3", style={"color": "var(--color-text-heading)"}),
-                        html.P("Internal Administrator Dashboard", className="lead text-muted")
+                        html.Img(src="/assets/aadhaar-logo.png", height="120px", className="mb-2"),
+                        html.H3("Unique Identification Authority of India", className="fw-bold mb-2", style={"color": "var(--color-text-heading)"}),
+                        html.P("Internal Administrator Dashboard", className="text-muted")
                     ]
                 ),
 
