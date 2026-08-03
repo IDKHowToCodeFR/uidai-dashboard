@@ -7,7 +7,11 @@
   "uidai": {
     "password": "$2b$12$aUSO1G0HFd65c9qjV8oS8OGBMAtimCzgN.Jet95k6sQAp6IHtc9xC",
     "user": "UIDAI",
-    "permissions": []
+    "permissions": [
+      "can_view_global",
+      "can_view_scoped",
+      "can_upload_files"
+    ]
   },
   "digitech": {
     "password": "$2b$12$GgpVm1yfX3UkVNZy86x1luuJExeT4Gydg4zqKE7AVnkyXYL4y5eWu",
@@ -18,5 +22,14 @@
     "password": "$2b$12$YGSWt0yqjviML6HVAcqqyO6OJ97ha3OA0gal/e7F4WhAkKJii2boy",
     "user": "NSB",
     "permissions": []
+  },
+  "yadav": {
+    "password": "$2b$12$F30GsCXVx/f.FiH0eaXD9.JYDOQY/vpto84FiDnYubHX5UFnngn0q",
+    "user": "yadav",
+    "permissions": [
+      "can_view_scoped",
+      "can_view_global",
+      "can_upload_files"
+    ]
   }
 }

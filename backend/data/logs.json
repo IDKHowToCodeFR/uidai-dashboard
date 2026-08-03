@@ -1,0 +1,80 @@
+[
+  {
+    "timestamp": "2026-07-30T16:56:14.552327",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-07-30T16:56:44.233973",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-07-30T16:56:45.729238",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-07-30T16:57:21.044322",
+    "action": "PERMISSIONS_UPDATED",
+    "username": "Admin",
+    "details": "Updated permissions for 'uidai': ['can_view_global', 'can_view_scoped', 'can_upload_files']"
+  },
+  {
+    "timestamp": "2026-07-30T16:57:32.956150",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-07-30T17:16:07.036004",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-07-31T11:16:28.541722",
+    "action": "LOGIN_SUCCESS",
+    "username": "nsb",
+    "details": "User nsb logged in successfully"
+  },
+  {
+    "timestamp": "2026-07-31T11:16:48.984876",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-07-31T11:18:53.608316",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-07-31T11:27:09.610947",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-07-31T11:27:33.170265",
+    "action": "USER_ADDED",
+    "username": "Admin",
+    "details": "Added company 'yadav' (Yadav) with perms ['can_view_scoped', 'can_view_global', 'can_upload_files']"
+  },
+  {
+    "timestamp": "2026-07-31T11:28:45.189196",
+    "action": "LOGIN_SUCCESS",
+    "username": "yadav",
+    "details": "User yadav logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T11:04:29.452273",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  }
+]
