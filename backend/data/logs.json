@@ -202,5 +202,35 @@
     "action": "LOGIN_SUCCESS",
     "username": "uidai",
     "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T22:33:52.537018",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T22:34:11.009612",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T22:46:11.202231",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T22:53:22.383846",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T23:01:58.509268",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
   }
 ]

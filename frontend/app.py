@@ -171,8 +171,8 @@ def get_topbar(user_role):
             html.I(className="bi bi-box-arrow-right"),
             id="btn-logout",
             n_clicks=0,
-            className="btn btn-primary me-3 body-strong rounded-circle shadow-sm",
-            style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center"}
+            className="btn btn-light me-3 body-strong rounded-circle shadow-sm",
+            style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
         ),
         dbc.Modal(
             [
@@ -350,7 +350,7 @@ content = html.Div(
 
 app.layout = html.Div(
     [
-        dcc.Location(id="url", refresh=True),
+        dcc.Location(id="url", refresh=False),
         dcc.Store(id="auth-state", storage_type="session"),
         dcc.Store(id="company-list-version", data=0),
         dcc.Store(id="data-store", storage_type="memory"),
@@ -384,7 +384,7 @@ def toggle_left_sidebar(n, is_open):
     Output("app-container", "children"),
     Output("data-store", "data", allow_duplicate=True),
     Input("auth-state", "data"),
-    prevent_initial_call=True
+    prevent_initial_call='initial_duplicate'
 )
 def render_page(auth_state):
     if auth_state and auth_state.get('user') and auth_state.get('token'):
@@ -431,7 +431,8 @@ def render_page(auth_state):
 @callback(
     Output("url", "pathname"),
     Input("auth-state", "data"),
-    Input("url", "pathname")
+    Input("url", "pathname"),
+    prevent_initial_call=True
 )
 def guard_routes(auth_state, pathname):
     if not auth_state or not pathname:
@@ -702,7 +703,7 @@ def handle_logout(n_clicks):
 )
 def sync_filters(data, auth_state, _version):
     if not data:
-        return dash.no_update
+        return (dash.no_update,) * 9
 
     df = pd.DataFrame(data)
 
@@ -712,9 +713,12 @@ def sync_filters(data, auth_state, _version):
     user_role = auth_state.get('user') if auth_state else None
     token = auth_state.get('token') if auth_state else None
 
+    permissions = auth_state.get('permissions', []) if auth_state else []
+    has_global_view = user_role == 'Admin' or 'can_view_global' in permissions
+
     if 'Company' in df.columns:
         companies = df['Company'].dropna().unique().tolist()
-        if user_role == 'Admin' and token:
+        if has_global_view and token:
             try:
                 headers = {"Authorization": f"Bearer {token}"}
                 response = http_session.get(f"{API_BASE_URL}/users", headers=headers)
