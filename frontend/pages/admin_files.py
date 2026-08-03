@@ -3,6 +3,7 @@ from dash import html, dcc, callback, Input, Output, State
 import dash_bootstrap_components as dbc
 import dash_ag_grid as dag
 import requests
+from utils.api import http_session
 import pandas as pd
 import base64
 from datetime import datetime, date, timedelta
@@ -50,7 +51,7 @@ def load_files(auth_state, n_clicks):
         return html.Div("Unauthorized")
     try:
         headers = {"Authorization": f"Bearer {token}"}
-        response = requests.get(f"{API_BASE_URL}/history", headers=headers)
+        response = http_session.get(f"{API_BASE_URL}/history", headers=headers)
         if response.status_code == 200:
             files = response.json()
             if not files:
@@ -121,7 +122,7 @@ def download_individual_file(cell_data, auth_state):
         token = auth_state.get("token")
         try:
             headers = {"Authorization": f"Bearer {token}"}
-            response = requests.get(f"{API_BASE_URL}/download/{filename}", headers=headers)
+            response = http_session.get(f"{API_BASE_URL}/download/{filename}", headers=headers)
             if response.status_code == 200:
                 encoded = base64.b64encode(response.content).decode()
                 return dict(content=encoded, filename=filename, base64=True)

@@ -6,6 +6,7 @@ import pandas as pd
 import base64
 import io
 import requests
+from utils.api import http_session
 from datetime import datetime, timedelta
 import numpy as np
 from auth import login_page, handle_login, API_BASE_URL  # noqa: F401
@@ -30,7 +31,7 @@ app.title = "UIDAI analytics Dashboard"
 def get_history_options(token):
     try:
         headers = {"Authorization": f"Bearer {token}"}
-        response = requests.get(f"{API_BASE_URL}/history", headers=headers)
+        response = http_session.get(f"{API_BASE_URL}/history", headers=headers)
         if response.status_code == 200:
             file_times = response.json()
         else:
@@ -80,7 +81,7 @@ def upload_file_to_api(contents, filename, token):
         headers = {"Authorization": f"Bearer {token}"}
         files = {"file": (filename, decoded)}
         
-        response = requests.post(f"{API_BASE_URL}/upload", headers=headers, files=files)
+        response = http_session.post(f"{API_BASE_URL}/upload", headers=headers, files=files)
         if response.status_code == 200:
             return response.json()
         else:
@@ -403,7 +404,7 @@ def render_page(auth_state):
         if val:
             try:
                 headers = {"Authorization": f"Bearer {token}"}
-                response = requests.get(f"{API_BASE_URL}/data/{val}", headers=headers)
+                response = http_session.get(f"{API_BASE_URL}/data/{val}", headers=headers)
                 if response.status_code == 200:
                     data = response.json()
             except Exception:
@@ -488,7 +489,7 @@ def handle_add_company(n_clicks, company_name, username, password, version, auth
     try:
         headers = {"Authorization": f"Bearer {token}"}
         req_data = {"username": username, "password": password, "company_name": company_name}
-        response = requests.post(f"{API_BASE_URL}/users/add", headers=headers, json=req_data)
+        response = http_session.post(f"{API_BASE_URL}/users/add", headers=headers, json=req_data)
         if response.status_code == 200:
             return html.Span(response.json().get("message"), className="text-success"), "", "", "", (version or 0) + 1, False
         else:
@@ -525,7 +526,7 @@ def populate_remove_company_options(is_open, _version, auth_state):
         
     try:
         headers = {"Authorization": f"Bearer {token}"}
-        response = requests.get(f"{API_BASE_URL}/users", headers=headers)
+        response = http_session.get(f"{API_BASE_URL}/users", headers=headers)
         if response.status_code == 200:
             users = response.json()
             options = [
@@ -562,7 +563,7 @@ def handle_remove_company(n_clicks, username, version, auth_state):
         
     try:
         headers = {"Authorization": f"Bearer {token}"}
-        response = requests.post(f"{API_BASE_URL}/users/remove", headers=headers, json={"username": username})
+        response = http_session.post(f"{API_BASE_URL}/users/remove", headers=headers, json={"username": username})
         if response.status_code == 200:
             return html.Span(response.json().get("message"), className="text-success"), None, (version or 0) + 1, False
         else:
@@ -595,7 +596,7 @@ def populate_manage_perms_options(is_open, auth_state):
         return []
     try:
         headers = {"Authorization": f"Bearer {token}"}
-        response = requests.get(f"{API_BASE_URL}/users", headers=headers)
+        response = http_session.get(f"{API_BASE_URL}/users", headers=headers)
         if response.status_code == 200:
             users = response.json()
             options = [
@@ -622,7 +623,7 @@ def update_switches_for_user(username, auth_state):
         return []
     try:
         headers = {"Authorization": f"Bearer {token}"}
-        response = requests.get(f"{API_BASE_URL}/users", headers=headers)
+        response = http_session.get(f"{API_BASE_URL}/users", headers=headers)
         if response.status_code == 200:
             users = response.json()
             user_data = users.get(username, {})
@@ -653,7 +654,7 @@ def handle_save_permissions(n_clicks, username, switches, auth_state):
     try:
         headers = {"Authorization": f"Bearer {token}"}
         payload = {"username": username, "permissions": switches}
-        response = requests.post(f"{API_BASE_URL}/users/permissions", headers=headers, json=payload)
+        response = http_session.post(f"{API_BASE_URL}/users/permissions", headers=headers, json=payload)
         if response.status_code == 200:
             return html.Span(response.json().get("message"), className="text-success"), False
         else:
@@ -717,7 +718,7 @@ def sync_filters(data, auth_state, _version):
         if user_role == 'Admin' and token:
             try:
                 headers = {"Authorization": f"Bearer {token}"}
-                response = requests.get(f"{API_BASE_URL}/users", headers=headers)
+                response = http_session.get(f"{API_BASE_URL}/users", headers=headers)
                 if response.status_code == 200:
                     registered = [u['user'] for u in response.json().values() if u['user'] != 'Admin']
                     all_companies = sorted(set(companies + registered))
@@ -791,7 +792,7 @@ def load_from_history(filename, auth_state):
         if token:
             try:
                 headers = {"Authorization": f"Bearer {token}"}
-                response = requests.get(f"{API_BASE_URL}/data/{filename}", headers=headers)
+                response = http_session.get(f"{API_BASE_URL}/data/{filename}", headers=headers)
                 if response.status_code == 200:
                     return response.json()
             except:

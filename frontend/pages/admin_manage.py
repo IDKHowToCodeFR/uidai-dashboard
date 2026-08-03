@@ -2,6 +2,7 @@ import dash
 from dash import html, dcc, callback, Input, Output, State, ctx
 import dash_bootstrap_components as dbc
 import requests
+from utils.api import http_session
 from auth import API_BASE_URL
 
 dash.register_page(__name__, path='/admin-manage', name='Manage Users')
@@ -99,7 +100,7 @@ def populate_dropdowns(auth_state, add_clicks, remove_clicks):
         return []
     try:
         headers = {"Authorization": f"Bearer {token}"}
-        response = requests.get(f"{API_BASE_URL}/users", headers=headers)
+        response = http_session.get(f"{API_BASE_URL}/users", headers=headers)
         if response.status_code == 200:
             users = response.json()
             options = [
@@ -130,7 +131,7 @@ def add_company(n_clicks, company_name, username, password, perms, auth_state):
     try:
         headers = {"Authorization": f"Bearer {token}"}
         req_data = {"username": username, "password": password, "company_name": company_name, "permissions": perms or []}
-        response = requests.post(f"{API_BASE_URL}/users/add", headers=headers, json=req_data)
+        response = http_session.post(f"{API_BASE_URL}/users/add", headers=headers, json=req_data)
         if response.status_code == 200:
             return html.Span(response.json().get("message"), className="text-success fw-bold")
         return html.Span(response.json().get("detail", "Error"), className="text-danger")
@@ -151,7 +152,7 @@ def load_user_perms(username, auth_state):
     token = auth_state.get('token') if auth_state else None
     try:
         headers = {"Authorization": f"Bearer {token}"}
-        response = requests.get(f"{API_BASE_URL}/users", headers=headers)
+        response = http_session.get(f"{API_BASE_URL}/users", headers=headers)
         if response.status_code == 200:
             users = response.json()
             if username in users:
@@ -175,7 +176,7 @@ def remove_company(n_clicks, username, auth_state):
     token = auth_state.get('token') if auth_state else None
     try:
         headers = {"Authorization": f"Bearer {token}"}
-        response = requests.post(f"{API_BASE_URL}/users/remove", headers=headers, json={"username": username})
+        response = http_session.post(f"{API_BASE_URL}/users/remove", headers=headers, json={"username": username})
         if response.status_code == 200:
             return html.Span(response.json().get("message"), className="text-success fw-bold")
         return html.Span(response.json().get("detail", "Error"), className="text-danger")
@@ -198,7 +199,7 @@ def save_perms(n_clicks, username, switches, auth_state):
     try:
         headers = {"Authorization": f"Bearer {token}"}
         req_data = {"username": username, "permissions": switches or []}
-        response = requests.post(f"{API_BASE_URL}/users/permissions", headers=headers, json=req_data)
+        response = http_session.post(f"{API_BASE_URL}/users/permissions", headers=headers, json=req_data)
         if response.status_code == 200:
             return html.Span(response.json().get("message"), className="text-success fw-bold")
         return html.Span(response.json().get("detail", "Error"), className="text-danger")

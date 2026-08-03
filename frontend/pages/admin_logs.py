@@ -2,6 +2,7 @@ import dash
 from dash import html, dcc, callback, Input, Output, State
 import dash_bootstrap_components as dbc
 import requests
+from utils.api import http_session
 from auth import API_BASE_URL
 
 dash.register_page(__name__, path='/admin-logs', name='System Logs')
@@ -58,7 +59,7 @@ def load_logs(auth_state, refresh_clicks, load_all):
         return "Unauthorized"
     try:
         headers = {"Authorization": f"Bearer {token}"}
-        response = requests.get(f"{API_BASE_URL}/logs", headers=headers)
+        response = http_session.get(f"{API_BASE_URL}/logs", headers=headers)
         if response.status_code == 200:
             logs = response.json()
             if not logs:
