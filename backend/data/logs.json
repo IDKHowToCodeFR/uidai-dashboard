@@ -142,5 +142,35 @@
     "action": "LOGIN_SUCCESS",
     "username": "uidai",
     "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T12:45:31.154662",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03T12:45:46.031662",
+    "action": "USER_DEACTIVATED",
+    "username": "Admin",
+    "details": "Deactivated account for 'yadav' (yadav)"
+  },
+  {
+    "timestamp": "2026-08-03T12:48:11.101821",
+    "action": "PERMISSIONS_UPDATED",
+    "username": "Admin",
+    "details": "Updated permissions for 'digitech': ['can_view_scoped']"
+  },
+  {
+    "timestamp": "2026-08-03T12:48:11.801965",
+    "action": "PERMISSIONS_UPDATED",
+    "username": "Admin",
+    "details": "Updated permissions for 'nsb': ['can_view_scoped']"
+  },
+  {
+    "timestamp": "2026-08-03T12:55:17.399436",
+    "action": "PERMISSIONS_UPDATED",
+    "username": "Admin",
+    "details": "Updated permissions for 'digitech': ['can_view_scoped', 'can_upload_files']"
   }
 ]
