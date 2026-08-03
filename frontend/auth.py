@@ -128,6 +128,16 @@ def handle_login(n_clicks, n_submit_u, n_submit_p, username, password, auth_stat
 
     error_class = "text-danger small mb-3 shake"
 
+    # Blank field validation
+    has_username = username and username.strip()
+    has_password = password and password.strip()
+    if not has_username and not has_password:
+        return dash.no_update, "Please enter username and password.", error_class
+    if not has_username:
+        return dash.no_update, "Please enter username.", error_class
+    if not has_password:
+        return dash.no_update, "Please enter password.", error_class
+
     try:
         response = http_session.post(f"{API_BASE_URL}/login", data={"username": username, "password": password})
         if response.status_code == 200:

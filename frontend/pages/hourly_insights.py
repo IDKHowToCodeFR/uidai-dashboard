@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from utils.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
+import dash_bootstrap_components as dbc
 
 dash.register_page(__name__, path='/hourly', name='Hourly Insights')
 
@@ -21,22 +22,22 @@ layout = Container([
                         className="ms-2 me-4"
                     ),
                     html.Span("Time: ", className="text-muted small text-uppercase me-2 fw-bold"),
-                    dcc.Input(
+                    dbc.Input(
                         id='hourly-time-start',
                         type='time',
                         value='00:00:00',
                         step="1",
                         className="me-2",
-                        style={"border": "1px solid var(--color-border)", "borderRadius": "6px", "padding": "4px 8px", "fontSize": "13px", "background": "var(--color-bg-primary)"}
+                        style={"width": "120px", "border": "1px solid var(--color-border)", "borderRadius": "6px", "padding": "4px 8px", "fontSize": "13px", "background": "var(--color-bg-primary)"}
                     ),
                     html.Span("–", className="text-muted me-2"),
-                    dcc.Input(
+                    dbc.Input(
                         id='hourly-time-end',
                         type='time',
                         value='23:59:59',
                         step="1",
                         className="me-4",
-                        style={"border": "1px solid var(--color-border)", "borderRadius": "6px", "padding": "4px 8px", "fontSize": "13px", "background": "var(--color-bg-primary)"}
+                        style={"width": "120px", "border": "1px solid var(--color-border)", "borderRadius": "6px", "padding": "4px 8px", "fontSize": "13px", "background": "var(--color-bg-primary)"}
                     ),
                     make_export_dropdown("hourly")
                 ], className="d-flex align-items-center bg-white border rounded px-3 py-2 shadow-sm flex-wrap")
