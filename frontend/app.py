@@ -19,9 +19,13 @@ app = Dash(
         "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css",
         "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
     ],
+    external_scripts=[
+        "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+    ],
     suppress_callback_exceptions=True
 )
-app.title = "UIDAI Dashboard"
+app.title = "UIDAI analytics Dashboard"
 
 def get_history_options(token):
     try:
@@ -149,12 +153,12 @@ def get_topbar(user_role):
             className="btn btn-light me-3 body-strong rounded-circle shadow-sm",
             style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
         ),
-        html.H2("UIDAI", className="display-lg mb-0 me-4", style={"display": "inline-block"}),
+        html.H5("Unique Identification Authority of India", className="display-lg mb-0 me-4", style={"display": "inline-block"}),
     ]
     
     right_elements = []
     
-    # Only show filters and export for non-admins
+    # Only show filters for non-admins
     if user_role != 'Admin':
         right_elements.extend([
             html.Button(
@@ -163,12 +167,6 @@ def get_topbar(user_role):
                 n_clicks=0,
                 className="btn btn-light me-3 body-strong rounded-circle shadow-sm",
                 style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center", "border": "1px solid var(--color-border)"}
-            ),
-            html.Button(
-                html.I(className="bi bi-download"),
-                id="btn-export",
-                className="btn btn-primary body-strong rounded-circle shadow-sm me-3",
-                style={"width": "42px", "height": "42px", "display": "flex", "alignItems": "center", "justifyContent": "center"}
             )
         ])
         

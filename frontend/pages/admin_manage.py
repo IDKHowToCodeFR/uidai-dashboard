@@ -13,13 +13,13 @@ permissions_options = [
 ]
 
 layout = html.Div([
-    html.H2("Company & Permissions Management", className="mb-4 text-primary fw-bold"),
+    html.H2("Company & Permissions Management", className="mt-0 mb-3 text-primary fw-bold"),
     
     dbc.Row([
         dbc.Col([
-            dbc.Card([
-                dbc.CardHeader(html.H5("Add New Company", className="mb-0")),
-                dbc.CardBody([
+            html.Div([
+                html.Div(html.H5("Add New Company", className="mb-0 fw-bold", style={"color": "var(--color-text-heading)"}), className="card-header"),
+                html.Div([
                     dbc.Label("Company Name", className="small text-muted text-uppercase fw-bold"),
                     dbc.Input(id="page-new-company-name", placeholder="e.g. Acme Corp", type="text", className="mb-3", size="sm"),
                     
@@ -40,14 +40,14 @@ layout = html.Div([
                     
                     dbc.Button("Add Company", id="page-btn-add-company", color="primary", size="sm", className="w-100"),
                     html.Div(id="page-add-company-status", className="small mt-2")
-                ])
-            ], className="mb-4 shadow-sm border-primary")
+                ], className="card-body")
+            ], className="custom-card mb-4")
         ], md=5),
         
         dbc.Col([
-            dbc.Card([
-                dbc.CardHeader(html.H5("Manage Existing Company", className="mb-0 text-secondary")),
-                dbc.CardBody([
+            html.Div([
+                html.Div(html.H5("Manage Existing Company", className="mb-0 fw-bold", style={"color": "var(--color-text-heading)"}), className="card-header"),
+                html.Div([
                     dbc.Label("Select Company", className="small text-muted text-uppercase fw-bold"),
                     dcc.Dropdown(id="page-manage-perms-user-select", options=[], placeholder="Choose a company...", className="mb-4"),
                     
@@ -60,7 +60,7 @@ layout = html.Div([
                             switch=True,
                             className="mb-3"
                         ),
-                        dbc.Button("Save Permissions", id="page-btn-save-permissions", color="secondary", size="sm", className="mb-4 w-100"),
+                        dbc.Button("Save Permissions", id="page-btn-save-permissions", color="primary", outline=True, size="sm", className="mb-4 w-100"),
                         html.Div(id="page-manage-perms-status", className="small mt-2 mb-4"),
                         
                         html.Hr(),
@@ -70,15 +70,15 @@ layout = html.Div([
                             html.H6("Danger Zone", className="text-danger fw-bold mb-3"),
                             html.Div([
                                 html.Div([
-                                    html.Strong("Deactivate Account"),
+                                    html.Strong("Deactivate Account", className="text-danger"),
                                     html.P("Revoke all access. Historical logs and uploaded files will be preserved.", className="small text-muted mb-0")
                                 ], style={"flex": 1}),
                                 dbc.Button("Deactivate", id="page-btn-remove-company", color="danger", outline=True, size="sm", className="align-self-center ms-3")
                             ], className="d-flex border border-danger rounded p-3 mb-2")
                         ], className="mt-2")
                     ])
-                ])
-            ], className="mb-4 shadow-sm"),
+                ], className="card-body")
+            ], className="custom-card mb-4"),
             
             html.Div(id="page-remove-company-status", className="small mt-2")
         ], md=7)

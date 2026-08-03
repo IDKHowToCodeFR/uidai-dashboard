@@ -4,7 +4,7 @@ from dash_bootstrap_components import Container, Row, Col, Card, CardHeader, Car
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from utils.theme import get_plotly_template
+from utils.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
 
 dash.register_page(__name__, path='/hourly', name='Hourly Insights')
 
@@ -14,13 +14,32 @@ layout = Container([
             html.Div([
                 html.H2("Hourly Insights", className="display-xl mb-0"),
                 html.Div([
-                    html.Span("Select Date: ", className="text-muted small text-uppercase me-2 fw-bold"),
-                    dcc.DatePickerSingle(
-                        id='hourly-date-picker',
+                    html.Span("Dates: ", className="text-muted small text-uppercase me-2 fw-bold"),
+                    dcc.DatePickerRange(
+                        id='hourly-date-picker-range',
                         display_format='YYYY-MM-DD',
-                        className="ms-2"
-                    )
-                ], className="d-flex align-items-center bg-white border rounded px-3 py-2 shadow-sm")
+                        className="ms-2 me-4"
+                    ),
+                    html.Span("Time: ", className="text-muted small text-uppercase me-2 fw-bold"),
+                    dcc.Input(
+                        id='hourly-time-start',
+                        type='time',
+                        value='00:00:00',
+                        step="1",
+                        className="me-2",
+                        style={"border": "1px solid var(--color-border)", "borderRadius": "6px", "padding": "4px 8px", "fontSize": "13px", "background": "var(--color-bg-primary)"}
+                    ),
+                    html.Span("–", className="text-muted me-2"),
+                    dcc.Input(
+                        id='hourly-time-end',
+                        type='time',
+                        value='23:59:59',
+                        step="1",
+                        className="me-4",
+                        style={"border": "1px solid var(--color-border)", "borderRadius": "6px", "padding": "4px 8px", "fontSize": "13px", "background": "var(--color-bg-primary)"}
+                    ),
+                    make_export_dropdown("hourly")
+                ], className="d-flex align-items-center bg-white border rounded px-3 py-2 shadow-sm flex-wrap")
             ], className="d-flex justify-content-between align-items-center mb-4")
         ], width=12)
     ]),
@@ -28,8 +47,8 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader("Intraday Performance (Volume & Service Level)"),
-                CardBody(dcc.Graph(id='intraday-chart', config={'displayModeBar': False}, style={'height': '400px'}))
+                CardHeader(make_header_with_download("Intraday Performance (Volume & Service Level)", "intraday-chart")),
+                CardBody(wrap_graph_with_download("intraday-chart", dcc.Graph(id='intraday-chart', config={'displayModeBar': False}, style={'height': '400px'})))
             ], className="custom-card h-100")
         ], width=12, className="mb-4")
     ]),
@@ -37,15 +56,15 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader("Highest Abandonment by Language"),
-                CardBody(dcc.Graph(id='hourly-heatmap', config={'displayModeBar': False}, style={'height': '400px'}))
+                CardHeader(make_header_with_download("Highest Abandonment by Language", "hourly-heatmap")),
+                CardBody(wrap_graph_with_download("hourly-heatmap", dcc.Graph(id='hourly-heatmap', config={'displayModeBar': False}, style={'height': '400px'})))
             ], className="custom-card h-100")
         ], width=12, lg=6, className="mb-4"),
         
         Col([
             Card([
-                CardHeader("Average Handle Time (AHT) by Time of Day"),
-                CardBody(dcc.Graph(id='aht-time-chart', config={'displayModeBar': False}, style={'height': '400px'}))
+                CardHeader(make_header_with_download("Average Handle Time (AHT) by Time of Day", "aht-time-chart")),
+                CardBody(wrap_graph_with_download("aht-time-chart", dcc.Graph(id='aht-time-chart', config={'displayModeBar': False}, style={'height': '400px'})))
             ], className="custom-card h-100")
         ], width=12, lg=6, className="mb-4")
     ])
@@ -53,14 +72,15 @@ layout = Container([
 
 
 @callback(
-    Output('hourly-date-picker', 'date'),
-    Output('hourly-date-picker', 'min_date_allowed'),
-    Output('hourly-date-picker', 'max_date_allowed'),
+    Output('hourly-date-picker-range', 'start_date'),
+    Output('hourly-date-picker-range', 'end_date'),
+    Output('hourly-date-picker-range', 'min_date_allowed'),
+    Output('hourly-date-picker-range', 'max_date_allowed'),
     Input('data-store', 'data')
 )
 def set_date_picker(data):
     if not data:
-        return dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
     
     df = pd.DataFrame(data)
     date_col = None
@@ -70,13 +90,13 @@ def set_date_picker(data):
         date_col = 'Date'
         
     if not date_col or df.empty:
-        return dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
         
     df[date_col] = pd.to_datetime(df[date_col])
     max_date = df[date_col].max().date()
     min_date = df[date_col].min().date()
     
-    return max_date, min_date, max_date
+    return min_date, max_date, min_date, max_date
 
 @callback(
     Output('intraday-chart', 'figure'),
@@ -85,24 +105,36 @@ def set_date_picker(data):
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
-    Input('hourly-date-picker', 'date')
+    Input('hourly-date-picker-range', 'start_date'),
+    Input('hourly-date-picker-range', 'end_date'),
+    Input('hourly-time-start', 'value'),
+    Input('hourly-time-end', 'value')
 )
-def update_hourly_insights(data, company_filter, language_filter, selected_date):
-    if not data or not selected_date:
+def update_hourly_insights(data, company_filter, language_filter, start_date, end_date, time_start, time_end):
+    if not data or not start_date or not end_date:
         empty_fig = px.pie(title="No Data")
-        return empty_fig, empty_fig
+        return empty_fig, empty_fig, empty_fig
         
     df = pd.DataFrame(data)
     
     date_col = 'Date' if 'Date' in df.columns else 'Timestamp' if 'Timestamp' in df.columns else None
     if not date_col:
         empty_fig = px.pie(title="No Data")
-        return empty_fig, empty_fig
+        return empty_fig, empty_fig, empty_fig
 
-    df['DateCol'] = pd.to_datetime(df[date_col]).dt.date
-    target_date = pd.to_datetime(selected_date).date()
+    df['DateCol'] = pd.to_datetime(df[date_col])
+    start_dt, end_dt = pd.to_datetime(start_date), pd.to_datetime(end_date)
+    df_current = df[(df['DateCol'] >= start_dt) & (df['DateCol'] <= end_dt)].copy()
     
-    df_current = df[df['DateCol'] == target_date].copy()
+    # Filter by time range (HH:MM:SS)
+    ts_col = 'Call Timestamp' if 'Call Timestamp' in df_current.columns else date_col
+    if ts_col in df_current.columns and time_start and time_end:
+        def _to_sec(t):
+            parts = str(t).split(':')
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + (int(parts[2]) if len(parts) > 2 else 0)
+        ts = pd.to_datetime(df_current[ts_col])
+        df_current['SecOfDay'] = ts.dt.hour * 3600 + ts.dt.minute * 60 + ts.dt.second
+        df_current = df_current[(df_current['SecOfDay'] >= _to_sec(time_start)) & (df_current['SecOfDay'] <= _to_sec(time_end))]
     
     # Apply global filters
     if company_filter and 'Company' in df_current.columns:
@@ -110,11 +142,11 @@ def update_hourly_insights(data, company_filter, language_filter, selected_date)
     if language_filter and 'Language' in df_current.columns:
         df_current = df_current[df_current['Language'].isin(language_filter)]
         
-    if df_current.empty or 'Call Timestamp' not in df_current.columns:
+    if df_current.empty or ts_col not in df_current.columns:
         empty_fig = px.pie(title="No Data or Missing Timestamp Info")
         return empty_fig, empty_fig, empty_fig
 
-    df_current['Time'] = pd.to_datetime(df_current['Call Timestamp']).dt.time
+    df_current['Time'] = pd.to_datetime(df_current[ts_col]).dt.time
     df_current['TimeStr'] = df_current['Time'].astype(str)
 
     # Chart 1: Intraday Performance (Dual Axis)
@@ -198,3 +230,80 @@ def update_hourly_insights(data, company_filter, language_filter, selected_date)
         fig_aht = px.pie(title="No AHT Data")
 
     return fig_intraday, fig_heat, fig_aht
+
+# CSV Export Callback
+@callback(
+    Output("download-dataframe-csv", "data", allow_duplicate=True),
+    Input("btn-export-csv-hourly", "n_clicks"),
+    State('data-store', 'data'),
+    State('company-filter', 'value'),
+    State('language-filter', 'value'),
+    State('hourly-date-picker-range', 'start_date'),
+    State('hourly-date-picker-range', 'end_date'),
+    State('hourly-time-start', 'value'),
+    State('hourly-time-end', 'value'),
+    prevent_initial_call=True
+)
+def export_csv_hourly(n_clicks, data, company_filter, language_filter, start_date, end_date, time_start, time_end):
+    if not n_clicks or not data or not start_date or not end_date:
+        return dash.no_update
+    df = pd.DataFrame(data)
+
+    date_col = 'Date' if 'Date' in df.columns else 'Timestamp' if 'Timestamp' in df.columns else None
+    if date_col:
+        df['DateCol'] = pd.to_datetime(df[date_col])
+        df = df[(df['DateCol'] >= pd.to_datetime(start_date)) & (df['DateCol'] <= pd.to_datetime(end_date))]
+
+    ts_col = 'Call Timestamp' if 'Call Timestamp' in df.columns else date_col
+    if ts_col and ts_col in df.columns and time_start and time_end:
+        def _to_sec(t):
+            parts = str(t).split(':')
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + (int(parts[2]) if len(parts) > 2 else 0)
+        ts = pd.to_datetime(df[ts_col])
+        df['SecOfDay'] = ts.dt.hour * 3600 + ts.dt.minute * 60 + ts.dt.second
+        df = df[(df['SecOfDay'] >= _to_sec(time_start)) & (df['SecOfDay'] <= _to_sec(time_end))]
+
+    if company_filter and 'Company' in df.columns:
+        df = df[df['Company'].isin(company_filter)]
+    if language_filter and 'Language' in df.columns:
+        df = df[df['Language'].isin(language_filter)]
+
+    for col in ['DateCol', 'SecOfDay']:
+        if col in df.columns:
+            df = df.drop(columns=[col])
+
+    return dcc.send_data_frame(df.to_csv, "hourly_insights_data.csv", index=False)
+
+# PDF and JPG Page Export Callbacks
+dash.clientside_callback(
+    dash.ClientsideFunction(
+        namespace='clientside',
+        function_name='export_pdf'
+    ),
+    Output('btn-export-pdf-hourly', 'title'), # Dummy output
+    Input('btn-export-pdf-hourly', 'n_clicks'),
+    prevent_initial_call=True
+)
+
+dash.clientside_callback(
+    dash.ClientsideFunction(
+        namespace='clientside',
+        function_name='export_jpg'
+    ),
+    Output('btn-export-jpg-hourly', 'title'), # Dummy output
+    Input('btn-export-jpg-hourly', 'n_clicks'),
+    prevent_initial_call=True
+)
+
+# Individual Chart JPG Export Callbacks
+for graph_id in ['intraday-chart', 'hourly-heatmap', 'aht-time-chart']:
+    dash.clientside_callback(
+        dash.ClientsideFunction(
+            namespace='clientside',
+            function_name='export_chart_jpg'
+        ),
+        Output(f"btn-download-{graph_id}", "title"), # Dummy output
+        Input(f"btn-download-{graph_id}", "n_clicks"),
+        State(graph_id, "id"),
+        prevent_initial_call=True
+    )
