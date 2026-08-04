@@ -6,12 +6,10 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from utils.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
+from frontend.utils.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
+from frontend.utils.api import get_dataframe
 import dash_bootstrap_components as dbc
-try:
-    from frontend.config import RADAR_SLA_TARGETS
-except ImportError:
-    RADAR_SLA_TARGETS = [85, 95, 95, 85, 85, 85]
+# Global config removed in favor of API
 
 dash.register_page(__name__, path='/', name='Dashboard')
 
@@ -94,14 +92,19 @@ layout = Container([
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
     Input('date-picker-range', 'start_date'),
-    Input('date-picker-range', 'end_date')
+    Input('date-picker-range', 'end_date'),
+    State('auth-state', 'data')
 )
-def update_dashboard(data, company_filter, language_filter, start_date, end_date):
+def update_dashboard(data_ref, company_filter, language_filter, start_date, end_date, auth_state):
     empty_fig = px.pie(title="No Data")
-    if not data:
+    if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref:
         return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
         
-    df = pd.DataFrame(data)
+    token = auth_state.get('token') if auth_state else None
+    if not token:
+        return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
+        
+    df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
     if df.empty:
         return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
 
@@ -112,6 +115,19 @@ def update_dashboard(data, company_filter, language_filter, start_date, end_date
             df['Date'] = df['Date'].fillna(pd.to_datetime(df[col], errors='coerce'))
     
     date_col = 'Date' if not df['Date'].isna().all() else None
+
+    # Fetch dynamic SLA targets
+    sla_targets = [85, 95, 95, 85, 85, 85]
+    if auth_state and auth_state.get('token'):
+        from frontend.utils.api import api_client
+        try:
+            res = api_client.get_settings(auth_state.get('token'))
+            if res.status_code == 200:
+                settings = res.json()
+                if "radar_sla_targets" in settings:
+                    sla_targets = settings["radar_sla_targets"]
+        except:
+            pass
 
     # Filter boolean mask logic (optimizes memory)
     mask = pd.Series(True, index=df.index)
@@ -310,7 +326,7 @@ def update_dashboard(data, company_filter, language_filter, start_date, end_date
         
         fig_agent = go.Figure()
         
-        r_targets_closed = RADAR_SLA_TARGETS + [RADAR_SLA_TARGETS[0]]
+        r_targets_closed = sla_targets + [sla_targets[0]]
         fig_agent.add_trace(go.Scatterpolar(
             r=r_targets_closed,
             theta=categories_closed,
@@ -413,13 +429,21 @@ def update_dashboard(data, company_filter, language_filter, start_date, end_date
     State('language-filter', 'value'),
     State('date-picker-range', 'start_date'),
     State('date-picker-range', 'end_date'),
+    State('auth-state', 'data'),
     prevent_initial_call=True
 )
-def export_csv_dashboard(n_clicks, data, company_filter, language_filter, start_date, end_date):
-    if not n_clicks or not data:
+def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, start_date, end_date, auth_state):
+    if not n_clicks or not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref:
         return dash.no_update
-    df = pd.DataFrame(data)
-    
+        
+    token = auth_state.get('token') if auth_state else None
+    if not token:
+        return dash.no_update
+        
+    df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
+    if df.empty:
+        return dash.no_update
+
     date_candidates = ['Timestamp', 'Call Timestamp', 'Date', 'Call Start Time']
     df['Date'] = pd.NaT
     for col in date_candidates:

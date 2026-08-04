@@ -4,7 +4,8 @@ from dash_bootstrap_components import Container, Row, Col, Card, CardHeader, Car
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from utils.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
+from frontend.utils.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
+from frontend.utils.api import get_dataframe
 import dash_bootstrap_components as dbc
 
 dash.register_page(__name__, path='/hourly', name='Hourly Insights')
@@ -77,13 +78,19 @@ layout = Container([
     Output('hourly-date-picker-range', 'end_date'),
     Output('hourly-date-picker-range', 'min_date_allowed'),
     Output('hourly-date-picker-range', 'max_date_allowed'),
-    Input('data-store', 'data')
+    Input('data-store', 'data'),
+    State('auth-state', 'data')
 )
-def set_date_picker(data):
-    if not data:
+def set_date_picker(data_ref, auth_state):
+    if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        
+    token = auth_state.get('token') if auth_state else None
+    if not token:
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        
+    df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
     
-    df = pd.DataFrame(data)
     date_col = None
     if 'Timestamp' in df.columns:
         date_col = 'Timestamp'
@@ -109,18 +116,22 @@ def set_date_picker(data):
     Input('hourly-date-picker-range', 'start_date'),
     Input('hourly-date-picker-range', 'end_date'),
     Input('hourly-time-start', 'value'),
-    Input('hourly-time-end', 'value')
+    Input('hourly-time-end', 'value'),
+    State('auth-state', 'data')
 )
-def update_hourly_insights(data, company_filter, language_filter, start_date, end_date, time_start, time_end):
-    if not data or not start_date or not end_date:
-        empty_fig = px.pie(title="No Data")
+def update_hourly_insights(data_ref, company_filter, language_filter, start_date, end_date, time_start, time_end, auth_state):
+    empty_fig = px.pie(title="No Data")
+    if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or not start_date or not end_date:
         return empty_fig, empty_fig, empty_fig
         
-    df = pd.DataFrame(data)
+    token = auth_state.get('token') if auth_state else None
+    if not token:
+        return empty_fig, empty_fig, empty_fig
+        
+    df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
     
     date_col = 'Date' if 'Date' in df.columns else 'Timestamp' if 'Timestamp' in df.columns else None
-    if not date_col:
-        empty_fig = px.pie(title="No Data")
+    if not date_col or df.empty:
         return empty_fig, empty_fig, empty_fig
 
     df['DateCol'] = pd.to_datetime(df[date_col])
@@ -144,7 +155,6 @@ def update_hourly_insights(data, company_filter, language_filter, start_date, en
         df_current = df_current[df_current['Language'].isin(language_filter)]
         
     if df_current.empty or ts_col not in df_current.columns:
-        empty_fig = px.pie(title="No Data or Missing Timestamp Info")
         return empty_fig, empty_fig, empty_fig
 
     df_current['Time'] = pd.to_datetime(df_current[ts_col]).dt.time
@@ -243,12 +253,18 @@ def update_hourly_insights(data, company_filter, language_filter, start_date, en
     State('hourly-date-picker-range', 'end_date'),
     State('hourly-time-start', 'value'),
     State('hourly-time-end', 'value'),
+    State('auth-state', 'data'),
     prevent_initial_call=True
 )
-def export_csv_hourly(n_clicks, data, company_filter, language_filter, start_date, end_date, time_start, time_end):
-    if not n_clicks or not data or not start_date or not end_date:
+def export_csv_hourly(n_clicks, data_ref, company_filter, language_filter, start_date, end_date, time_start, time_end, auth_state):
+    if not n_clicks or not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or not start_date or not end_date:
         return dash.no_update
-    df = pd.DataFrame(data)
+
+    token = auth_state.get('token') if auth_state else None
+    if not token: return dash.no_update
+    
+    df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
+    if df.empty: return dash.no_update
 
     date_col = 'Date' if 'Date' in df.columns else 'Timestamp' if 'Timestamp' in df.columns else None
     if date_col:

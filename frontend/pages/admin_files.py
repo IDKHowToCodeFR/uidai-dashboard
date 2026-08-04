@@ -2,11 +2,10 @@ import dash
 from dash import html, dcc, callback, Input, Output, State, ALL, MATCH
 import dash_bootstrap_components as dbc
 import requests
-from utils.api import http_session
+from frontend.utils.api import api_client
 import pandas as pd
 import base64
 from datetime import datetime, date, timedelta
-from auth import API_BASE_URL
 
 dash.register_page(__name__, path='/admin-files', name='File Repository')
 
@@ -55,17 +54,17 @@ def get_time_group(iso_time_str):
     Input("auth-state", "data"),
     Input("btn-refresh-files", "n_clicks"),
     Input("file-date-picker", "start_date"),
-    Input("file-date-picker", "end_date")
+    Input("file-date-picker", "end_date"),
+    State("impersonate-dropdown", "value")
 )
-def load_files(auth_state, n_clicks, start_date, end_date):
+def load_files(auth_state, n_clicks, start_date, end_date, impersonate):
     if not auth_state:
         return html.Div("Unauthorized")
     token = auth_state.get("token")
     if not token:
         return html.Div("Unauthorized")
     try:
-        headers = {"Authorization": f"Bearer {token}"}
-        response = http_session.get(f"{API_BASE_URL}/history", headers=headers)
+        response = api_client.get_history(token, impersonate)
         if response.status_code == 200:
             files = response.json()
             if not files:
@@ -174,9 +173,10 @@ def load_files(auth_state, n_clicks, start_date, end_date):
     Output("download-raw-file", "data"),
     Input({'type': 'btn-download-file', 'index': ALL}, 'n_clicks'),
     State("auth-state", "data"),
+    State("impersonate-dropdown", "value"),
     prevent_initial_call=True
 )
-def handle_download_click(n_clicks_list, auth_state):
+def handle_download_click(n_clicks_list, auth_state, impersonate):
     ctx = dash.ctx
     if not ctx.triggered or not auth_state:
         return dash.no_update
@@ -191,11 +191,9 @@ def handle_download_click(n_clicks_list, auth_state):
         
     token = auth_state.get("token")
     try:
-        headers = {"Authorization": f"Bearer {token}"}
-        response = http_session.get(f"{API_BASE_URL}/download/{filename}", headers=headers)
-        if response.status_code == 200:
-            encoded = base64.b64encode(response.content).decode()
-            return dict(content=encoded, filename=filename, base64=True)
+        result = api_client.download_file(token, filename, impersonate)
+        if result:
+            return result
     except:
         pass
         

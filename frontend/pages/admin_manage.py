@@ -2,8 +2,7 @@ import dash
 from dash import html, dcc, callback, Input, Output, State, ctx, no_update, ALL
 import dash_bootstrap_components as dbc
 import requests
-from utils.api import http_session
-from auth import API_BASE_URL
+from frontend.utils.api import api_client
 
 dash.register_page(__name__, path='/admin-manage', name='Manage Users')
 
@@ -100,18 +99,34 @@ layout = html.Div([
     ], id="admin-deactivate-modal", is_open=False)
 ])
 
-def create_card(username, company_name, perms):
+def create_card(username, company_name, perms, login_count=0, last_login="Never"):
     initials = company_name[:2].upper() if company_name else username[:2].upper()
     total_perms = 4
     granted_perms = len([p for p in perms if p in ["can_view_global", "can_view_scoped", "can_upload_files", "can_download_files"]])
     percentage = int((granted_perms / total_perms) * 100)
     
+    if last_login != "Never" and "T" in last_login:
+        try:
+            from datetime import datetime
+            dt = datetime.fromisoformat(last_login)
+            last_login = dt.strftime("%b %d, %Y %H:%M")
+        except:
+            pass
+
     return dbc.Col([
         html.Div([
             html.Div([
                 html.Div(initials, className="initials-bubble mx-auto mb-3"),
                 html.H5(company_name, className="fw-bold mb-1", style={"color": "var(--color-text-heading)"}),
-                html.P(f"User: {username} | Access: {percentage}%", className="small text-muted mb-3 fw-bold"),
+                html.P(f"User: {username} | Access: {percentage}%", className="small text-muted mb-2 fw-bold"),
+                
+                html.Div([
+                    html.Span(f"Logins: ", className="text-muted small"),
+                    html.Span(f"{login_count}", className="fw-bold small me-3"),
+                    html.Span(f"Last: ", className="text-muted small"),
+                    html.Span(f"{last_login}", className="fw-bold small"),
+                ], className="mb-3"),
+
                 dbc.Progress(value=percentage, color="primary", className="mb-4", style={"height": "6px", "borderRadius": "4px"}),
                 dbc.Button("Manage", id={"type": "manage-btn", "index": username}, color="primary", outline=True, size="sm", className="w-100 fw-bold")
             ], className="card-body text-center p-4")
@@ -132,8 +147,7 @@ def load_cards(auth_state, status):
     if not token:
         return []
     try:
-        headers = {"Authorization": f"Bearer {token}"}
-        response = http_session.get(f"{API_BASE_URL}/users", headers=headers)
+        response = api_client.get_users(token)
         if response.status_code == 200:
             users = response.json()
             cards = []
@@ -142,7 +156,9 @@ def load_cards(auth_state, status):
                     continue
                 perms = data.get("permissions", [])
                 company_name = data.get("user", username)
-                cards.append(create_card(username, company_name, perms))
+                login_count = data.get("login_count", 0)
+                last_login = data.get("last_login", "Never")
+                cards.append(create_card(username, company_name, perms, login_count, last_login))
             return cards
     except:
         pass
@@ -173,8 +189,7 @@ def open_offcanvas(manage_clicks, auth_state, is_open):
     # Fetch specific user permissions
     perms = []
     try:
-        headers = {"Authorization": f"Bearer {token}"}
-        response = http_session.get(f"{API_BASE_URL}/users", headers=headers)
+        response = api_client.get_users(token)
         if response.status_code == 200:
             users = response.json()
             if username in users:
@@ -197,9 +212,8 @@ def save_perms(n_clicks, username, switches, auth_state):
     if not n_clicks: return no_update, no_update
     token = auth_state.get('token') if auth_state else None
     try:
-        headers = {"Authorization": f"Bearer {token}"}
         req_data = {"username": username, "permissions": switches or []}
-        response = http_session.post(f"{API_BASE_URL}/users/permissions", headers=headers, json=req_data)
+        response = api_client.update_permissions(token, req_data)
         if response.status_code == 200:
             return html.Span("Permissions saved successfully.", className="text-success"), "reload"
         return html.Span("Error saving permissions.", className="text-danger"), no_update
@@ -244,8 +258,7 @@ def deactivate_user(n_clicks, username, auth_state):
     if not n_clicks: return no_update, no_update, no_update
     token = auth_state.get('token') if auth_state else None
     try:
-        headers = {"Authorization": f"Bearer {token}"}
-        response = http_session.post(f"{API_BASE_URL}/users/remove", headers=headers, json={"username": username})
+        response = api_client.remove_user(token, username)
         if response.status_code == 200:
             return False, False, "reload"
     except:
@@ -289,9 +302,8 @@ def add_company(n_clicks, company_name, username, password, perms, auth_state):
         return html.Span("All fields required.", className="text-danger"), no_update
     token = auth_state.get('token') if auth_state else None
     try:
-        headers = {"Authorization": f"Bearer {token}"}
         req_data = {"username": username, "password": password, "company_name": company_name, "permissions": perms or []}
-        response = http_session.post(f"{API_BASE_URL}/users/add", headers=headers, json=req_data)
+        response = api_client.add_user(token, req_data)
         if response.status_code == 200:
             return "", "reload"
         return html.Span(response.json().get("detail", "Error"), className="text-danger"), no_update
