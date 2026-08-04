@@ -1,6 +1,8 @@
 import dash
-from dash import html, dcc, Input, Output, State, callback
+from dash import html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
+import requests
+from frontend.utils.api import api_client
 
 # --- LOGIN PAGE LAYOUT ---
 login_page = dbc.Row(
@@ -98,80 +100,70 @@ login_page = dbc.Row(
     ]
 )
 
-# --- CREDENTIALS (now managed by FastAPI backend) ---
-import requests
-from utils.api import http_session
-import json
-import os
+def register_auth_callbacks(app):
+    @app.callback(
+        Output("auth-state", "data"),
+        Output("login-error", "children"),
+        Output("login-error", "className"),
+        Input("login-btn", "n_clicks"),
+        Input("login-username", "n_submit"),
+        Input("login-password", "n_submit"),
+        State("login-username", "value"),
+        State("login-password", "value"),
+        State("auth-state", "data")
+    )
+    def handle_login(n_clicks, n_submit_u, n_submit_p, username, password, auth_state):
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update, dash.no_update, dash.no_update
+            
+        if auth_state and auth_state.get('user'):
+            return dash.no_update, "", "text-danger small mb-3"
 
-API_BASE_URL = "http://localhost:8000"
+        error_class = "text-danger small mb-3 shake"
 
-# --- LOGIN CALLBACK ---
-@callback(
-    Output("auth-state", "data"),
-    Output("login-error", "children"),
-    Output("login-error", "className"),
-    Input("login-btn", "n_clicks"),
-    Input("login-username", "n_submit"),
-    Input("login-password", "n_submit"),
-    State("login-username", "value"),
-    State("login-password", "value"),
-    State("auth-state", "data")
-)
-def handle_login(n_clicks, n_submit_u, n_submit_p, username, password, auth_state):
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        return dash.no_update, dash.no_update, dash.no_update
-        
-    if auth_state and auth_state.get('user'):
-        return dash.no_update, "", "text-danger small mb-3"
+        has_username = username and username.strip()
+        has_password = password and password.strip()
+        if not has_username and not has_password:
+            return dash.no_update, "Please enter username and password.", error_class
+        if not has_username:
+            return dash.no_update, "Please enter username.", error_class
+        if not has_password:
+            return dash.no_update, "Please enter password.", error_class
 
-    error_class = "text-danger small mb-3 shake"
+        try:
+            response = api_client.login(username, password)
+            if response.status_code == 200:
+                data = response.json()
+                return {'user': data['role'], 'token': data['access_token'], 'permissions': data.get('permissions', [])}, "", "text-danger small mb-3"
+            else:
+                return dash.no_update, "Invalid credentials.", error_class
+        except requests.exceptions.RequestException:
+            return dash.no_update, "Error connecting to backend API.", error_class
 
-    # Blank field validation
-    has_username = username and username.strip()
-    has_password = password and password.strip()
-    if not has_username and not has_password:
-        return dash.no_update, "Please enter username and password.", error_class
-    if not has_username:
-        return dash.no_update, "Please enter username.", error_class
-    if not has_password:
-        return dash.no_update, "Please enter password.", error_class
+    @app.callback(
+        Output("login-username", "value"),
+        Output("login-password", "value"),
+        Input("auth-state", "data")
+    )
+    def clear_login_form(auth_state):
+        if not auth_state:
+            return "", ""
+        return dash.no_update, dash.no_update
 
-    try:
-        response = http_session.post(f"{API_BASE_URL}/login", data={"username": username, "password": password})
-        if response.status_code == 200:
-            data = response.json()
-            return {'user': data['role'], 'token': data['access_token'], 'permissions': data.get('permissions', [])}, "", "text-danger small mb-3"
-        else:
-            return dash.no_update, "Invalid credentials.", error_class
-    except requests.exceptions.RequestException:
-        return dash.no_update, "Error connecting to backend API.", error_class
-
-
-# --- CLEAR LOGIN FORM ON LOGOUT ---
-@callback(
-    Output("login-username", "value"),
-    Output("login-password", "value"),
-    Input("auth-state", "data")
-)
-def clear_login_form(auth_state):
-    if not auth_state:
-        return "", ""
-    return dash.no_update, dash.no_update
-dash.clientside_callback(
-    """
-    function(n_clicks, type) {
-        if (!n_clicks) return [dash_clientside.no_update, dash_clientside.no_update];
-        if (type === 'password') {
-            return ['text', 'bi bi-eye'];
+    app.clientside_callback(
+        """
+        function(n_clicks, type) {
+            if (!n_clicks) return [dash_clientside.no_update, dash_clientside.no_update];
+            if (type === 'password') {
+                return ['text', 'bi bi-eye'];
+            }
+            return ['password', 'bi bi-eye-slash'];
         }
-        return ['password', 'bi bi-eye-slash'];
-    }
-    """,
-    Output('login-password', 'type'),
-    Output('toggle-password-icon', 'className'),
-    Input('toggle-password-btn', 'n_clicks'),
-    State('login-password', 'type'),
-    prevent_initial_call=True
-)
+        """,
+        Output('login-password', 'type'),
+        Output('toggle-password-icon', 'className'),
+        Input('toggle-password-btn', 'n_clicks'),
+        State('login-password', 'type'),
+        prevent_initial_call=True
+    )

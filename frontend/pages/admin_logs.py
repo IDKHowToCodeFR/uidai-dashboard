@@ -2,8 +2,7 @@ import dash
 from dash import html, dcc, callback, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
 import dash_ag_grid as dag
-from utils.api import http_session
-from auth import API_BASE_URL
+from frontend.utils.api import api_client
 
 dash.register_page(__name__, path='/admin-logs', name='System Logs')
 
@@ -111,8 +110,7 @@ def fetch_and_populate_logs(auth_state, refresh_clicks, load_all, start_date, en
         return no_update, "Unauthorized"
         
     try:
-        headers = {"Authorization": f"Bearer {token}"}
-        response = http_session.get(f"{API_BASE_URL}/logs", headers=headers)
+        response = api_client.get_logs(token)
         
         if response.status_code == 200:
             logs = response.json()

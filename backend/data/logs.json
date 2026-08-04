@@ -250,5 +250,83 @@
     "action": "LOGIN_SUCCESS",
     "username": "uidai",
     "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-04T10:32:36.554228",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-04T10:33:05.046591",
+    "action": "FILE_DOWNLOADED",
+    "username": "admin",
+    "details": "Downloaded file: uidai_july_trend_data_processed.csv"
+  },
+  {
+    "timestamp": "2026-08-04T10:33:21.420991",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-04T10:42:57.782506",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-04T10:49:12.480358",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-04T10:53:57.006146",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-04T10:54:31.681169",
+    "action": "FILE_DOWNLOADED",
+    "username": "admin",
+    "details": "Downloaded file: uidai_july_trend_data_processed.csv"
+  },
+  {
+    "timestamp": "2026-08-04T10:56:40.809012",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-04T10:56:43.803359",
+    "action": "FILE_DOWNLOADED",
+    "username": "admin",
+    "details": "Downloaded file: uidai_july_trend_data_processed.csv"
+  },
+  {
+    "timestamp": "2026-08-04T10:56:58.314360",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-04T12:58:07.337205",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-04T12:58:33.131314",
+    "action": "FILE_DOWNLOADED",
+    "username": "admin",
+    "details": "Downloaded file: uidai_july_trend_data_processed.csv"
+  },
+  {
+    "timestamp": "2026-08-04T15:57:21.772443",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
   }
 ]

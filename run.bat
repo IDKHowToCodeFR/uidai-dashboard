@@ -45,7 +45,7 @@ start cmd /k ".venv\Scripts\uvicorn.exe backend.api.main:app --host 127.0.0.1 --
 
 echo Starting Dash Frontend...
 echo The application will be available at http://127.0.0.1:8050
-cd frontend && ..\.venv\Scripts\python.exe app.py
+.venv\Scripts\python.exe -m frontend.app
 if errorlevel 1 (
     echo Error starting the frontend application. Please check the logs above.
     pause

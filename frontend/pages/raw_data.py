@@ -1,9 +1,10 @@
 import dash
-from dash import html, callback, Input, Output
+from dash import html, callback, Input, Output, State
 import dash_bootstrap_components as dbc
 import dash_ag_grid as dag
 import numpy as np
 import pandas as pd
+from frontend.utils.api import get_dataframe
 
 dash.register_page(__name__, path='/raw-data')
 
@@ -25,13 +26,18 @@ layout = html.Div([
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
     Input('date-picker-range', 'start_date'),
-    Input('date-picker-range', 'end_date')
+    Input('date-picker-range', 'end_date'),
+    State('auth-state', 'data')
 )
-def update_table(data, companies, languages, start_date, end_date):
-    if not data:
+def update_table(data_ref, companies, languages, start_date, end_date, auth_state):
+    if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref:
         return html.Div("No data available. Please upload a file.", className="text-center p-5 text-muted")
 
-    df = pd.DataFrame(data)
+    token = auth_state.get('token') if auth_state else None
+    if not token:
+        return html.Div("Unauthorized.", className="text-center p-5 text-muted")
+
+    df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
 
     if companies and 'Company' in df.columns:
         df = df[df['Company'].isin(companies)]

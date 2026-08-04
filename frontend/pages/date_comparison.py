@@ -6,7 +6,8 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from utils.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
+from frontend.utils.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
+from frontend.utils.api import get_dataframe
 
 dash.register_page(__name__, path='/date-comparison', name='Date Comparison')
 
@@ -139,12 +140,18 @@ layout = Container([
 
 @callback(
     Output('discrete-date-selector', 'options'),
-    Input('data-store', 'data')
+    Input('data-store', 'data'),
+    State('auth-state', 'data')
 )
-def populate_date_selector(data):
-    if not data:
+def populate_date_selector(data_ref, auth_state):
+    if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref:
         return []
-    df = pd.DataFrame(data)
+        
+    token = auth_state.get('token') if auth_state else None
+    if not token:
+        return []
+        
+    df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
     
     date_col = None
     if 'Timestamp' in df.columns:
@@ -176,19 +183,26 @@ def populate_date_selector(data):
     Input('discrete-date-selector', 'value'),
     Input('day-of-week-selector', 'value'),
     Input('company-filter', 'value'),
-    Input('language-filter', 'value')
+    Input('language-filter', 'value'),
+    State('auth-state', 'data')
 )
-def update_comparison_charts(data, selected_dates, selected_days, companies, languages):
+def update_comparison_charts(data_ref, selected_dates, selected_days, companies, languages, auth_state):
     template = get_plotly_template()
     empty_fig = px.bar(template=template).update_layout(
         xaxis={"visible": False}, yaxis={"visible": False},
         annotations=[{"text": "Select dates or days to view comparison", "xref": "paper", "yref": "paper", "showarrow": False, "font": {"size": 16, "color": "#64748b"}}]
     )
     
-    if not data or (not selected_dates and not selected_days):
+    if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or (not selected_dates and not selected_days):
         return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, html.P("No data selected.")
         
-    df = pd.DataFrame(data)
+    token = auth_state.get('token') if auth_state else None
+    if not token:
+        return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, html.P("Unauthorized.")
+        
+    df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
+    if df.empty:
+        return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, html.P("No data available.")
     
     # Filter by Company and Language
     if companies and 'Company' in df.columns:
@@ -492,12 +506,18 @@ def update_comparison_charts(data, selected_dates, selected_days, companies, lan
     State('data-store', 'data'),
     State('discrete-date-selector', 'value'),
     State('day-of-week-selector', 'value'),
+    State('auth-state', 'data'),
     prevent_initial_call=True
 )
-def export_csv_compare(n_clicks, data, selected_dates, selected_days):
-    if not n_clicks or not data:
+def export_csv_compare(n_clicks, data_ref, selected_dates, selected_days, auth_state):
+    if not n_clicks or not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or (not selected_dates and not selected_days):
         return dash.no_update
-    df = pd.DataFrame(data)
+        
+    token = auth_state.get('token') if auth_state else None
+    if not token: return dash.no_update
+    
+    df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
+    if df.empty: return dash.no_update
     
     date_col = 'Date' if 'Date' in df.columns else 'Timestamp' if 'Timestamp' in df.columns else 'Call Start Time' if 'Call Start Time' in df.columns else None
     if date_col:
