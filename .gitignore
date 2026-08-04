@@ -7,4 +7,3 @@ wheels/
 .venv
 .idea
 uv.lock
-CONTEXT.md
