@@ -135,8 +135,9 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
         return empty_fig, empty_fig, empty_fig
 
     df['DateCol'] = pd.to_datetime(df[date_col])
-    start_dt, end_dt = pd.to_datetime(start_date), pd.to_datetime(end_date)
-    df_current = df[(df['DateCol'] >= start_dt) & (df['DateCol'] <= end_dt)].copy()
+    start_dt = pd.to_datetime(start_date)
+    end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1)
+    df_current = df[(df['DateCol'] >= start_dt) & (df['DateCol'] < end_dt)].copy()
     
     # Filter by time range (HH:MM:SS)
     ts_col = 'Call Timestamp' if 'Call Timestamp' in df_current.columns else date_col

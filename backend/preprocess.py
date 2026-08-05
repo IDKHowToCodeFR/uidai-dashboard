@@ -31,11 +31,13 @@ def process_data():
             # Read excel or csv
             if file.endswith('.csv'):
                 df = pd.read_csv(file_path)
+                df.columns = df.columns.str.strip()
             else:
                 excel_file = pd.ExcelFile(file_path, engine='openpyxl')
                 dfs = []
                 for sheet_name in excel_file.sheet_names:
                     sheet_df = pd.read_excel(excel_file, sheet_name=sheet_name)
+                    sheet_df.columns = sheet_df.columns.str.strip()
                     # Infer company from sheet name if not exists
                     if 'Company' not in sheet_df.columns:
                         sheet_df['Company'] = sheet_name
@@ -43,6 +45,10 @@ def process_data():
                 df = pd.concat(dfs, ignore_index=True)
             
             # Common cleaning steps
+            # 4. Drop fully empty rows/cols
+            df.dropna(how='all', inplace=True)
+            df.dropna(axis=1, how='all', inplace=True)
+            
             # 1. Fill NaNs in numeric columns with 0
             numeric_cols = df.select_dtypes(include=[np.number]).columns
             df[numeric_cols] = df[numeric_cols].fillna(0)
@@ -54,10 +60,6 @@ def process_data():
             # 3. Strip whitespace from string columns
             for col in object_cols:
                 df[col] = df[col].astype(str).str.strip()
-                
-            # 4. Drop fully empty rows/cols
-            df.dropna(how='all', inplace=True)
-            df.dropna(axis=1, how='all', inplace=True)
             
             # 5. Derived Quantities
             if 'ACD Calls in 20 Sec' in df.columns and 'Call Offered' in df.columns and 'ABAN Calls in 10 Sec' in df.columns:
