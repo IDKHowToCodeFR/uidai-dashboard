@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from backend.api.auth_utils import (
     load_users, verify_password, create_access_token, get_current_user,
-    add_user, remove_user, update_permissions, add_log, record_login
+    add_user, remove_user, update_permissions, add_log, record_login, reset_password
 )
 
 router = APIRouter()
@@ -27,6 +27,10 @@ class UserRemoveRequest(BaseModel):
 class PermissionsRequest(BaseModel):
     username: str
     permissions: List[str]
+
+class ResetPasswordRequest(BaseModel):
+    username: str
+    new_password: str
 
 @router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -74,6 +78,15 @@ async def api_update_permissions(req: PermissionsRequest, current_user: dict = D
     if current_user["role"] != "Admin":
         raise HTTPException(status_code=403, detail="Admin only")
     ok, msg = update_permissions(req.username, req.permissions)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+    return {"message": msg}
+
+@router.post("/users/reset-password")
+async def api_reset_password(req: ResetPasswordRequest, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "Admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    ok, msg = reset_password(req.username, req.new_password)
     if not ok:
         raise HTTPException(status_code=400, detail=msg)
     return {"message": msg}

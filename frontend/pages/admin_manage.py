@@ -2,13 +2,18 @@ import dash
 from dash import html, dcc, callback, Input, Output, State, ctx, no_update, ALL
 import dash_bootstrap_components as dbc
 import requests
+import random
+import string
 from frontend.utils.api import api_client
 
 dash.register_page(__name__, path='/admin-manage', name='Manage Users')
 
 layout = html.Div([
     html.Div([
-        html.H2("Company & Permissions", className="mt-0 mb-0 text-primary fw-bold"),
+        html.Div([
+            html.H3("Company & Permissions", className="display-xl mb-0"),
+            html.P("Manage system users, passwords, and access controls.", className="text-muted mb-0 mt-2"),
+        ]),
         dbc.Button(
             [html.I(className="bi bi-person-plus-fill me-2"), "Add Company"],
             id="admin-btn-add-modal", color="primary"
@@ -41,6 +46,15 @@ layout = html.Div([
             html.Div(id="offcanvas-save-status", className="small mt-2 mb-4"),
             
             html.Hr(),
+            html.H6("Reset Password", className="fw-bold mb-3"),
+            dbc.InputGroup([
+                dbc.Input(id="offcanvas-new-password", placeholder="New password...", type="text"),
+                dbc.Button("Generate", id="offcanvas-btn-random-password", color="secondary", outline=True)
+            ], className="mb-2"),
+            dbc.Button("Set Password", id="offcanvas-btn-set-password", color="warning", size="sm", className="w-100 mb-2"),
+            html.Div(id="offcanvas-password-status", className="small mt-2 mb-4"),
+
+            html.Hr(),
             html.H6("Danger Zone", className="text-danger fw-bold mb-3"),
             dbc.Button("Deactivate User", id="offcanvas-btn-deactivate", color="danger", outline=True, size="sm", className="w-100"),
         ],
@@ -61,7 +75,10 @@ layout = html.Div([
             dbc.Input(id="page-new-company-username", placeholder="Login username", type="text", className="mb-3"),
             
             dbc.Label("Password", className="small text-muted text-uppercase fw-bold"),
-            dbc.Input(id="page-new-company-password", placeholder="Login password", type="password", className="mb-3"),
+            dbc.InputGroup([
+                dbc.Input(id="page-new-company-password", placeholder="Login password", type="text"),
+                dbc.Button("Generate", id="page-btn-random-password", color="secondary", outline=True)
+            ], className="mb-3"),
             
             dbc.Label("Initial Permissions", className="small text-muted text-uppercase fw-bold"),
             dbc.Checklist(
@@ -218,7 +235,55 @@ def save_perms(n_clicks, username, switches, auth_state):
             return html.Span("Permissions saved successfully.", className="text-success"), "reload"
         return html.Span("Error saving permissions.", className="text-danger"), no_update
     except:
-        return html.Span("API Error.", className="text-danger"), no_update
+        return html.Span("Error.", className="text-danger"), no_update
+
+def generate_random_password(length=10):
+    chars = string.ascii_letters + string.digits
+    return ''.join(random.choice(chars) for _ in range(length))
+
+@callback(
+    Output("page-new-company-password", "value"),
+    Input("page-btn-random-password", "n_clicks"),
+    prevent_initial_call=True
+)
+def generate_add_user_password(n_clicks):
+    if n_clicks:
+        return generate_random_password()
+    return no_update
+
+@callback(
+    Output("offcanvas-new-password", "value"),
+    Output("offcanvas-password-status", "children", allow_duplicate=True),
+    Input("offcanvas-btn-random-password", "n_clicks"),
+    prevent_initial_call=True
+)
+def generate_reset_password(n_clicks):
+    if n_clicks:
+        return generate_random_password(), ""
+    return no_update, no_update
+
+@callback(
+    Output("offcanvas-password-status", "children"),
+    Input("offcanvas-btn-set-password", "n_clicks"),
+    State("offcanvas-username", "children"),
+    State("offcanvas-new-password", "value"),
+    State("auth-state", "data"),
+    prevent_initial_call=True
+)
+def reset_user_password(n_clicks, username, new_password, auth_state):
+    if not n_clicks: return no_update
+    if not new_password or len(new_password.strip()) < 4:
+        return html.Span("Password must be at least 4 characters.", className="text-danger")
+        
+    token = auth_state.get('token') if auth_state else None
+    try:
+        req_data = {"username": username, "new_password": new_password.strip()}
+        response = api_client.reset_password(token, req_data)
+        if response.status_code == 200:
+            return html.Span("Password updated successfully.", className="text-success")
+        return html.Span("Error updating password.", className="text-danger")
+    except:
+        return html.Span("API Error.", className="text-danger")
 
 @callback(
     Output("admin-deactivate-modal", "is_open"),

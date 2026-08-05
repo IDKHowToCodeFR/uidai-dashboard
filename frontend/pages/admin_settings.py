@@ -17,8 +17,10 @@ SLA_CATEGORIES = [
 
 def layout():
     return dbc.Container([
-        html.H3("Global Settings & SLAs", className="mb-4 text-primary"),
-        html.P("Configure SLA targets used across the platform for KPI visualizations.", className="text-muted"),
+        html.Div([
+            html.H3("Global Settings & SLAs", className="display-xl mb-0"),
+            html.P("Configure SLA targets used across the platform for KPI visualizations.", className="text-muted mb-4 mt-2"),
+        ]),
         dbc.Card([
             dbc.CardHeader(html.H5("Radar Chart SLA Targets", className="mb-0")),
             dbc.CardBody([

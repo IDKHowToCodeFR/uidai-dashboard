@@ -22,7 +22,7 @@ def make_kpi_card(title, value, status="neutral"):
 
     return Card([
         CardBody([
-            html.H6(title, className="text-muted text-uppercase mb-2", style={"fontSize": "12px", "fontWeight": "700", "letterSpacing": "0.5px"}),
+            html.H6(title, className="kpi-label mb-2"),
             html.H3(value, className=f"mb-0 display-lg {color_class}", style={'fontWeight': 'bold'})
         ])
     ], className="custom-card h-100")
@@ -30,8 +30,10 @@ def make_kpi_card(title, value, status="neutral"):
 layout = Container([
     Row([
         Col([
-            html.H2("Specific Date Comparison", className="display-xl mb-2"),
-            html.P("Compare key performance metrics across selected discrete dates and days of the week.", className="text-muted mb-4")
+            html.Div([
+                html.H3("Specific Date Comparison", className="display-xl mb-0"),
+                html.P("Compare key performance metrics across selected discrete dates and days of the week.", className="text-muted mb-0 mt-2")
+            ])
         ], width=8),
         Col([
             html.Div([
@@ -41,13 +43,13 @@ layout = Container([
         ], width=4, className="d-flex align-items-center justify-content-end mb-4")
     ]),
 
-    Row([
+    Row(style={"position": "relative", "zIndex": 100}, children=[
         Col([
             Card([
                 CardBody([
                     Row([
                         Col([
-                            html.H6("SPECIFIC DATES", className="text-muted text-uppercase mb-2", style={"fontSize": "11px", "letterSpacing": "1px"}),
+                            html.H6("SPECIFIC DATES", className="section-title mb-2"),
                             dcc.Dropdown(
                                 id='discrete-date-selector',
                                 options=[],
@@ -57,7 +59,7 @@ layout = Container([
                             )
                         ], width=12, md=6, className="mb-3 mb-md-0"),
                         Col([
-                            html.H6("DAYS OF WEEK", className="text-muted text-uppercase mb-2", style={"fontSize": "11px", "letterSpacing": "1px"}),
+                            html.H6("DAYS OF WEEK", className="section-title mb-2"),
                             dcc.Dropdown(
                                 id='day-of-week-selector',
                                 options=[
@@ -78,7 +80,7 @@ layout = Container([
                 ])
             ], className="custom-card mb-4", style={'overflow': 'visible', 'position': 'relative', 'zIndex': 999})
         ], width=12)
-    ], style={'position': 'relative', 'zIndex': 999}),
+    ]),
 
     # KPI Row
     Row(id='comparison-kpi-row', className="mb-4"),

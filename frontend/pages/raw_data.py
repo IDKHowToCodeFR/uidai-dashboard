@@ -9,9 +9,10 @@ from frontend.utils.api import get_dataframe
 dash.register_page(__name__, path='/raw-data')
 
 layout = html.Div([
-    html.H3("Raw Data Explorer", className="display-xl mb-4"),
-    html.P("View, sort, and filter the raw IVRS call logs. Use the column headers to further filter data on this page.", className="text-muted mb-4"),
-
+    html.Div([
+        html.H3("Raw Data Explorer", className="display-xl mb-0"),
+        html.P("View, sort, and filter the raw IVRS call logs. Use the column headers to further filter data on this page.", className="text-muted mb-4 mt-2"),
+    ]),
     html.Div(
         id='raw-data-table-container',
         className="custom-card shadow-sm bg-white p-4",

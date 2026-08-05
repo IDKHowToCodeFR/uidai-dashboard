@@ -22,7 +22,7 @@ def make_kpi_card(title, value, status="neutral"):
 
     return Card([
         CardBody([
-            html.H6(title, className="text-muted text-uppercase mb-2", style={"fontSize": "12px", "fontWeight": "700", "letterSpacing": "0.5px"}),
+            html.H6(title, className="kpi-label mb-2"),
             html.H3(value, className=f"mb-0 display-lg {color_class}")
         ])
     ], className="custom-card h-100")
@@ -38,7 +38,10 @@ def make_chart_card(title, chart_id, height_class="h-100", extra_style=None):
 layout = Container([
     Row([
         Col([
-            html.H2("Call Center Performance", className="display-xl mb-4")
+            html.Div([
+                html.H3("Call Center Performance", className="display-xl mb-0"),
+                html.P("Overview of key contact center metrics and SLAs.", className="text-muted mb-0 mt-2"),
+            ])
         ], width=8),
         Col([
             html.Div([
@@ -587,4 +590,4 @@ def export_html_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_li
         fig_dict = figures.get(index)
         if not fig_dict: return dash.no_update
         html_str = generate_single_chart_html(fig_dict)
-        return dcc.send_string(html_str, f"{index}_export.html")
+        return dcc.send_string(html_str, f"{index}_export.html")

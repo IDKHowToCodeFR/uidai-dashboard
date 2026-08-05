@@ -117,7 +117,7 @@ def load_files(auth_state, n_clicks, start_date, end_date, impersonate):
                 
                 # Header for the group
                 sections.append(
-                    html.H5(category_name, className="mt-4 mb-3 text-muted fw-bold", style={"fontSize": "0.9rem", "textTransform": "uppercase", "letterSpacing": "1px"})
+                    html.H5(category_name, className="section-title mt-4 mb-3")
                 )
                 
                 group_df = grouped.get_group(category)
@@ -177,6 +177,9 @@ def load_files(auth_state, n_clicks, start_date, end_date, impersonate):
     prevent_initial_call=True
 )
 def handle_download_click(n_clicks_list, auth_state, impersonate):
+    if not any(n_clicks_list):
+        return dash.no_update
+        
     ctx = dash.ctx
     if not ctx.triggered or not auth_state:
         return dash.no_update
