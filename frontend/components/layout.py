@@ -6,7 +6,7 @@ from frontend.utils.api import get_history_options
 # --- FILTER DRAWER (Right Side) ---
 filter_drawer = dbc.Offcanvas(
     html.Div([
-        html.H6("TIME RANGE", className="text-muted text-uppercase mb-2", style={"fontSize": "11px", "letterSpacing": "1px"}),
+        html.H6("TIME RANGE", className="section-title mb-2"),
         dcc.DatePickerRange(
             id='date-picker-range',
             start_date_placeholder_text="Start",
@@ -16,7 +16,7 @@ filter_drawer = dbc.Offcanvas(
             className="mb-4 w-100"
         ),
 
-        html.H6("COMPANY", className="text-muted text-uppercase mb-2 mt-2", style={"fontSize": "11px", "letterSpacing": "1px"}),
+        html.H6("COMPANY", className="section-title mb-2 mt-2"),
         dcc.Dropdown(
             id="company-filter",
             options=[],
@@ -27,7 +27,7 @@ filter_drawer = dbc.Offcanvas(
             disabled=False
         ),
 
-        html.H6("LANGUAGE", className="text-muted text-uppercase mb-2", style={"fontSize": "11px", "letterSpacing": "1px"}),
+        html.H6("LANGUAGE", className="section-title mb-2"),
         dcc.Dropdown(
             id="language-filter",
             options=[],
@@ -162,7 +162,7 @@ def get_topbar(user_role, permissions):
 def get_sidebar(user_role, token, permissions):
     if user_role == 'Admin':
         sidebar_content = html.Div([
-            html.H6("ADMINISTRATOR", className="sidebar-section-title text-muted text-uppercase mb-3", style={"fontSize": "11px", "letterSpacing": "1px"}),
+            html.H6("ADMINISTRATOR", className="section-title mb-3"),
             dbc.Nav(
                 [
                     dbc.NavLink(
@@ -218,7 +218,7 @@ def get_sidebar(user_role, token, permissions):
     can_upload = 'can_upload_files' in permissions
 
     sidebar_content = html.Div([
-        html.H6("MAIN", className="sidebar-section-title text-muted text-uppercase mb-3", style={"fontSize": "11px", "letterSpacing": "1px"}),
+        html.H6("MAIN", className="section-title mb-3"),
         dbc.Nav(
             [
                 dbc.NavLink(
@@ -254,7 +254,7 @@ def get_sidebar(user_role, token, permissions):
         html.Hr(style={"borderColor": "#e2e8f0"}),
 
         html.Div([
-            html.H6("DATA", className="sidebar-section-title text-muted text-uppercase mb-3 mt-4", style={"fontSize": "11px", "letterSpacing": "1px"}),
+            html.H6("DATA", className="section-title mb-3 mt-4"),
             html.Div([
                 dcc.Upload(
                     id='upload-data',
@@ -278,7 +278,7 @@ def get_sidebar(user_role, token, permissions):
             
         ], style={"display": "block"} if can_upload else {"display": "none"}),
 
-        html.H6("HISTORY", className="sidebar-section-title text-muted text-uppercase mb-3 mt-4", style={"fontSize": "11px", "letterSpacing": "1px"}),
+        html.H6("HISTORY", className="section-title mb-3 mt-4"),
         html.Div(
             dbc.RadioItems(
                 id="file-history",

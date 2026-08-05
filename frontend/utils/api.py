@@ -37,6 +37,9 @@ class ApiClient:
     def update_permissions(self, token: str, req_data: dict):
         return self._handle_response(self.session.post(f"{self.base_url}/users/permissions", headers=self._get_headers(token), json=req_data))
 
+    def reset_password(self, token: str, req_data: dict):
+        return self._handle_response(self.session.post(f"{self.base_url}/users/reset-password", headers=self._get_headers(token), json=req_data))
+
     def get_logs(self, token: str):
         return self._handle_response(self.session.get(f"{self.base_url}/logs", headers=self._get_headers(token)))
 
@@ -107,7 +110,7 @@ def get_history_options(token, user_role=None, permissions=None, impersonate=Non
             group_name = 'Earlier'
         if group_name != current_group:
             options.append({
-                'label': html.Div(group_name, className='history-group-header small text-muted fw-bold mt-3 mb-1 text-uppercase', style={'fontSize': '10px', 'letterSpacing': '1px'}),
+                'label': html.Div(group_name, className='section-title mt-3 mb-1'),
                 'value': f'HEADER_{group_name}',
                 'disabled': True
             })

@@ -14,38 +14,55 @@ layout = Container([
     Row([
         Col([
             html.Div([
-                html.H2("Hourly Insights", className="display-xl mb-0"),
-                html.Div([
-                    html.Span("Dates: ", className="text-muted small text-uppercase me-2 fw-bold"),
-                    dcc.DatePickerRange(
-                        id='hourly-date-picker-range',
-                        display_format='YYYY-MM-DD',
-                        className="ms-2 me-4"
-                    ),
-                    html.Span("Time: ", className="text-muted small text-uppercase me-2 fw-bold"),
-                    dbc.Input(
-                        id='hourly-time-start',
-                        type='time',
-                        value='00:00:00',
-                        step="1",
-                        className="me-2",
-                        style={"width": "120px", "border": "1px solid var(--color-border)", "borderRadius": "6px", "padding": "4px 8px", "fontSize": "13px", "background": "var(--color-bg-primary)"}
-                    ),
-                    html.Span("–", className="text-muted me-2"),
-                    dbc.Input(
-                        id='hourly-time-end',
-                        type='time',
-                        value='23:59:59',
-                        step="1",
-                        className="me-4",
-                        style={"width": "120px", "border": "1px solid var(--color-border)", "borderRadius": "6px", "padding": "4px 8px", "fontSize": "13px", "background": "var(--color-bg-primary)"}
-                    ),
-                    html.Div([
-                        make_export_dropdown("hourly"),
-                        dcc.Download(id={'type': 'download-data-hourly', 'index': 'hourly'})
+                html.H3("Hourly Insights", className="display-xl mb-0"),
+                html.P("Intraday monitoring of call volumes and SLAs.", className="text-muted mb-0 mt-2"),
+            ])
+        ], width=8),
+        Col([
+            html.Div([
+                make_export_dropdown("hourly"),
+                dcc.Download(id={'type': 'download-data-hourly', 'index': 'hourly'})
+            ])
+        ], width=4, className="d-flex align-items-center justify-content-end mb-4")
+    ]),
+
+    Row(style={"position": "relative", "zIndex": 100}, children=[
+        Col([
+            Card([
+                CardBody([
+                    Row([
+                        Col([
+                            html.H6("DATES", className="section-title mb-2"),
+                            dcc.DatePickerRange(
+                                id='hourly-date-picker-range',
+                                display_format='YYYY-MM-DD',
+                            )
+                        ], width=12, md=6, className="mb-3 mb-md-0"),
+                        Col([
+                            html.H6("TIME", className="section-title mb-2"),
+                            html.Div([
+                                dbc.Input(
+                                    id='hourly-time-start',
+                                    type='time',
+                                    value='00:00:00',
+                                    step="1",
+                                    className="me-2",
+                                    style={"width": "120px", "border": "1px solid var(--color-border)", "borderRadius": "6px", "padding": "4px 8px", "fontSize": "13px", "background": "var(--color-bg-primary)"}
+                                ),
+                                html.Span("–", className="text-muted me-2"),
+                                dbc.Input(
+                                    id='hourly-time-end',
+                                    type='time',
+                                    value='23:59:59',
+                                    step="1",
+                                    className="me-4",
+                                    style={"width": "120px", "border": "1px solid var(--color-border)", "borderRadius": "6px", "padding": "4px 8px", "fontSize": "13px", "background": "var(--color-bg-primary)"}
+                                )
+                            ], className="d-flex align-items-center")
+                        ], width=12, md=6)
                     ])
-                ], className="d-flex align-items-center bg-white border rounded px-3 py-2 shadow-sm flex-wrap")
-            ], className="d-flex justify-content-between align-items-center mb-4")
+                ])
+            ], className="custom-card mb-4")
         ], width=12)
     ]),
 

@@ -33,10 +33,26 @@ content = html.Div(
 app.layout = html.Div(
     [
         dcc.Location(id="url", refresh=False),
-        dcc.Store(id="auth-state", storage_type="session"),
+        dcc.Store(id="auth-state-local", storage_type="local"),
+        dcc.Store(id="auth-state-session", storage_type="session"),
+        dcc.Store(id="auth-state", storage_type="memory"),
         dcc.Store(id="company-list-version", data=0),
         dcc.Store(id="data-store", storage_type="memory"),
         dcc.Download(id="download-dataframe-csv"),
+        html.Div(id="logout-trigger", style={"display": "none"}),
+        
+        dbc.Modal(
+            [
+                dbc.ModalHeader(dbc.ModalTitle("Session Expired")),
+                dbc.ModalBody("You have been logged out due to 30 minutes of inactivity. Please log in again."),
+                dbc.ModalFooter(dbc.Button("OK", id="close-inactivity-modal", color="primary", href="/")),
+            ],
+            id="inactivity-modal",
+            is_open=False,
+            backdrop="static",
+            keyboard=False,
+        ),
+        
         html.Div(id="app-container")
     ]
 )
@@ -99,6 +115,44 @@ app.clientside_callback(
     }
     """,
     Output('ws-client-id', 'data'),
+    Input('auth-state', 'data'),
+    prevent_initial_call=False
+)
+
+app.clientside_callback(
+    """
+    function(auth_state) {
+        if (!auth_state) return window.dash_clientside.no_update;
+        
+        // 30 minutes in milliseconds
+        const TIMEOUT = 30 * 60 * 1000;
+        
+        if (window.inactivityTimer) clearTimeout(window.inactivityTimer);
+        
+        const resetTimer = () => {
+            if (window.inactivityTimer) clearTimeout(window.inactivityTimer);
+            window.inactivityTimer = setTimeout(() => {
+                const trigger = document.getElementById('logout-trigger');
+                if (trigger) trigger.click();
+            }, TIMEOUT);
+        };
+        
+        // Remove old listeners to prevent duplicates
+        document.removeEventListener('mousemove', window.resetInactivityTimer);
+        document.removeEventListener('keydown', window.resetInactivityTimer);
+        document.removeEventListener('click', window.resetInactivityTimer);
+        
+        window.resetInactivityTimer = resetTimer;
+        
+        document.addEventListener('mousemove', resetTimer);
+        document.addEventListener('keydown', resetTimer);
+        document.addEventListener('click', resetTimer);
+        
+        resetTimer();
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output('logout-trigger', 'className'), # dummy output
     Input('auth-state', 'data'),
     prevent_initial_call=False
 )

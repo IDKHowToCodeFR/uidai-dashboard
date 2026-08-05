@@ -18,7 +18,7 @@
 ## Future Architecture (Parked Ideas)
 
 - **Multi-Tenant RBAC**: Transitioning from a flat admin structure to a hierarchical one (Super Admin -> Tenant Admin -> Tenant User). This will require a DB schema update (adding Tenant IDs, Roles) and separate dashboards. Parked to avoid over-engineering for <50 users.
-- **OTP & Password Verification**: Enforcing strict password length/complexity and integrating OTP (One-Time Password) for 2FA/MFA during the login flow. Parked for future security hardening.
+- **OTP & Password Verification**: Explicitly rejected. Since the dashboard is for internal use only, strict 2FA/OTP introduces unnecessary friction and will not be built.
 - **Safe Deletion Protocol**: A GitHub-style confirmation modal requiring the Admin to type the exact company name before a destructive Deactivation API call can be fired.
 
 ## Design System & Visual Language

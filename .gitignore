@@ -7,3 +7,4 @@ wheels/
 .venv
 .idea
 uv.lock
+.tmp_runner.py

@@ -158,6 +158,19 @@ def update_permissions(username, permissions):
         add_log("PERMISSIONS_UPDATED", "Admin", f"Updated permissions for '{username}': {permissions}")
         return True, f"Permissions updated for '{username}'."
 
+def reset_password(username, new_password):
+    with db_lock:
+        users = load_users()
+        key = username.lower().strip()
+        if key not in users:
+            return False, "User not found."
+        
+        hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        users[key]["password"] = hashed_password
+        save_users(users)
+        add_log("PASSWORD_RESET", "Admin", f"Reset password for '{username}'")
+        return True, f"Password reset for '{username}'."
+
 def remove_user(username):
     with db_lock:
         users = load_users()

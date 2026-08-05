@@ -13,14 +13,28 @@ def get_plotly_template():
     template.layout.font.color = '#334155'     # Body text color
     template.layout.font.family = 'Inter, sans-serif'
     
-    # Grid lines
-    template.layout.xaxis.gridcolor = '#f1f5f9' 
-    template.layout.yaxis.gridcolor = '#f1f5f9'
-    template.layout.xaxis.zerolinecolor = '#e2e8f0' 
-    template.layout.yaxis.zerolinecolor = '#e2e8f0'
+    # Grid lines - Subtle & Structured
+    template.layout.xaxis.showgrid = False       # Remove vertical grid lines for cleaner look
+    template.layout.yaxis.showgrid = True
+    template.layout.yaxis.gridcolor = 'rgba(226, 232, 240, 0.6)'  # Very faint #e2e8f0
+    template.layout.yaxis.gridwidth = 1
+    template.layout.yaxis.griddash = 'dash'      # Dashed grid lines
     
-    # Premium Palette
-    template.layout.colorway = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
+    template.layout.xaxis.zeroline = True
+    template.layout.xaxis.zerolinecolor = '#cbd5e1'
+    template.layout.yaxis.zeroline = False
+    
+    # Hover aesthetics
+    template.layout.hovermode = 'x unified'
+    template.layout.hoverlabel = dict(
+        bgcolor="rgba(255, 255, 255, 0.95)",
+        font_size=13,
+        font_family="Inter, sans-serif",
+        bordercolor="#e2e8f0"
+    )
+    
+    # Premium Palette aligned with CSS variables
+    template.layout.colorway = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
     
     return template
 def make_header_with_download(title, graph_id, page_id="dashboard"):
@@ -44,7 +58,10 @@ def make_header_with_download(title, graph_id, page_id="dashboard"):
 def wrap_graph_with_download(graph_id, graph_component, page_id="dashboard"):
     from dash import html, dcc
     return html.Div([
-        graph_component,
+        dcc.Loading(
+            custom_spinner=html.Div(className="skeleton-pulse"),
+            children=[graph_component]
+        ),
         dcc.Download(id={'type': f'download-data-{page_id}', 'index': graph_id})
     ])
 
