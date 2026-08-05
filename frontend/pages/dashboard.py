@@ -41,7 +41,10 @@ layout = Container([
             html.H2("Call Center Performance", className="display-xl mb-4")
         ], width=8),
         Col([
-            make_export_dropdown("dashboard")
+            html.Div([
+                make_export_dropdown("dashboard"),
+                dcc.Download(id={'type': 'download-data-dashboard', 'index': 'dashboard'})
+            ])
         ], width=4, className="d-flex align-items-center justify-content-end mb-4")
     ]),
 
@@ -423,8 +426,8 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
 
 # CSV Export Callback
 @callback(
-    Output("download-dataframe-csv", "data", allow_duplicate=True),
-    Input("btn-export-csv-dashboard", "n_clicks"),
+    Output({'type': 'download-data-dashboard', 'index': dash.MATCH}, "data"),
+    Input({'type': 'export-csv-dashboard', 'index': dash.MATCH}, "n_clicks"),
     State('data-store', 'data'),
     State('company-filter', 'value'),
     State('language-filter', 'value'),
@@ -434,7 +437,12 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
     prevent_initial_call=True
 )
 def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, start_date, end_date, auth_state):
+    from dash import ctx
     if not n_clicks or not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref:
+        return dash.no_update
+        
+    triggered_id = ctx.triggered_id
+    if triggered_id['index'] != 'dashboard':
         return dash.no_update
         
     token = auth_state.get('token') if auth_state else None
@@ -467,27 +475,116 @@ def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, st
 
     return dcc.send_data_frame(df.to_csv, "dashboard_data.csv", index=False)
 
-# PDF and JPG Page Export Callbacks
-dash.clientside_callback(
-    dash.ClientsideFunction(namespace='clientside', function_name='export_pdf'),
-    Output('btn-export-pdf-dashboard', 'title'),
-    Input('btn-export-pdf-dashboard', 'n_clicks'),
+# Backend PDF and JPG Export Callbacks
+from dash import ctx
+from frontend.utils.pdf_generator import generate_single_chart_pdf, generate_dashboard_pdf, generate_single_chart_png, generate_single_chart_html, generate_dashboard_html
+
+@callback(
+    Output({'type': 'download-data-dashboard', 'index': dash.MATCH}, "data", allow_duplicate=True),
+    Input({'type': 'export-pdf-dashboard', 'index': dash.MATCH}, "n_clicks"),
+    State('sl-trend', 'figure'),
+    State('lang-pie', 'figure'),
+    State('talk-hist', 'figure'),
+    State('wrap-hist', 'figure'),
+    State('hold-hist', 'figure'),
+    State('intraday-chart-overall', 'figure'),
+    State('aht-line-chart', 'figure'),
+    State('vol-aban-trend', 'figure'),
+    State('aht-lang-bar', 'figure'),
+    State('offered-ans-bar', 'figure'),
     prevent_initial_call=True
 )
+def export_pdf_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_line, vol, aht_bar, offered):
+    if not n_clicks: return dash.no_update
+    
+    triggered_id = ctx.triggered_id
+    index = triggered_id['index']
+    
+    figures = {
+        'sl-trend': sl, 'lang-pie': lang, 'talk-hist': talk, 'wrap-hist': wrap,
+        'hold-hist': hold, 'intraday-chart-overall': intraday, 'aht-line-chart': aht_line,
+        'vol-aban-trend': vol, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered
+    }
+    
+    if index == 'dashboard':
+        pdf_bytes = generate_dashboard_pdf(figures, "Dashboard")
+        return dcc.send_bytes(pdf_bytes, "dashboard_export.pdf")
+    else:
+        fig_dict = figures.get(index)
+        if not fig_dict: return dash.no_update
+        pdf_bytes = generate_single_chart_pdf(fig_dict)
+        return dcc.send_bytes(pdf_bytes, f"{index}_export.pdf")
 
-dash.clientside_callback(
-    dash.ClientsideFunction(namespace='clientside', function_name='export_jpg'),
-    Output('btn-export-jpg-dashboard', 'title'),
-    Input('btn-export-jpg-dashboard', 'n_clicks'),
+
+@callback(
+    Output({'type': 'download-data-dashboard', 'index': dash.MATCH}, "data", allow_duplicate=True),
+    Input({'type': 'export-png-dashboard', 'index': dash.MATCH}, "n_clicks"),
+    State('sl-trend', 'figure'),
+    State('lang-pie', 'figure'),
+    State('talk-hist', 'figure'),
+    State('wrap-hist', 'figure'),
+    State('hold-hist', 'figure'),
+    State('intraday-chart-overall', 'figure'),
+    State('aht-line-chart', 'figure'),
+    State('vol-aban-trend', 'figure'),
+    State('aht-lang-bar', 'figure'),
+    State('offered-ans-bar', 'figure'),
     prevent_initial_call=True
 )
+def export_png_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_line, vol, aht_bar, offered):
+    if not n_clicks: return dash.no_update
+    
+    triggered_id = ctx.triggered_id
+    index = triggered_id['index']
+    
+    figures = {
+        'sl-trend': sl, 'lang-pie': lang, 'talk-hist': talk, 'wrap-hist': wrap,
+        'hold-hist': hold, 'intraday-chart-overall': intraday, 'aht-line-chart': aht_line,
+        'vol-aban-trend': vol, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered
+    }
+    
+    if index == 'dashboard':
+        # Fallback to PDF for multi-chart dashboard export
+        pdf_bytes = generate_dashboard_pdf(figures, "Dashboard")
+        return dcc.send_bytes(pdf_bytes, "dashboard_export.pdf")
+    else:
+        fig_dict = figures.get(index)
+        if not fig_dict: return dash.no_update
+        png_bytes = generate_single_chart_png(fig_dict)
+        return dcc.send_bytes(png_bytes, f"{index}_export.png")
 
-# Individual Chart JPG Export Callbacks
-for graph_id in ['sl-trend', 'lang-pie', 'talk-hist', 'wrap-hist', 'hold-hist', 'intraday-chart-overall', 'aht-line-chart', 'vol-aban-trend', 'aht-lang-bar', 'offered-ans-bar']:
-    dash.clientside_callback(
-        dash.ClientsideFunction(namespace='clientside', function_name='export_chart_jpg'),
-        Output(f"btn-download-{graph_id}", "title"),
-        Input(f"btn-download-{graph_id}", "n_clicks"),
-        State(graph_id, "id"),
-        prevent_initial_call=True
-    )
+@callback(
+    Output({'type': 'download-data-dashboard', 'index': dash.MATCH}, "data", allow_duplicate=True),
+    Input({'type': 'export-html-dashboard', 'index': dash.MATCH}, "n_clicks"),
+    State('sl-trend', 'figure'),
+    State('lang-pie', 'figure'),
+    State('talk-hist', 'figure'),
+    State('wrap-hist', 'figure'),
+    State('hold-hist', 'figure'),
+    State('intraday-chart-overall', 'figure'),
+    State('aht-line-chart', 'figure'),
+    State('vol-aban-trend', 'figure'),
+    State('aht-lang-bar', 'figure'),
+    State('offered-ans-bar', 'figure'),
+    prevent_initial_call=True
+)
+def export_html_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_line, vol, aht_bar, offered):
+    if not n_clicks: return dash.no_update
+    
+    triggered_id = ctx.triggered_id
+    index = triggered_id['index']
+    
+    figures = {
+        'sl-trend': sl, 'lang-pie': lang, 'talk-hist': talk, 'wrap-hist': wrap,
+        'hold-hist': hold, 'intraday-chart-overall': intraday, 'aht-line-chart': aht_line,
+        'vol-aban-trend': vol, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered
+    }
+    
+    if index == 'dashboard':
+        html_str = generate_dashboard_html(figures, "Dashboard")
+        return dcc.send_string(html_str, "dashboard_export.html")
+    else:
+        fig_dict = figures.get(index)
+        if not fig_dict: return dash.no_update
+        html_str = generate_single_chart_html(fig_dict)
+        return dcc.send_string(html_str, f"{index}_export.html")

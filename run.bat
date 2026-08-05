@@ -6,27 +6,21 @@ echo ==========================================
 echo.
 echo [1/3] Checking virtual environment and syncing dependencies...
 where uv >nul 2>nul
-if %errorlevel% equ 0 (
-    if not exist ".venv" (
-        echo Creating virtual environment using uv...
-        uv venv
-    )
-    echo Adding additionl dependencies
-    uv add -r requirements.txt
-    echo Syncing dependencies using uv...
-    uv sync
-    uv lock
-) else (
-    if not exist ".venv" (
-        echo Creating virtual environment using python venv
-        pip install uv
-        uv venv .venv
-    )
-    echo Syncing dependencies using uv...
-    uv pip install --upgrade pip
-    uv add -r requirements.txt
-    uv sync
-    uv lock
+if %errorlevel% neq 0 (
+    echo uv not found. Installing uv using pip...
+    pip install uv
+)
+
+if not exist ".venv" (
+    echo Creating virtual environment using uv...
+    uv venv
+)
+
+echo Syncing dependencies exactly from requirements.txt...
+uv pip install -r requirements.txt
+if errorlevel 1 (
+    echo [!] uv pip install failed. Falling back to standard pip install...
+    .venv\Scripts\python.exe -m pip install -r requirements.txt
 )
 
 echo.
@@ -40,14 +34,27 @@ if errorlevel 1 (
 
 echo.
 echo [3/3] Starting the Servers...
-echo Starting FastAPI Backend API...
-start cmd /k ".venv\Scripts\uvicorn.exe backend.api.main:app --host 127.0.0.1 --port 8000"
+echo echo Starting Servers... ^> .tmp_runner.py
+echo import subprocess, sys, time ^>^> .tmp_runner.py
+echo print("Starting FastAPI Backend on port 8000...") ^>^> .tmp_runner.py
+echo backend = subprocess.Popen([sys.executable, "-m", "uvicorn", "backend.api.main:app", "--host", "127.0.0.1", "--port", "8000"]) ^>^> .tmp_runner.py
+echo time.sleep(1) ^>^> .tmp_runner.py
+echo print("Starting Dash Frontend on port 8050...") ^>^> .tmp_runner.py
+echo frontend = subprocess.Popen([sys.executable, "-m", "frontend.app"]) ^>^> .tmp_runner.py
+echo try: ^>^> .tmp_runner.py
+echo     while backend.poll() is None and frontend.poll() is None: ^>^> .tmp_runner.py
+echo         time.sleep(1) ^>^> .tmp_runner.py
+echo     print("\n[!] One of the servers stopped. Shutting down...") ^>^> .tmp_runner.py
+echo except: ^>^> .tmp_runner.py
+echo     print("\n[!] Shutting down servers...") ^>^> .tmp_runner.py
+echo backend.terminate() ^>^> .tmp_runner.py
+echo frontend.terminate() ^>^> .tmp_runner.py
 
-echo Starting Dash Frontend...
-echo The application will be available at http://127.0.0.1:8050
-.venv\Scripts\python.exe -m frontend.app
+.venv\Scripts\python.exe .tmp_runner.py
+del .tmp_runner.py
+
 if errorlevel 1 (
-    echo Error starting the frontend application. Please check the logs above.
+    echo Error starting the servers. Please check the logs above.
     pause
     exit /b %errorlevel%
 )

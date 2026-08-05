@@ -340,5 +340,29 @@
     "action": "LOGIN_SUCCESS",
     "username": "uidai",
     "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-05T10:57:13.390915",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-05T10:57:42.891073",
+    "action": "SETTINGS_UPDATED",
+    "username": "admin",
+    "details": "Updated SLA targets"
+  },
+  {
+    "timestamp": "2026-08-05T10:57:44.248281",
+    "action": "SETTINGS_UPDATED",
+    "username": "admin",
+    "details": "Updated SLA targets"
+  },
+  {
+    "timestamp": "2026-08-05T10:57:54.563674",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
   }
 ]

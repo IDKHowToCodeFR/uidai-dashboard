@@ -40,7 +40,10 @@ layout = Container([
                         className="me-4",
                         style={"width": "120px", "border": "1px solid var(--color-border)", "borderRadius": "6px", "padding": "4px 8px", "fontSize": "13px", "background": "var(--color-bg-primary)"}
                     ),
-                    make_export_dropdown("hourly")
+                    html.Div([
+                        make_export_dropdown("hourly"),
+                        dcc.Download(id={'type': 'download-data-hourly', 'index': 'hourly'})
+                    ])
                 ], className="d-flex align-items-center bg-white border rounded px-3 py-2 shadow-sm flex-wrap")
             ], className="d-flex justify-content-between align-items-center mb-4")
         ], width=12)
@@ -49,8 +52,8 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader(make_header_with_download("Intraday Performance (Volume & Service Level)", "intraday-chart")),
-                CardBody(wrap_graph_with_download("intraday-chart", dcc.Graph(id='intraday-chart', config={'displayModeBar': False}, style={'height': '400px'})))
+                CardHeader(make_header_with_download("Intraday Performance (Volume & Service Level)", "intraday-chart", "hourly")),
+                CardBody(wrap_graph_with_download("intraday-chart", dcc.Graph(id='intraday-chart', config={'displayModeBar': False}, style={'height': '400px'}), "hourly"))
             ], className="custom-card h-100")
         ], width=12, className="mb-4")
     ]),
@@ -58,15 +61,15 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader(make_header_with_download("Highest Abandonment by Language", "hourly-heatmap")),
-                CardBody(wrap_graph_with_download("hourly-heatmap", dcc.Graph(id='hourly-heatmap', config={'displayModeBar': False}, style={'height': '400px'})))
+                CardHeader(make_header_with_download("Highest Abandonment by Language", "hourly-heatmap", "hourly")),
+                CardBody(wrap_graph_with_download("hourly-heatmap", dcc.Graph(id='hourly-heatmap', config={'displayModeBar': False}, style={'height': '400px'}), "hourly"))
             ], className="custom-card h-100")
         ], width=12, lg=6, className="mb-4"),
         
         Col([
             Card([
-                CardHeader(make_header_with_download("Average Handle Time (AHT) by Time of Day", "aht-time-chart")),
-                CardBody(wrap_graph_with_download("aht-time-chart", dcc.Graph(id='aht-time-chart', config={'displayModeBar': False}, style={'height': '400px'})))
+                CardHeader(make_header_with_download("Average Handle Time (AHT) by Time of Day", "aht-time-chart", "hourly")),
+                CardBody(wrap_graph_with_download("aht-time-chart", dcc.Graph(id='aht-time-chart', config={'displayModeBar': False}, style={'height': '400px'}), "hourly"))
             ], className="custom-card h-100")
         ], width=12, lg=6, className="mb-4")
     ])
@@ -245,8 +248,8 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
 
 # CSV Export Callback
 @callback(
-    Output("download-dataframe-csv", "data", allow_duplicate=True),
-    Input("btn-export-csv-hourly", "n_clicks"),
+    Output({'type': 'download-data-hourly', 'index': dash.MATCH}, "data"),
+    Input({'type': 'export-csv-hourly', 'index': dash.MATCH}, "n_clicks"),
     State('data-store', 'data'),
     State('company-filter', 'value'),
     State('language-filter', 'value'),
@@ -258,7 +261,12 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
     prevent_initial_call=True
 )
 def export_csv_hourly(n_clicks, data_ref, company_filter, language_filter, start_date, end_date, time_start, time_end, auth_state):
+    from dash import ctx
     if not n_clicks or not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or not start_date or not end_date:
+        return dash.no_update
+        
+    triggered_id = ctx.triggered_id
+    if triggered_id['index'] != 'hourly':
         return dash.no_update
 
     token = auth_state.get('token') if auth_state else None
@@ -292,36 +300,94 @@ def export_csv_hourly(n_clicks, data_ref, company_filter, language_filter, start
 
     return dcc.send_data_frame(df.to_csv, "hourly_insights_data.csv", index=False)
 
-# PDF and JPG Page Export Callbacks
-dash.clientside_callback(
-    dash.ClientsideFunction(
-        namespace='clientside',
-        function_name='export_pdf'
-    ),
-    Output('btn-export-pdf-hourly', 'title'), # Dummy output
-    Input('btn-export-pdf-hourly', 'n_clicks'),
+# Backend PDF and JPG Export Callbacks
+from dash import ctx
+from frontend.utils.pdf_generator import generate_single_chart_pdf, generate_dashboard_pdf, generate_single_chart_png, generate_single_chart_html, generate_dashboard_html
+
+@callback(
+    Output({'type': 'download-data-hourly', 'index': dash.MATCH}, "data", allow_duplicate=True),
+    Input({'type': 'export-pdf-hourly', 'index': dash.MATCH}, "n_clicks"),
+    State('intraday-chart', 'figure'),
+    State('hourly-heatmap', 'figure'),
+    State('aht-time-chart', 'figure'),
     prevent_initial_call=True
 )
+def export_pdf_hourly(n_clicks, intraday, heatmap, aht):
+    if not n_clicks: return dash.no_update
+    
+    triggered_id = ctx.triggered_id
+    index = triggered_id['index']
+    
+    figures = {
+        'intraday-chart': intraday,
+        'hourly-heatmap': heatmap,
+        'aht-time-chart': aht
+    }
+    
+    if index == 'hourly':
+        pdf_bytes = generate_dashboard_pdf(figures, "Hourly Insights")
+        return dcc.send_bytes(pdf_bytes, "hourly_export.pdf")
+    else:
+        fig_dict = figures.get(index)
+        if not fig_dict: return dash.no_update
+        pdf_bytes = generate_single_chart_pdf(fig_dict)
+        return dcc.send_bytes(pdf_bytes, f"{index}_export.pdf")
 
-dash.clientside_callback(
-    dash.ClientsideFunction(
-        namespace='clientside',
-        function_name='export_jpg'
-    ),
-    Output('btn-export-jpg-hourly', 'title'), # Dummy output
-    Input('btn-export-jpg-hourly', 'n_clicks'),
+
+@callback(
+    Output({'type': 'download-data-hourly', 'index': dash.MATCH}, "data", allow_duplicate=True),
+    Input({'type': 'export-png-hourly', 'index': dash.MATCH}, "n_clicks"),
+    State('intraday-chart', 'figure'),
+    State('hourly-heatmap', 'figure'),
+    State('aht-time-chart', 'figure'),
     prevent_initial_call=True
 )
+def export_png_hourly(n_clicks, intraday, heatmap, aht):
+    if not n_clicks: return dash.no_update
+    
+    triggered_id = ctx.triggered_id
+    index = triggered_id['index']
+    
+    figures = {
+        'intraday-chart': intraday,
+        'hourly-heatmap': heatmap,
+        'aht-time-chart': aht
+    }
+    
+    if index == 'hourly':
+        pdf_bytes = generate_dashboard_pdf(figures, "Hourly Insights")
+        return dcc.send_bytes(pdf_bytes, "hourly_export.pdf")
+    else:
+        fig_dict = figures.get(index)
+        if not fig_dict: return dash.no_update
+        png_bytes = generate_single_chart_png(fig_dict)
+        return dcc.send_bytes(png_bytes, f"{index}_export.png")
 
-# Individual Chart JPG Export Callbacks
-for graph_id in ['intraday-chart', 'hourly-heatmap', 'aht-time-chart']:
-    dash.clientside_callback(
-        dash.ClientsideFunction(
-            namespace='clientside',
-            function_name='export_chart_jpg'
-        ),
-        Output(f"btn-download-{graph_id}", "title"), # Dummy output
-        Input(f"btn-download-{graph_id}", "n_clicks"),
-        State(graph_id, "id"),
-        prevent_initial_call=True
-    )
+@callback(
+    Output({'type': 'download-data-hourly', 'index': dash.MATCH}, "data", allow_duplicate=True),
+    Input({'type': 'export-html-hourly', 'index': dash.MATCH}, "n_clicks"),
+    State('intraday-chart', 'figure'),
+    State('hourly-heatmap', 'figure'),
+    State('aht-time-chart', 'figure'),
+    prevent_initial_call=True
+)
+def export_html_hourly(n_clicks, intraday, heatmap, aht):
+    if not n_clicks: return dash.no_update
+    
+    triggered_id = ctx.triggered_id
+    index = triggered_id['index']
+    
+    figures = {
+        'intraday-chart': intraday,
+        'hourly-heatmap': heatmap,
+        'aht-time-chart': aht
+    }
+    
+    if index == 'hourly':
+        html_str = generate_dashboard_html(figures, "Hourly Insights")
+        return dcc.send_string(html_str, "hourly_export.html")
+    else:
+        fig_dict = figures.get(index)
+        if not fig_dict: return dash.no_update
+        html_str = generate_single_chart_html(fig_dict)
+        return dcc.send_string(html_str, f"{index}_export.html")
