@@ -30,6 +30,7 @@ def get_plotly_template():
         bgcolor="rgba(255, 255, 255, 0.95)",
         font_size=13,
         font_family="Inter, sans-serif",
+        font_color="#334155",
         bordercolor="#e2e8f0"
     )
     

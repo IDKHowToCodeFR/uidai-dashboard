@@ -1,6 +1,6 @@
 import os
 import dash
-from dash import Dash, html, dcc, Output, Input, State
+from dash import Dash, html, dcc, Output, Input
 import dash_bootstrap_components as dbc
 from frontend.auth import register_auth_callbacks
 from frontend.callbacks.routing_callbacks import register_routing_callbacks
