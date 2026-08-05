@@ -56,11 +56,13 @@ async def upload_file(
         try:
             if safe_filename.endswith('.csv'):
                 df = pd.read_csv(io.BytesIO(contents))
+                df.columns = df.columns.str.strip()
             elif safe_filename.endswith('.xls') or safe_filename.endswith('.xlsx'):
                 excel_file = pd.ExcelFile(io.BytesIO(contents), engine='openpyxl')
                 dfs = []
                 for sheet_name in excel_file.sheet_names:
                     sheet_df = pd.read_excel(excel_file, sheet_name=sheet_name)
+                    sheet_df.columns = sheet_df.columns.str.strip()
                     if 'Company' not in sheet_df.columns:
                         sheet_df['Company'] = sheet_name
                     dfs.append(sheet_df)
@@ -68,14 +70,15 @@ async def upload_file(
             else:
                 raise HTTPException(status_code=400, detail="Invalid file type. Must be csv or excel.")
                 
+            df.dropna(how='all', inplace=True)
+            df.dropna(axis=1, how='all', inplace=True)
+
             numeric_cols = df.select_dtypes(include='number').columns
             df[numeric_cols] = df[numeric_cols].fillna(0)
             object_cols = df.select_dtypes(include=['object', 'string']).columns
             df[object_cols] = df[object_cols].fillna('Unknown')
             for col in object_cols:
                 df[col] = df[col].astype(str).str.strip()
-            df.dropna(how='all', inplace=True)
-            df.dropna(axis=1, how='all', inplace=True)
             
             df.to_csv(save_path, index=False)
             add_log("FILE_UPLOADED", current_user["username"], f"Uploaded file: {out_filename}")

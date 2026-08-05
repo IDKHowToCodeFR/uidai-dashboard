@@ -136,8 +136,9 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
     if language_filter and 'Language' in df.columns:
         mask = mask & df['Language'].isin(language_filter)
     if start_date and end_date and date_col:
-        start_dt, end_dt = pd.to_datetime(start_date), pd.to_datetime(end_date)
-        mask = mask & (df['Date'] >= start_dt) & (df['Date'] <= end_dt)
+        start_dt = pd.to_datetime(start_date)
+        end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1)
+        mask = mask & (df['Date'] >= start_dt) & (df['Date'] < end_dt)
         
     df_current = df[mask].copy()
 

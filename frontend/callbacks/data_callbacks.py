@@ -38,7 +38,7 @@ def register_data_callbacks(app):
         if 'Company' in df.columns:
             companies = df['Company'].dropna().unique().tolist()
             c_options = [{'label': c, 'value': c} for c in companies]
-            if user_role == 'Admin':
+            if user_role in ['Admin', 'UIDAI']:
                 c_values = companies
             else:
                 c_values = [user_role]

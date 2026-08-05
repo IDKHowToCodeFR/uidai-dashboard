@@ -45,22 +45,7 @@ filter_drawer = dbc.Offcanvas(
 )
 
 def get_topbar(user_role, permissions):
-    impersonate_div = html.Div(
-        [
-            html.Span("View As:", style={"fontSize": "12px", "color": "var(--color-text-muted)", "marginRight": "8px", "fontWeight": "bold"}),
-            dcc.Dropdown(
-                id="impersonate-dropdown",
-                options=[],
-                value=None,
-                placeholder="Company...",
-                style={"width": "180px", "fontSize": "12px"},
-                clearable=True,
-                persistence=True,
-                persistence_type="session"
-            )
-        ],
-        style={"display": "flex", "alignItems": "center", "marginRight": "16px"}
-    ) if has_permission(permissions, 'can_view_global') else html.Div(dcc.Dropdown(id="impersonate-dropdown"), style={"display": "none"})
+    impersonate_div = html.Div(dcc.Dropdown(id="impersonate-dropdown"), style={"display": "none"})
 
     left_elements = [
         html.Button(
