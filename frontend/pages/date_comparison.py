@@ -34,7 +34,10 @@ layout = Container([
             html.P("Compare key performance metrics across selected discrete dates and days of the week.", className="text-muted mb-4")
         ], width=8),
         Col([
-            make_export_dropdown("compare")
+            html.Div([
+                make_export_dropdown("compare"),
+                dcc.Download(id={'type': 'download-data-compare', 'index': 'compare'})
+            ])
         ], width=4, className="d-flex align-items-center justify-content-end mb-4")
     ]),
 
@@ -84,8 +87,8 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader(make_header_with_download("Company Performance (Volume & SL%)", "compare-volume-chart")),
-                CardBody(wrap_graph_with_download("compare-volume-chart", dcc.Graph(id='compare-volume-chart', config={'displayModeBar': False})))
+                CardHeader(make_header_with_download("Company Performance (Volume & SL%)", "compare-volume-chart", "compare")),
+                CardBody(wrap_graph_with_download("compare-volume-chart", dcc.Graph(id='compare-volume-chart', config={'displayModeBar': False}), "compare"))
             ], className="custom-card h-100")
         ], width=12, className="mb-4"),
     ]),
@@ -94,8 +97,8 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader(make_header_with_download("Hourly Volume Trends", "compare-hourly-chart")),
-                CardBody(wrap_graph_with_download("compare-hourly-chart", dcc.Graph(id='compare-hourly-chart', config={'displayModeBar': False})))
+                CardHeader(make_header_with_download("Hourly Volume Trends", "compare-hourly-chart", "compare")),
+                CardBody(wrap_graph_with_download("compare-hourly-chart", dcc.Graph(id='compare-hourly-chart', config={'displayModeBar': False}), "compare"))
             ], className="custom-card h-100")
         ], width=12, className="mb-4"),
     ]),
@@ -104,8 +107,8 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader(make_header_with_download("Abandonment Flow", "compare-funnel-chart")),
-                CardBody(wrap_graph_with_download("compare-funnel-chart", dcc.Graph(id='compare-funnel-chart', config={'displayModeBar': False}, style={'height': '450px'})))
+                CardHeader(make_header_with_download("Abandonment Flow", "compare-funnel-chart", "compare")),
+                CardBody(wrap_graph_with_download("compare-funnel-chart", dcc.Graph(id='compare-funnel-chart', config={'displayModeBar': False}, style={'height': '450px'}), "compare"))
             ], className="custom-card h-100")
         ], width=12, className="mb-4"),
     ]),
@@ -114,15 +117,15 @@ layout = Container([
     Row([
         Col([
             Card([
-                CardHeader(make_header_with_download("Total Volume by Language", "compare-lang-chart")),
-                CardBody(wrap_graph_with_download("compare-lang-chart", dcc.Graph(id='compare-lang-chart', config={'displayModeBar': False}, style={'height': '450px'})))
+                CardHeader(make_header_with_download("Total Volume by Language", "compare-lang-chart", "compare")),
+                CardBody(wrap_graph_with_download("compare-lang-chart", dcc.Graph(id='compare-lang-chart', config={'displayModeBar': False}, style={'height': '450px'}), "compare"))
             ], className="custom-card h-100")
         ], width=12, lg=6, className="mb-4"),
         
         Col([
             Card([
-                CardHeader(make_header_with_download("Vendor Performance Footprint (Averaged)", "compare-radar-chart")),
-                CardBody(wrap_graph_with_download("compare-radar-chart", dcc.Graph(id='compare-radar-chart', config={'displayModeBar': False}, style={'height': '450px'})))
+                CardHeader(make_header_with_download("Vendor Performance Footprint (Averaged)", "compare-radar-chart", "compare")),
+                CardBody(wrap_graph_with_download("compare-radar-chart", dcc.Graph(id='compare-radar-chart', config={'displayModeBar': False}, style={'height': '450px'}), "compare"))
             ], className="custom-card h-100")
         ], width=12, lg=6, className="mb-4"),
     ]),
@@ -501,8 +504,8 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
 
 # CSV Export Callback
 @callback(
-    Output("download-dataframe-csv", "data", allow_duplicate=True),
-    Input("btn-export-csv-compare", "n_clicks"),
+    Output({'type': 'download-data-compare', 'index': dash.MATCH}, "data"),
+    Input({'type': 'export-csv-compare', 'index': dash.MATCH}, "n_clicks"),
     State('data-store', 'data'),
     State('discrete-date-selector', 'value'),
     State('day-of-week-selector', 'value'),
@@ -510,7 +513,12 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
     prevent_initial_call=True
 )
 def export_csv_compare(n_clicks, data_ref, selected_dates, selected_days, auth_state):
+    from dash import ctx
     if not n_clicks or not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or (not selected_dates and not selected_days):
+        return dash.no_update
+        
+    triggered_id = ctx.triggered_id
+    if triggered_id['index'] != 'compare':
         return dash.no_update
         
     token = auth_state.get('token') if auth_state else None
@@ -540,36 +548,106 @@ def export_csv_compare(n_clicks, data_ref, selected_dates, selected_days, auth_s
 
     return dcc.send_data_frame(df.to_csv, "comparison_data.csv", index=False)
 
-# PDF and JPG Page Export Callbacks
-dash.clientside_callback(
-    dash.ClientsideFunction(
-        namespace='clientside',
-        function_name='export_pdf'
-    ),
-    Output('btn-export-pdf-compare', 'title'), # Dummy output
-    Input('btn-export-pdf-compare', 'n_clicks'),
+# Backend PDF and JPG Export Callbacks
+from dash import ctx
+from frontend.utils.pdf_generator import generate_single_chart_pdf, generate_dashboard_pdf, generate_single_chart_png, generate_single_chart_html, generate_dashboard_html
+
+@callback(
+    Output({'type': 'download-data-compare', 'index': dash.MATCH}, "data", allow_duplicate=True),
+    Input({'type': 'export-pdf-compare', 'index': dash.MATCH}, "n_clicks"),
+    State('compare-volume-chart', 'figure'),
+    State('compare-hourly-chart', 'figure'),
+    State('compare-funnel-chart', 'figure'),
+    State('compare-lang-chart', 'figure'),
+    State('compare-radar-chart', 'figure'),
     prevent_initial_call=True
 )
+def export_pdf_compare(n_clicks, vol, hourly, funnel, lang, radar):
+    if not n_clicks: return dash.no_update
+    
+    triggered_id = ctx.triggered_id
+    index = triggered_id['index']
+    
+    figures = {
+        'compare-volume-chart': vol,
+        'compare-hourly-chart': hourly,
+        'compare-funnel-chart': funnel,
+        'compare-lang-chart': lang,
+        'compare-radar-chart': radar
+    }
+    
+    if index == 'compare':
+        pdf_bytes = generate_dashboard_pdf(figures, "Date Comparison")
+        return dcc.send_bytes(pdf_bytes, "compare_export.pdf")
+    else:
+        fig_dict = figures.get(index)
+        if not fig_dict: return dash.no_update
+        pdf_bytes = generate_single_chart_pdf(fig_dict)
+        return dcc.send_bytes(pdf_bytes, f"{index}_export.pdf")
 
-dash.clientside_callback(
-    dash.ClientsideFunction(
-        namespace='clientside',
-        function_name='export_jpg'
-    ),
-    Output('btn-export-jpg-compare', 'title'), # Dummy output
-    Input('btn-export-jpg-compare', 'n_clicks'),
+
+@callback(
+    Output({'type': 'download-data-compare', 'index': dash.MATCH}, "data", allow_duplicate=True),
+    Input({'type': 'export-png-compare', 'index': dash.MATCH}, "n_clicks"),
+    State('compare-volume-chart', 'figure'),
+    State('compare-hourly-chart', 'figure'),
+    State('compare-funnel-chart', 'figure'),
+    State('compare-lang-chart', 'figure'),
+    State('compare-radar-chart', 'figure'),
     prevent_initial_call=True
 )
+def export_png_compare(n_clicks, vol, hourly, funnel, lang, radar):
+    if not n_clicks: return dash.no_update
+    
+    triggered_id = ctx.triggered_id
+    index = triggered_id['index']
+    
+    figures = {
+        'compare-volume-chart': vol,
+        'compare-hourly-chart': hourly,
+        'compare-funnel-chart': funnel,
+        'compare-lang-chart': lang,
+        'compare-radar-chart': radar
+    }
+    
+    if index == 'compare':
+        pdf_bytes = generate_dashboard_pdf(figures, "Date Comparison")
+        return dcc.send_bytes(pdf_bytes, "compare_export.pdf")
+    else:
+        fig_dict = figures.get(index)
+        if not fig_dict: return dash.no_update
+        png_bytes = generate_single_chart_png(fig_dict)
+        return dcc.send_bytes(png_bytes, f"{index}_export.png")
 
-# Individual Chart JPG Export Callbacks
-for graph_id in ['compare-volume-chart', 'compare-hourly-chart', 'compare-funnel-chart', 'compare-lang-chart', 'compare-radar-chart']:
-    dash.clientside_callback(
-        dash.ClientsideFunction(
-            namespace='clientside',
-            function_name='export_chart_jpg'
-        ),
-        Output(f"btn-download-{graph_id}", "title"), # Dummy output
-        Input(f"btn-download-{graph_id}", "n_clicks"),
-        State(graph_id, "id"),
-        prevent_initial_call=True
-    )
+@callback(
+    Output({'type': 'download-data-compare', 'index': dash.MATCH}, "data", allow_duplicate=True),
+    Input({'type': 'export-html-compare', 'index': dash.MATCH}, "n_clicks"),
+    State('compare-volume-chart', 'figure'),
+    State('compare-hourly-chart', 'figure'),
+    State('compare-funnel-chart', 'figure'),
+    State('compare-lang-chart', 'figure'),
+    State('compare-radar-chart', 'figure'),
+    prevent_initial_call=True
+)
+def export_html_compare(n_clicks, vol, hourly, funnel, lang, radar):
+    if not n_clicks: return dash.no_update
+    
+    triggered_id = ctx.triggered_id
+    index = triggered_id['index']
+    
+    figures = {
+        'compare-volume-chart': vol,
+        'compare-hourly-chart': hourly,
+        'compare-funnel-chart': funnel,
+        'compare-lang-chart': lang,
+        'compare-radar-chart': radar
+    }
+    
+    if index == 'compare':
+        html_str = generate_dashboard_html(figures, "Date Comparison")
+        return dcc.send_string(html_str, "compare_export.html")
+    else:
+        fig_dict = figures.get(index)
+        if not fig_dict: return dash.no_update
+        html_str = generate_single_chart_html(fig_dict)
+        return dcc.send_string(html_str, f"{index}_export.html")
