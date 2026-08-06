@@ -7,14 +7,12 @@ Target: 1,000 Concurrent Users
 -------------------------------------------------------
 - OS: Ubuntu 22.04 LTS (or newer)
 - CPU: 4 to 8 vCPUs (Required for running multiple Python workers in parallel)
-- RAM: 8GB to 16GB Minimum (Heavy memory usage expected from Pandas, Redis cache, and PostgreSQL running on the same machine)
-- Storage: 50GB+ SSD (Depends on data volume, but SSD is strictly required for database read/write speeds)
+- RAM: 8GB to 16GB Minimum (Heavy memory usage expected from Pandas and in-memory processing)
+- Storage: 50GB+ SSD (Depends on data volume, SSD recommended for fast SQLite I/O)
 
 2. SYSTEM DEPENDENCIES & SERVICES
 -------------------------------------------------------
 Please ensure the following services are installed on the Ubuntu server:
-- PostgreSQL (v14+)
-- Redis Server (v6+)
 - Nginx
 - Python 3.13 (or minimally Python 3.10+)
 - python3-venv, python3-dev, build-essential
@@ -39,12 +37,10 @@ To handle 1,000 concurrent WebSocket and API sessions without dropping connectio
 - python-jose[cryptography], python-multipart, passlib, bcrypt==4.1.3
 - requests, reportlab, kaleido, python-dotenv
 - gunicorn (For production process management)
-- celery (For background asynchronous processing)
-- redis (For connecting to the Redis cache and session store)
-- sqlalchemy, psycopg2-binary, alembic (For PostgreSQL database connection and migrations)
+- sqlalchemy, alembic (For SQLite database connection and migrations)
 
 5. NETWORK & SECURITY
 -------------------------------------------------------
 - Open Ports: 80 (HTTP), 443 (HTTPS), 22 (SSH)
-- Internal Ports (Localhost only): 8000 (FastAPI), 8050 (Dash), 5432 (Postgres), 6379 (Redis)
+- Internal Ports (Localhost only): 8000 (FastAPI), 8050 (Dash)
 - SSL/TLS: Server must be configured with an SSL certificate (e.g., Let's Encrypt / Certbot) for secure HTTPS/WSS communication.
