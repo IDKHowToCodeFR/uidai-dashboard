@@ -8,9 +8,14 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, B
 from fastapi.responses import FileResponse
 
 from backend.api.auth_utils import (
-    get_current_user, PermissionChecker, add_log, BASE_DIR
+    get_current_user, PermissionChecker, add_log
 )
+from backend.api.database import get_db
+from sqlalchemy.orm import Session
 from backend.api.routers.websockets import process_file_background
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 
 router = APIRouter()
 
@@ -26,7 +31,8 @@ async def upload_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     client_id: str = Form(None),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     user_role = current_user["role"]
     permissions = current_user.get("permissions", [])
@@ -81,7 +87,7 @@ async def upload_file(
                 df[col] = df[col].astype(str).str.strip()
             
             df.to_csv(save_path, index=False)
-            add_log("FILE_UPLOADED", current_user["username"], f"Uploaded file: {out_filename}")
+            add_log(db, "FILE_UPLOADED", current_user["username"], f"Uploaded file: {out_filename}")
             return {"message": "Upload complete", "status": "complete"}
             
         except Exception as e:
@@ -171,7 +177,7 @@ async def get_data(filename: str, impersonate: Optional[str] = None, current_use
 
 
 @router.get("/download/{filename}")
-async def download_file(filename: str, impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+async def download_file(filename: str, impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     user_role = current_user["role"]
     permissions = current_user.get("permissions", [])
     
@@ -194,5 +200,5 @@ async def download_file(filename: str, impersonate: Optional[str] = None, curren
         if 'can_view_scoped' not in permissions or not safe_filename.startswith(f"{user_role}_"):
             raise HTTPException(status_code=403, detail="Access denied to this file")
             
-    add_log("FILE_DOWNLOADED", current_user["username"], f"Downloaded file: {safe_filename}")
+    add_log(db, "FILE_DOWNLOADED", current_user["username"], f"Downloaded file: {safe_filename}")
     return FileResponse(file_path, filename=safe_filename)

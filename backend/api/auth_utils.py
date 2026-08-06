@@ -1,13 +1,16 @@
 import os
-import json
-import threading
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
-from fastapi import HTTPException, status, Security
+from fastapi import HTTPException, status, Security, Depends
 from fastapi.security import OAuth2PasswordBearer
-from pydantic import BaseModel
 import bcrypt
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
+from sqlalchemy import delete
+from typing import List, Dict
+
+from backend.api.database import get_db
+from backend.api.models import User, UserPermission, AuditLog, Setting
 
 # Load environment variables
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'))
@@ -18,174 +21,130 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 day
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-# Path to the data dir (one level up from api)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-USERS_FILE = os.path.join(BASE_DIR, 'data', 'users.json')
-
-# Global database lock to prevent race conditions when reading/writing JSON files
-db_lock = threading.RLock()
-
-DEFAULT_USERS = {
-    "admin": {"password": "$2b$12$X50DPJYJecw2eYXRyNSoEeVXKBoB0cI81Wu6zDEAEYBrz07/pw4We", "user": "Admin", "permissions": ["can_view_global", "can_view_scoped", "can_upload_files", "can_download_files"]},
-    "uidai": {"password": "$2b$12$aUSO1G0HFd65c9qjV8oS8OGBMAtimCzgN.Jet95k6sQAp6IHtc9xC", "user": "UIDAI", "permissions": ["can_view_global"]},
-    "digitech": {"password": "$2b$12$GgpVm1yfX3UkVNZy86x1luuJExeT4Gydg4zqKE7AVnkyXYL4y5eWu", "user": "Digitech", "permissions": ["can_view_scoped", "can_upload_files"]},
-    "nsb": {"password": "$2b$12$YGSWt0yqjviML6HVAcqqyO6OJ97ha3OA0gal/e7F4WhAkKJii2boy", "user": "NSB", "permissions": ["can_view_scoped", "can_upload_files"]},
-}
-
-LOGS_FILE = os.path.join(BASE_DIR, 'data', 'logs.json')
-SETTINGS_FILE = os.path.join(BASE_DIR, 'data', 'settings.json')
-
 DEFAULT_SETTINGS = {
     "radar_sla_targets": [85, 95, 95, 85, 85, 85]
 }
 
-def load_settings():
-    with db_lock:
-        if os.path.exists(SETTINGS_FILE):
-            with open(SETTINGS_FILE, 'r') as f:
-                return json.load(f)
+def load_settings(db: Session) -> dict:
+    settings = db.query(Setting).all()
+    if not settings:
         return DEFAULT_SETTINGS.copy()
+    return {s.key: s.value for s in settings}
 
-def save_settings(settings):
-    with db_lock:
-        os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
-        with open(SETTINGS_FILE, 'w') as f:
-            json.dump(settings, f, indent=2)
+def save_settings(db: Session, settings: dict):
+    for k, v in settings.items():
+        setting = db.query(Setting).filter(Setting.key == k).first()
+        if setting:
+            setting.value = v
+        else:
+            setting = Setting(key=k, value=v)
+            db.add(setting)
+    db.commit()
 
-def load_logs():
-    with db_lock:
-        if os.path.exists(LOGS_FILE):
-            with open(LOGS_FILE, 'r') as f:
-                return json.load(f)
-        return []
+def load_logs(db: Session) -> List[dict]:
+    logs = db.query(AuditLog).order_by(AuditLog.id.desc()).all()
+    return [{"timestamp": l.timestamp, "action": l.action, "username": l.username, "details": l.details} for l in logs]
 
-def add_log(action: str, username: str, details: str = ""):
-    with db_lock:
-        logs = load_logs()
-        log_entry = {
-            "timestamp": datetime.now().isoformat(),
-            "action": action,
-            "username": username,
-            "details": details
+def add_log(db: Session, action: str, username: str, details: str = ""):
+    log_entry = AuditLog(
+        timestamp=datetime.now().isoformat(),
+        action=action,
+        username=username,
+        details=details
+    )
+    db.add(log_entry)
+    db.commit()
+
+def archive_old_logs(db: Session, days=90):
+    cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+    # For a robust solution, we could move these to a cold storage DB/file. 
+    # For now, we will simply delete them from the active table to save space.
+    db.query(AuditLog).filter(AuditLog.timestamp < cutoff_date).delete()
+    db.commit()
+
+def load_users(db: Session) -> dict:
+    users = db.query(User).all()
+    result = {}
+    for user in users:
+        permissions = [p.permission_name for p in user.permissions]
+        result[user.username] = {
+            "password": user.password_hash,
+            "user": user.company_name,
+            "permissions": permissions,
+            "login_count": user.login_count,
+            "last_login": user.last_login
         }
-        logs.append(log_entry)
-        os.makedirs(os.path.dirname(LOGS_FILE), exist_ok=True)
-        with open(LOGS_FILE, 'w') as f:
-            json.dump(logs, f, indent=2)
+    return result
 
-def archive_old_logs(days=90):
-    with db_lock:
-        logs = load_logs()
-        if not logs:
-            return
+def add_user(db: Session, username: str, password: str, company_name: str, permissions: list = None):
+    if permissions is None:
+        permissions = []
+    
+    key = username.lower().strip()
+    existing = db.query(User).filter(User.username == key).first()
+    if existing:
+        return False, "Username already exists."
+    
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    new_user = User(
+        username=key,
+        password_hash=hashed_password,
+        company_name=company_name
+    )
+    db.add(new_user)
+    db.flush() # To get the new_user.id
+    
+    for p in permissions:
+        db.add(UserPermission(user_id=new_user.id, permission_name=p))
         
-        cutoff_date = datetime.now() - timedelta(days=days)
-        recent_logs = []
-        archived_logs = []
+    db.commit()
+    add_log(db, "USER_ADDED", "Admin", f"Added company '{company_name}' ({username}) with perms {permissions}")
+    return True, f"Company '{company_name}' added."
+
+def update_permissions(db: Session, username: str, permissions: list):
+    key = username.lower().strip()
+    user = db.query(User).filter(User.username == key).first()
+    if not user:
+        return False, "User not found."
+    
+    # Delete existing permissions
+    db.query(UserPermission).filter(UserPermission.user_id == user.id).delete()
+    
+    # Add new permissions
+    for p in permissions:
+        db.add(UserPermission(user_id=user.id, permission_name=p))
         
-        for log in logs:
-            try:
-                log_date = datetime.fromisoformat(log.get("timestamp", ""))
-                if log_date < cutoff_date:
-                    archived_logs.append(log)
-                else:
-                    recent_logs.append(log)
-            except Exception:
-                recent_logs.append(log)
-                
-        if archived_logs:
-            archive_filename = f"logs_archive_{datetime.now().strftime('%Y_%m')}.json"
-            archive_path = os.path.join(os.path.dirname(LOGS_FILE), archive_filename)
-            
-            existing_archive = []
-            if os.path.exists(archive_path):
-                try:
-                    with open(archive_path, 'r') as f:
-                        existing_archive = json.load(f)
-                except Exception:
-                    pass
-                    
-            existing_archive.extend(archived_logs)
-            
-            with open(archive_path, 'w') as f:
-                json.dump(existing_archive, f, indent=2)
-                
-            with open(LOGS_FILE, 'w') as f:
-                json.dump(recent_logs, f, indent=2)
+    db.commit()
+    add_log(db, "PERMISSIONS_UPDATED", "Admin", f"Updated permissions for '{username}': {permissions}")
+    return True, f"Permissions updated for '{username}'."
 
-def load_users():
-    with db_lock:
-        if os.path.exists(USERS_FILE):
-            with open(USERS_FILE, 'r') as f:
-                users = json.load(f)
-                # Migration: Ensure existing admin has proper permissions
-                if "admin" in users and not users["admin"].get("permissions"):
-                    users["admin"]["permissions"] = ["can_view_global", "can_view_scoped", "can_upload_files", "can_download_files"]
-                    save_users(users)
-                return users
-        save_users(DEFAULT_USERS)
-        return DEFAULT_USERS.copy()
+def reset_password(db: Session, username: str, new_password: str):
+    key = username.lower().strip()
+    user = db.query(User).filter(User.username == key).first()
+    if not user:
+        return False, "User not found."
+    
+    hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    user.password_hash = hashed_password
+    db.commit()
+    add_log(db, "PASSWORD_RESET", "Admin", f"Reset password for '{username}'")
+    return True, f"Password reset for '{username}'."
 
-def save_users(users):
-    with db_lock:
-        os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
-        with open(USERS_FILE, 'w') as f:
-            json.dump(users, f, indent=2)
+def remove_user(db: Session, username: str):
+    key = username.lower().strip()
+    user = db.query(User).filter(User.username == key).first()
+    if not user:
+        return False, "Company not found."
+    if user.company_name == "Admin":
+        return False, "Cannot remove an Admin account."
+    
+    company_name = user.company_name
+    db.delete(user)
+    db.commit()
+    add_log(db, "USER_DEACTIVATED", "Admin", f"Deactivated account for '{company_name}' ({username})")
+    return True, f"Account for '{company_name}' deactivated."
 
-def add_user(username, password, company_name, permissions=None):
-    with db_lock:
-        if permissions is None:
-            permissions = []
-        users = load_users()
-        key = username.lower().strip()
-        if key in users:
-            return False, "Username already exists."
-        
-        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        users[key] = {"password": hashed_password, "user": company_name, "permissions": permissions}
-        save_users(users)
-        add_log("USER_ADDED", "Admin", f"Added company '{company_name}' ({username}) with perms {permissions}")
-        return True, f"Company '{company_name}' added."
-
-def update_permissions(username, permissions):
-    with db_lock:
-        users = load_users()
-        key = username.lower().strip()
-        if key not in users:
-            return False, "User not found."
-        users[key]["permissions"] = permissions
-        save_users(users)
-        add_log("PERMISSIONS_UPDATED", "Admin", f"Updated permissions for '{username}': {permissions}")
-        return True, f"Permissions updated for '{username}'."
-
-def reset_password(username, new_password):
-    with db_lock:
-        users = load_users()
-        key = username.lower().strip()
-        if key not in users:
-            return False, "User not found."
-        
-        hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        users[key]["password"] = hashed_password
-        save_users(users)
-        add_log("PASSWORD_RESET", "Admin", f"Reset password for '{username}'")
-        return True, f"Password reset for '{username}'."
-
-def remove_user(username):
-    with db_lock:
-        users = load_users()
-        key = username.lower().strip()
-        if key not in users:
-            return False, "Company not found."
-        if users[key].get("user") == "Admin":
-            return False, "Cannot remove an Admin account."
-        company_name = users[key].get("user", key)
-        del users[key]
-        save_users(users)
-        add_log("USER_DEACTIVATED", "Admin", f"Deactivated account for '{company_name}' ({username})")
-        return True, f"Account for '{company_name}' deactivated."
-
-def verify_password(plain_password, stored_password):
+def verify_password(plain_password: str, stored_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode('utf-8'), stored_password.encode('utf-8'))
 
 def create_access_token(data: dict):
@@ -225,11 +184,10 @@ class PermissionChecker:
             )
         return current_user
 
-def record_login(username):
-    with db_lock:
-        users = load_users()
-        key = username.lower().strip()
-        if key in users:
-            users[key]['login_count'] = users[key].get('login_count', 0) + 1
-            users[key]['last_login'] = datetime.now().isoformat()
-            save_users(users)
+def record_login(db: Session, username: str):
+    key = username.lower().strip()
+    user = db.query(User).filter(User.username == key).first()
+    if user:
+        user.login_count = (user.login_count or 0) + 1
+        user.last_login = datetime.now().isoformat()
+        db.commit()

@@ -412,5 +412,41 @@
     "action": "LOGIN_SUCCESS",
     "username": "uidai",
     "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-06T11:20:16.031533",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-06T11:30:13.497713",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-06T11:33:52.256224",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-06T12:53:24.774771",
+    "action": "LOGIN_SUCCESS",
+    "username": "uidai",
+    "details": "User uidai logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-06T13:02:02.412092",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-06T14:56:23.760478",
+    "action": "LOGIN_SUCCESS",
+    "username": "admin",
+    "details": "User admin logged in successfully"
   }
 ]

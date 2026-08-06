@@ -6,7 +6,7 @@
   - `can_upload_files`: Can upload new data files to the system.
   - `can_download_files`: Can download/export data files.
 - **Dash (Frontend)**: The presentation layer. Renders UI and fetches data via API.
-- **FastAPI (Backend)**: The API layer. Handles auth, role-based data filtering, file parsing, and state management.
+- **FastAPI (Backend)**: The API layer. Handles auth, role-based data filtering, file parsing, and state management. Backed by **PostgreSQL** for scalable concurrent data storage.
 - **Session**: Connection pooling on the frontend to reuse HTTP connections, reducing latency.
 - **Cache**: In-memory caching (`lru_cache`) on the backend to avoid repetitive disk/database reads for frequently requested data.
 - **Tenant Isolation**: Single storage directory (`data/processed/`). Filenames prefixed with `role_`. Data filtered by `company_id` (`user_role`) on read. No per-company subdirectories.
@@ -30,5 +30,5 @@
 
 ## Known Technical Debt (To Fix Later)
 
-- **Frontend Memory Caching (Dash `dcc.Store`)**: The `data-store` currently holds the entire aggregated CSV dataset (potentially 50MB+) in the client's browser memory as JSON. This is passed back to the server on every callback. This MUST be refactored to use Server-Side Caching (e.g., `ServersideOutput` from `dash-extensions` or Redis) to avoid freezing the browser and choking the network as data scales.
-- **Backend DB Concurrency (Race Condition)**: `auth_utils.py` uses raw JSON files (`users.json`, `logs.json`) as a DB by synchronously reading the entire file, appending data, and overwriting it (`json.dump`). This creates a severe race condition for concurrent users. This needs to be wrapped in a Thread Lock or migrated to an append-only format (like standard Python logging or SQLite) before production scaling.
+- **Frontend Memory Caching (Dash `dcc.Store`)**: We have agreed to migrate from client-side JSON memory caching to Server-Side Caching using **Redis** to avoid freezing the browser and choking the network as data scales. Redis will also be used to enforce single active sessions across the load-balanced servers.
+- **Backend DB Concurrency (Race Condition)**: We have agreed to migrate from raw JSON files (`users.json`, `logs.json`) to PostgreSQL to resolve concurrency issues across load-balanced servers.

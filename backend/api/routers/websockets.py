@@ -3,7 +3,11 @@ import io
 import pandas as pd
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from backend.api.auth_utils import add_log, BASE_DIR
+from backend.api.auth_utils import add_log
+from backend.api.database import SessionLocal
+
+import os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 router = APIRouter()
 
@@ -69,7 +73,9 @@ async def process_file_background(contents: bytes, safe_filename: str, save_path
             
         await manager.send_message({'status': 'processing', 'progress': 90, 'message': 'Saving data...'}, client_id)
         df.to_csv(save_path, index=False)
-        add_log('FILE_UPLOADED', username, f'Uploaded file: {out_filename}')
+        with SessionLocal() as db:
+            add_log(db, 'FILE_UPLOADED', username, f'Uploaded file: {out_filename}')
+        
         
         await manager.send_message({'status': 'complete', 'progress': 100, 'message': 'Upload complete!'}, client_id)
     except Exception as e:
