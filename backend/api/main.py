@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from backend.api.auth_utils import archive_old_logs
+from backend.api.database import SessionLocal
 
 from backend.api.routers import users, data, settings, websockets
 
@@ -10,7 +11,11 @@ app = FastAPI(title="UIDAI Backend API")
 @app.on_event("startup")
 async def startup_event():
     # Archive logs older than 90 days on startup
-    archive_old_logs(days=90)
+    db = SessionLocal()
+    try:
+        archive_old_logs(db=db, days=90)
+    finally:
+        db.close()
 
 # Add CORS Middleware to restrict to Dash frontend origin
 origins = [

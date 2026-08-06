@@ -122,7 +122,10 @@ def create_card(username, company_name, perms, login_count=0, last_login="Never"
     granted_perms = len([p for p in perms if p in ["can_view_global", "can_view_scoped", "can_upload_files", "can_download_files"]])
     percentage = int((granted_perms / total_perms) * 100)
     
-    if last_login != "Never" and "T" in last_login:
+    if last_login is None:
+        last_login = "Never"
+        
+    if last_login != "Never" and "T" in str(last_login):
         try:
             from datetime import datetime
             dt = datetime.fromisoformat(last_login)

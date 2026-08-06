@@ -14,7 +14,7 @@ from backend.api.database import get_db
 from sqlalchemy.orm import Session
 from backend.api.routers.websockets import process_file_background
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 router = APIRouter()
