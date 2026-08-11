@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import delete
 from typing import List, Dict
 
-from backend.api.database import get_db
-from backend.api.models import User, UserPermission, AuditLog, Setting
+from backend.database.database import get_db
+from backend.database.models import User, UserPermission, AuditLog, Setting
 
 # Load environment variables
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'))

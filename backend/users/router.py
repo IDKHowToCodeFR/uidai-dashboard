@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from backend.api.database import get_db
-from backend.api.auth_utils import (
+from backend.database.database import get_db
+from backend.auth.auth_utils import (
     load_users, verify_password, create_access_token, get_current_user,
     add_user, remove_user, update_permissions, add_log, record_login, reset_password
 )

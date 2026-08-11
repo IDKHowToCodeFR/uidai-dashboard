@@ -1,0 +1,6 @@
+[o] Move upload functionality to Admin side and restrict Users from uploading. — Improves data governance; low complexity.
+[o] Allow Admin to select which companies a specific user can view (Row-Level RBAC) — Resolves 1:1 user-to-company limitation; requires DB schema update.
+[ ] Migrate from SQLite to PostgreSQL for concurrent usage — Addresses known technical debt for backend database concurrency.
+[ ] Implement Server-Side Caching (Redis) to replace client-side Dash memory caching — Addresses known technical debt to prevent browser freezing as data scales.
+[ ] Multi-Tenant RBAC (Super Admin -> Tenant Admin -> Tenant User) — Parked idea; potentially over-engineered for <50 users, but tracked.
+[ ] Add explicit Date Range presets (Last 7 Days, MTD, YTD) to the filter drawer — Dashboard UX improvement.

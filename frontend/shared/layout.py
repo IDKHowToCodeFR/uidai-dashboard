@@ -1,7 +1,7 @@
 import dash_bootstrap_components as dbc
 from dash import dcc, html
-from frontend.utils.permissions import has_permission
-from frontend.utils.api import get_history_options
+from frontend.shared.permissions import has_permission
+from frontend.shared.api_client import get_history_options
 
 # --- FILTER DRAWER (Right Side) ---
 filter_drawer = dbc.Offcanvas(

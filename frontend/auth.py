@@ -2,7 +2,7 @@ import dash
 from dash import html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
 import requests
-from frontend.utils.api import api_client
+from frontend.shared.api_client import api_client
 
 # --- LOGIN PAGE LAYOUT ---
 login_page = dbc.Row(
