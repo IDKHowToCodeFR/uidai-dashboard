@@ -1,7 +1,7 @@
 import dash
 from dash import html, dcc, callback, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
-from frontend.utils.api import api_client
+from frontend.shared.api_client import api_client
 
 dash.register_page(__name__, path='/admin-settings', name='Global Settings')
 

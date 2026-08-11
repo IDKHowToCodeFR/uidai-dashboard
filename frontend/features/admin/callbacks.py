@@ -1,6 +1,6 @@
 import dash
 from dash import Input, Output, State, ctx, html
-from frontend.utils.api import api_client
+from frontend.shared.api_client import api_client
 
 def register_admin_callbacks(app):
     # --- ADMIN: OPEN ADD MODAL ---

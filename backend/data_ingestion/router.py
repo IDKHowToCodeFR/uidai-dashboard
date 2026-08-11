@@ -7,12 +7,12 @@ from functools import lru_cache
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 
-from backend.api.auth_utils import (
+from backend.auth.auth_utils import (
     get_current_user, PermissionChecker, add_log
 )
-from backend.api.database import get_db
+from backend.database.database import get_db
 from sqlalchemy.orm import Session
-from backend.api.routers.websockets import process_file_background
+from backend.data_ingestion.websockets import process_file_background
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

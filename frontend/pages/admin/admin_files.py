@@ -2,7 +2,7 @@ import dash
 from dash import html, dcc, callback, Input, Output, State, ALL, MATCH
 import dash_bootstrap_components as dbc
 import requests
-from frontend.utils.api import api_client
+from frontend.shared.api_client import api_client
 import pandas as pd
 import base64
 from datetime import datetime, date, timedelta

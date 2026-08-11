@@ -2,9 +2,9 @@ import dash
 from dash import Input, Output, State
 from dash import html
 from frontend.auth import login_page
-from frontend.utils.api import api_client, get_history_options
-from frontend.utils.permissions import has_permission
-from frontend.components.layout import get_topbar, get_sidebar, filter_drawer
+from frontend.shared.api_client import api_client, get_history_options
+from frontend.shared.permissions import has_permission
+from frontend.shared.layout import get_topbar, get_sidebar, filter_drawer
 import dash_bootstrap_components as dbc
 
 def register_routing_callbacks(app, content_div):

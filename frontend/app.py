@@ -3,9 +3,9 @@ import dash
 from dash import Dash, html, dcc, Output, Input
 import dash_bootstrap_components as dbc
 from frontend.auth import register_auth_callbacks
-from frontend.callbacks.routing_callbacks import register_routing_callbacks
-from frontend.callbacks.data_callbacks import register_data_callbacks
-from frontend.callbacks.admin_callbacks import register_admin_callbacks
+from frontend.shared.routing_callbacks import register_routing_callbacks
+from frontend.features.data_explorer.data_callbacks import register_data_callbacks
+from frontend.features.admin.callbacks import register_admin_callbacks
 
 app = Dash(
     __name__,

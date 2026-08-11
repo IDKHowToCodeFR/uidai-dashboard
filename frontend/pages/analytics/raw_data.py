@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 import dash_ag_grid as dag
 import numpy as np
 import pandas as pd
-from frontend.utils.api import get_dataframe
+from frontend.shared.api_client import get_dataframe
 
 dash.register_page(__name__, path='/raw-data')
 

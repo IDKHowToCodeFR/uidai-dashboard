@@ -6,8 +6,8 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from frontend.utils.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
-from frontend.utils.api import get_dataframe
+from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
+from frontend.shared.api_client import get_dataframe
 
 dash.register_page(__name__, path='/date-comparison', name='Date Comparison')
 
@@ -552,7 +552,7 @@ def export_csv_compare(n_clicks, data_ref, selected_dates, selected_days, auth_s
 
 # Backend PDF and JPG Export Callbacks
 from dash import ctx
-from frontend.utils.pdf_generator import generate_single_chart_pdf, generate_dashboard_pdf, generate_single_chart_png, generate_single_chart_html, generate_dashboard_html
+from frontend.shared.pdf_generator import generate_single_chart_pdf, generate_dashboard_pdf, generate_single_chart_png, generate_single_chart_html, generate_dashboard_html
 
 @callback(
     Output({'type': 'download-data-compare', 'index': dash.MATCH}, "data", allow_duplicate=True),

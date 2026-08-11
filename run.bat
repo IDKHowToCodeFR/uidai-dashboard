@@ -27,7 +27,7 @@ if errorlevel 1 (
 
 echo.
 echo [2/3] Processing raw data...
-.venv\Scripts\python.exe backend\preprocess.py
+.venv\Scripts\python.exe backend\data_ingestion\preprocess.py
 if errorlevel 1 (
     echo Error during data processing. Please check the logs above.
     pause
@@ -38,7 +38,7 @@ echo.
 echo [3/3] Starting the Servers...
 echo import subprocess, sys, time > .tmp_runner.py
 echo print("Starting FastAPI Backend on port 8000...") >> .tmp_runner.py
-echo backend = subprocess.Popen([sys.executable, "-m", "uvicorn", "backend.api.main:app", "--host", "127.0.0.1", "--port", "8000"]) >> .tmp_runner.py
+echo backend = subprocess.Popen([sys.executable, "-m", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000"]) >> .tmp_runner.py
 echo time.sleep(1) >> .tmp_runner.py
 echo print("Starting Dash Frontend on port 8050...") >> .tmp_runner.py
 echo frontend = subprocess.Popen([sys.executable, "-m", "frontend.app"]) >> .tmp_runner.py

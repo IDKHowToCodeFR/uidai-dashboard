@@ -4,8 +4,8 @@ from dash_bootstrap_components import Container, Row, Col, Card, CardHeader, Car
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from frontend.utils.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
-from frontend.utils.api import get_dataframe
+from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
+from frontend.shared.api_client import get_dataframe
 import dash_bootstrap_components as dbc
 
 dash.register_page(__name__, path='/hourly', name='Hourly Insights')
@@ -319,7 +319,7 @@ def export_csv_hourly(n_clicks, data_ref, company_filter, language_filter, start
 
 # Backend PDF and JPG Export Callbacks
 from dash import ctx
-from frontend.utils.pdf_generator import generate_single_chart_pdf, generate_dashboard_pdf, generate_single_chart_png, generate_single_chart_html, generate_dashboard_html
+from frontend.shared.pdf_generator import generate_single_chart_pdf, generate_dashboard_pdf, generate_single_chart_png, generate_single_chart_html, generate_dashboard_html
 
 @callback(
     Output({'type': 'download-data-hourly', 'index': dash.MATCH}, "data", allow_duplicate=True),

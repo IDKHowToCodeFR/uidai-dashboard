@@ -1,7 +1,7 @@
 import dash
 from dash import Input, Output, State, ctx
 import pandas as pd
-from frontend.utils.api import api_client, upload_file_to_api, get_history_options, get_dataframe
+from frontend.shared.api_client import api_client, upload_file_to_api, get_history_options, get_dataframe
 
 def register_data_callbacks(app):
     @app.callback(

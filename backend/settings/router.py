@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from backend.api.database import get_db
-from backend.api.auth_utils import (
+from backend.database.database import get_db
+from backend.auth.auth_utils import (
     get_current_user, PermissionChecker, add_log,
     load_settings, save_settings, load_logs
 )

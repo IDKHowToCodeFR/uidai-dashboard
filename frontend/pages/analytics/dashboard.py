@@ -6,8 +6,8 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from frontend.utils.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
-from frontend.utils.api import get_dataframe
+from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
+from frontend.shared.api_client import get_dataframe
 import dash_bootstrap_components as dbc
 # Global config removed in favor of API
 
@@ -125,7 +125,7 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
     # Fetch dynamic SLA targets
     sla_targets = [85, 95, 95, 85, 85, 85]
     if auth_state and auth_state.get('token'):
-        from frontend.utils.api import api_client
+        from frontend.shared.api_client import api_client
         try:
             res = api_client.get_settings(auth_state.get('token'))
             if res.status_code == 200:
@@ -480,7 +480,7 @@ def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, st
 
 # Backend PDF and JPG Export Callbacks
 from dash import ctx
-from frontend.utils.pdf_generator import generate_single_chart_pdf, generate_dashboard_pdf, generate_single_chart_png, generate_single_chart_html, generate_dashboard_html
+from frontend.shared.pdf_generator import generate_single_chart_pdf, generate_dashboard_pdf, generate_single_chart_png, generate_single_chart_html, generate_dashboard_html
 
 @callback(
     Output({'type': 'download-data-dashboard', 'index': dash.MATCH}, "data", allow_duplicate=True),

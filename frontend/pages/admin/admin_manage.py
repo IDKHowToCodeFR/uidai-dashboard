@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 import requests
 import random
 import string
-from frontend.utils.api import api_client
+from frontend.shared.api_client import api_client
 
 dash.register_page(__name__, path='/admin-manage', name='Manage Users')
 

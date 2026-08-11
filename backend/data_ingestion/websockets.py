@@ -3,8 +3,8 @@ import io
 import pandas as pd
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from backend.api.auth_utils import add_log
-from backend.api.database import SessionLocal
+from backend.auth.auth_utils import add_log
+from backend.database.database import SessionLocal
 
 import os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
