@@ -20,7 +20,7 @@ class Token(BaseModel):
 class UserAddRequest(BaseModel):
     username: str
     password: str
-    company_name: str
+    companies: List[str]
     permissions: Optional[List[str]] = None
 
 class UserRemoveRequest(BaseModel):
@@ -44,9 +44,17 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    role = user["user"]
+    companies = user.get("companies", [])
+    role = "Admin" if "Admin" in companies or form_data.username.lower() == "admin" else "User"
     permissions = user.get("permissions", [])
-    access_token = create_access_token(data={"sub": form_data.username, "role": role, "permissions": permissions})
+    
+    # We still pass 'role' for frontend backward compatibility, and add 'companies' for data filtering
+    access_token = create_access_token(data={
+        "sub": form_data.username, 
+        "role": role, 
+        "permissions": permissions,
+        "companies": companies
+    })
     record_login(db, form_data.username)
     add_log(db, "LOGIN_SUCCESS", form_data.username, f"User {form_data.username} logged in successfully")
     return {"access_token": access_token, "token_type": "bearer", "role": role, "permissions": permissions}
@@ -58,11 +66,11 @@ async def list_users(current_user: dict = Depends(get_current_user), db: Session
     return load_users(db)
 
 @router.post("/users/add")
-async def api_add_user(req: UserAddRequest, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def add_new_user(req: UserAddRequest, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     if current_user["role"] != "Admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    ok, msg = add_user(db, req.username, req.password, req.company_name, req.permissions)
-    if not ok:
+    success, msg = add_user(db, req.username, req.password, req.companies, req.permissions)
+    if not success:
         raise HTTPException(status_code=400, detail=msg)
     return {"message": msg}
 

@@ -69,14 +69,14 @@ def load_users(db: Session) -> dict:
         permissions = [p.permission_name for p in user.permissions]
         result[user.username] = {
             "password": user.password_hash,
-            "user": user.company_name,
+            "companies": user.companies,
             "permissions": permissions,
             "login_count": user.login_count,
             "last_login": user.last_login
         }
     return result
 
-def add_user(db: Session, username: str, password: str, company_name: str, permissions: list = None):
+def add_user(db: Session, username: str, password: str, companies: list, permissions: list = None):
     if permissions is None:
         permissions = []
     
@@ -89,7 +89,7 @@ def add_user(db: Session, username: str, password: str, company_name: str, permi
     new_user = User(
         username=key,
         password_hash=hashed_password,
-        company_name=company_name
+        companies=companies
     )
     db.add(new_user)
     db.flush() # To get the new_user.id
@@ -98,8 +98,8 @@ def add_user(db: Session, username: str, password: str, company_name: str, permi
         db.add(UserPermission(user_id=new_user.id, permission_name=p))
         
     db.commit()
-    add_log(db, "USER_ADDED", "Admin", f"Added company '{company_name}' ({username}) with perms {permissions}")
-    return True, f"Company '{company_name}' added."
+    add_log(db, "USER_ADDED", "Admin", f"Added user '{username}' with companies {companies} and perms {permissions}")
+    return True, f"User '{username}' added."
 
 def update_permissions(db: Session, username: str, permissions: list):
     key = username.lower().strip()
@@ -134,15 +134,14 @@ def remove_user(db: Session, username: str):
     key = username.lower().strip()
     user = db.query(User).filter(User.username == key).first()
     if not user:
-        return False, "Company not found."
-    if user.company_name == "Admin":
+        return False, "User not found."
+    if "Admin" in user.companies or key == "admin":
         return False, "Cannot remove an Admin account."
     
-    company_name = user.company_name
     db.delete(user)
     db.commit()
-    add_log(db, "USER_DEACTIVATED", "Admin", f"Deactivated account for '{company_name}' ({username})")
-    return True, f"Account for '{company_name}' deactivated."
+    add_log(db, "USER_DEACTIVATED", "Admin", f"Deactivated account for ({username})")
+    return True, f"Account for '{username}' deactivated."
 
 def verify_password(plain_password: str, stored_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode('utf-8'), stored_password.encode('utf-8'))
@@ -165,9 +164,10 @@ async def get_current_user(token: str = Security(oauth2_scheme)):
         username: str = payload.get("sub")
         role: str = payload.get("role")
         permissions: list = payload.get("permissions", [])
+        companies: list = payload.get("companies", [])
         if username is None or role is None:
             raise credentials_exception
-        return {"username": username, "role": role, "permissions": permissions}
+        return {"username": username, "role": role, "permissions": permissions, "companies": companies}
     except JWTError:
         raise credentials_exception
 

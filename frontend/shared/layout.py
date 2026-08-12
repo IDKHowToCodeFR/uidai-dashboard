@@ -193,6 +193,10 @@ def get_sidebar(user_role, token, permissions):
                 vertical=True,
                 pills=True,
                 className="custom-sidebar-nav mb-5"
+            ),
+            html.Div(
+                dbc.RadioItems(id="file-history", options=[], value=None),
+                style={"display": "none"}
             )
         ], className="sidebar-content-wrapper")
         return dbc.Offcanvas(
@@ -253,32 +257,7 @@ def get_sidebar(user_role, token, permissions):
 
         html.Hr(style={"borderColor": "#e2e8f0"}),
 
-        html.Div([
-            html.H6("DATA", className="section-title mb-3 mt-4"),
-            html.Div([
-                dcc.Upload(
-                    id='upload-data',
-                    children=html.Div([
-                        html.I(className="bi bi-cloud-arrow-up fs-4 mb-2 d-block"),
-                        html.Span(['Drag and Drop or ', html.A('Select Files', className="text-primary text-decoration-none")], className="nav-link-text")
-                    ]),
-                    multiple=False,
-                    className="upload-box mb-4"
-                )
-            ]),
-            
-            html.Div(id='progress-container', children=[
-                html.Div(id='upload-status', className="nav-link-text text-muted small mt-2"),
-                dbc.Progress(id="upload-progress", value=0, striped=True, animated=True, style={"height": "10px", "marginTop": "8px", "display": "none"}),
-            ]),
-            
-            dcc.Store(id='ws-client-id'),
-            dcc.Input(id='ws-data', type='hidden', value=''),
-            html.Button(id='ws-trigger', style={'display': 'none'})
-            
-        ], style={"display": "block"} if can_upload else {"display": "none"}),
 
-        html.H6("HISTORY", className="section-title mb-3 mt-4"),
         html.Div(
             dbc.RadioItems(
                 id="file-history",

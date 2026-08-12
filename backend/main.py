@@ -4,7 +4,10 @@ from fastapi.middleware.gzip import GZipMiddleware
 from backend.auth.auth_utils import archive_old_logs
 from backend.database.database import SessionLocal
 
-from backend.api.routers import users, data, settings, websockets
+from backend.users.router import router as users_router
+from backend.data_ingestion.router import router as data_router
+from backend.settings.router import router as settings_router
+from backend.data_ingestion.websockets import router as websockets_router
 
 app = FastAPI(title="UIDAI Backend API")
 
@@ -32,7 +35,7 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Include Routers
-app.include_router(users.router)
-app.include_router(data.router)
-app.include_router(settings.router)
-app.include_router(websockets.router)
+app.include_router(users_router)
+app.include_router(data_router)
+app.include_router(settings_router)
+app.include_router(websockets_router)
