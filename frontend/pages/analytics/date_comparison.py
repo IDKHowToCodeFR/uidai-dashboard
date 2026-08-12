@@ -169,7 +169,8 @@ def populate_date_selector(data_ref, auth_state):
     if not date_col:
         return []
         
-    df[date_col] = pd.to_datetime(df[date_col])
+    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+    df = df.dropna(subset=[date_col])
     unique_dates = df[date_col].dt.date.unique()
     unique_dates = sorted(unique_dates, reverse=True)
     d_options = [{'label': d.strftime('%Y-%m-%d'), 'value': d.strftime('%Y-%m-%d')} for d in unique_dates]
@@ -226,7 +227,8 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
     if not date_col:
         return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, html.P("No data available.")
 
-    df[date_col] = pd.to_datetime(df[date_col])
+    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+    df = df.dropna(subset=[date_col])
     df['Date_Str'] = df[date_col].dt.strftime('%Y-%m-%d')
     df['Day_Name'] = df[date_col].dt.day_name()
     

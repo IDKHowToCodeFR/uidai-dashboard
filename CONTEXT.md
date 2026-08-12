@@ -9,7 +9,7 @@
 - **FastAPI (Backend)**: The API layer. Handles auth, role-based data filtering, file parsing, and state management. Backed by **PostgreSQL** for scalable concurrent data storage.
 - **Session**: Connection pooling on the frontend to reuse HTTP connections, reducing latency.
 - **Cache**: In-memory caching (`lru_cache`) on the backend to avoid repetitive disk/database reads for frequently requested data.
-- **Tenant Isolation**: Single storage directory (`data/processed/`). Filenames prefixed with `role_`. Data filtered by `company_id` (`user_role`) on read. No per-company subdirectories.
+- **Tenant Isolation (Database)**: Replaces file-system isolation. All uploaded raw data is stored in a single unified metrics table (`call_metrics`), isolated by a `company_id` column. A separate metadata table (`files_metadata`) tracks upload history and lineage (`file_id`).
 - **Weighted Average SL (Service Level)**: Calculated by aggregating all call volumes across all intervals for a period before determining the percentage, ensuring statistical accuracy over simple unweighted averages.
 - **Dynamic Time Bucketing**: A senior-level visualization pattern that automatically resamples time-series data into Daily, Weekly (W-MON), or Monthly (MS) buckets based on the total selected date range (e.g., >31 days = Weekly). It also floors timestamps (`dt.floor('D')`) to eliminate intraday noise from trend charts.
 - **AHT Breakdown**: The decomposition of Average Handle Time into Talk Time, Hold Time, and Wrap Time (ACW).

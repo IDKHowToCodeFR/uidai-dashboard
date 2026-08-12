@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from backend.database.database import Base
@@ -41,3 +41,50 @@ class Setting(Base):
 
     key = Column(String, primary_key=True, index=True)
     value = Column(JSON, nullable=False)
+
+
+class FileMetadata(Base):
+    __tablename__ = "file_metadata"
+
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String, index=True, nullable=False)
+    uploaded_at = Column(String, default=lambda: datetime.now().isoformat())
+    uploader = Column(String, nullable=True)
+    size_bytes = Column(Integer, default=0)
+    
+    metrics = relationship("CallMetric", back_populates="file", cascade="all, delete-orphan")
+
+
+class CallMetric(Base):
+    __tablename__ = "call_metrics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    file_id = Column(Integer, ForeignKey("file_metadata.id"), nullable=False)
+    
+    company = Column(String, index=True)
+    language = Column(String, index=True)
+    date_logged = Column(String, index=True)
+    call_timestamp = Column(String, index=True)
+    day = Column(String)
+    
+    call_offered = Column(Float)
+    aban_calls_10_sec = Column(Float)
+    acd_calls_10_sec = Column(Float)
+    acd_calls_20_sec = Column(Float)
+    aban_calls = Column(Float)
+    held_calls = Column(Float)
+    
+    service_level_pct = Column(Float)
+    service_level_status = Column(String)
+    
+    acd_calls = Column(Float)
+    hold_time = Column(Float)
+    avg_hold_time = Column(Float)
+    hold_time_status = Column(String)
+    
+    acd_time = Column(Float)
+    acw_time = Column(Float)
+    avg_handle_time = Column(Float)
+    aht_status = Column(String)
+    
+    file = relationship("FileMetadata", back_populates="metrics")

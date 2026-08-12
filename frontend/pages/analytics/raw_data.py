@@ -56,7 +56,10 @@ def update_table(data_ref, companies, languages, start_date, end_date, auth_stat
             date_col = 'Call Start Time'
 
         if date_col in df.columns:
-            temp_date = pd.to_datetime(df[date_col]).dt.date
+            temp_date = pd.to_datetime(df[date_col], errors='coerce').dt.date
+            valid_mask = temp_date.notna()
+            df = df[valid_mask]
+            temp_date = temp_date[valid_mask]
             df = df[(temp_date >= pd.to_datetime(start_date).date()) &
                     (temp_date <= pd.to_datetime(end_date).date())]
 
@@ -66,6 +69,12 @@ def update_table(data_ref, companies, languages, start_date, end_date, auth_stat
     # Round numeric columns for cleaner display
     numeric_cols = df.select_dtypes(include=[np.number]).columns
     df[numeric_cols] = df[numeric_cols].round(2)
+
+    # Format Date and Call Timestamp for display
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.strftime('%Y-%m-%d')
+    if 'Call Timestamp' in df.columns:
+        df['Call Timestamp'] = pd.to_datetime(df['Call Timestamp'], errors='coerce').dt.strftime('%H:%M:%S')
 
     return dag.AgGrid(
         rowData=df.to_dict("records"),
