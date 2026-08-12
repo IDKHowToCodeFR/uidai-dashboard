@@ -2,13 +2,18 @@ import os
 import pandas as pd
 import numpy as np
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RAW_DIR = os.path.join(BASE_DIR, "data", "unprocessed")
 PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed")
 
 def process_data():
     if not os.path.exists(PROCESSED_DIR):
         os.makedirs(PROCESSED_DIR)
+
+    if not os.path.exists(RAW_DIR):
+        os.makedirs(RAW_DIR, exist_ok=True)
+        print(f"Created {RAW_DIR}. No files to process.")
+        return
 
     files = [f for f in os.listdir(RAW_DIR) if f.endswith(('.xlsx', '.xls', '.csv'))]
     

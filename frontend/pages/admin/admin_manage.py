@@ -11,11 +11,11 @@ dash.register_page(__name__, path='/admin-manage', name='Manage Users')
 layout = html.Div([
     html.Div([
         html.Div([
-            html.H3("Company & Permissions", className="display-xl mb-0"),
+            html.H3("User Management", className="display-xl mb-0"),
             html.P("Manage system users, passwords, and access controls.", className="text-muted mb-0 mt-2"),
         ]),
         dbc.Button(
-            [html.I(className="bi bi-person-plus-fill me-2"), "Add Company"],
+            [html.I(className="bi bi-person-plus-fill me-2"), "Add New User"],
             id="admin-btn-add-modal", color="primary"
         ),
     ], className="d-flex justify-content-between align-items-center mb-4"),
@@ -25,51 +25,61 @@ layout = html.Div([
     # Cards Grid
     html.Div(id="admin-cards-container", className="row g-4 mb-5"),
 
-    # Offcanvas Side-Panel
-    dbc.Offcanvas(
+    # Manage User Modal
+    dbc.Modal(
         [
-            html.H4(id="offcanvas-username", className="fw-bold mb-4", style={"color": "var(--color-text-heading)"}),
-            dbc.Label("Granted Permissions", className="small text-muted text-uppercase fw-bold"),
-            dbc.Checklist(
-                options=[
-                    {"label": " View Global Data", "value": "can_view_global"},
-                    {"label": " View Scoped Data", "value": "can_view_scoped"},
-                    {"label": " Upload Files", "value": "can_upload_files"},
-                    {"label": " Download Files", "value": "can_download_files"}
-                ],
-                value=[],
-                id="offcanvas-perms-switches",
-                switch=True,
-                className="mb-4"
+            dbc.ModalHeader(
+                dbc.ModalTitle(id="offcanvas-username", className="fw-bold mb-0", style={"color": "var(--color-text-heading)"})
             ),
-            dbc.Button("Save Permissions", id="offcanvas-btn-save", color="primary", size="sm", className="w-100 mb-2"),
-            html.Div(id="offcanvas-save-status", className="small mt-2 mb-4"),
-            
-            html.Hr(),
-            html.H6("Reset Password", className="fw-bold mb-3"),
-            dbc.InputGroup([
-                dbc.Input(id="offcanvas-new-password", placeholder="New password...", type="text"),
-                dbc.Button("Generate", id="offcanvas-btn-random-password", color="secondary", outline=True)
-            ], className="mb-2"),
-            dbc.Button("Set Password", id="offcanvas-btn-set-password", color="warning", size="sm", className="w-100 mb-2"),
-            html.Div(id="offcanvas-password-status", className="small mt-2 mb-4"),
+            dbc.ModalBody([
+                dbc.Label("Assigned Companies", className="small text-muted text-uppercase fw-bold"),
+                dbc.Input(id="offcanvas-companies", placeholder="e.g. Acme, Beta", type="text", className="mb-3"),
+                
+                dbc.Label("Granted Permissions", className="small text-muted text-uppercase fw-bold"),
+                dbc.Checklist(
+                    options=[
+                        {"label": " View Global Data", "value": "can_view_global"},
+                        {"label": " View Scoped Data", "value": "can_view_scoped"},
+                        {"label": " Upload Files", "value": "can_upload_files"},
+                        {"label": " Download Files", "value": "can_download_files"}
+                    ],
+                    value=[],
+                    id="offcanvas-perms-switches",
+                    switch=True,
+                    className="mb-4"
+                ),
+                dbc.Button("Save Permissions", id="offcanvas-btn-save", color="primary", size="sm", className="w-100 mb-2"),
+                html.Div(id="offcanvas-save-status", className="small mt-2 mb-4"),
+                
+                html.Hr(),
+                html.H6("Reset Password", className="fw-bold mb-3"),
+                dbc.InputGroup([
+                    dbc.Input(id="offcanvas-new-password", placeholder="New password...", type="text"),
+                    dbc.Button("Generate", id="offcanvas-btn-random-password", color="secondary", outline=True)
+                ], className="mb-2"),
+                dbc.Button("Set Password", id="offcanvas-btn-set-password", color="warning", size="sm", className="w-100 mb-2"),
+                html.Div(id="offcanvas-password-status", className="small mt-2 mb-4"),
 
-            html.Hr(),
-            html.H6("Danger Zone", className="text-danger fw-bold mb-3"),
-            dbc.Button("Deactivate User", id="offcanvas-btn-deactivate", color="danger", outline=True, size="sm", className="w-100"),
+                html.Hr(),
+                html.H6("Danger Zone", className="text-danger fw-bold mb-3"),
+                dbc.Button("Deactivate User", id="offcanvas-btn-deactivate", color="danger", outline=True, size="sm", className="w-100"),
+            ]),
+            dbc.ModalFooter(
+                dbc.Button("Close", id="admin-manage-modal-close", color="secondary", outline=True)
+            )
         ],
-        id="admin-offcanvas",
+        id="admin-manage-modal",
         is_open=False,
-        placement="end",
-        title="Manage User"
+        centered=True,
+        size="md"
     ),
 
     # Add Modal
     dbc.Modal([
-        dbc.ModalHeader(dbc.ModalTitle("Add New Company")),
+        dbc.ModalHeader(dbc.ModalTitle("Add New User")),
         dbc.ModalBody([
-            dbc.Label("Company Name", className="small text-muted text-uppercase fw-bold"),
-            dbc.Input(id="page-new-company-name", placeholder="e.g. Acme Corp", type="text", className="mb-3"),
+            dbc.Label("Assigned Companies (comma separated)", className="small text-muted text-uppercase fw-bold"),
+            dbc.Input(id="page-new-company-name", placeholder="e.g. Acme Corp, Beta LLC", type="text", className="mb-3"),
             
             dbc.Label("Username", className="small text-muted text-uppercase fw-bold"),
             dbc.Input(id="page-new-company-username", placeholder="Login username", type="text", className="mb-3"),
@@ -97,7 +107,7 @@ layout = html.Div([
         ]),
         dbc.ModalFooter([
             dbc.Button("Cancel", id="page-btn-add-cancel", color="secondary", outline=True),
-            dbc.Button("Add Company", id="page-btn-add-company", color="primary")
+            dbc.Button("Add User", id="page-btn-add-company", color="primary")
         ])
     ], id="admin-add-modal", is_open=False),
 
@@ -172,52 +182,60 @@ def load_cards(auth_state, status):
             users = response.json()
             cards = []
             for username, data in users.items():
-                if data.get("user") == "Admin":
+                companies = data.get("companies", [])
+                if data.get("role") == "Admin" or "Admin" in companies or username.lower() == "admin":
                     continue
                 perms = data.get("permissions", [])
-                company_name = data.get("user", username)
+                company_str = ", ".join(companies) if companies else username
                 login_count = data.get("login_count", 0)
                 last_login = data.get("last_login", "Never")
-                cards.append(create_card(username, company_name, perms, login_count, last_login))
+                cards.append(create_card(username, company_str, perms, login_count, last_login))
             return cards
     except:
         pass
     return []
 
-# Open Offcanvas when Manage is clicked
+# Open Modal when Manage is clicked
 @callback(
-    Output("admin-offcanvas", "is_open"),
+    Output("admin-manage-modal", "is_open"),
     Output("offcanvas-username", "children"),
+    Output("offcanvas-companies", "value"),
     Output("offcanvas-perms-switches", "value"),
     Output("offcanvas-save-status", "children", allow_duplicate=True),
     Input({"type": "manage-btn", "index": ALL}, "n_clicks"),
+    Input("admin-manage-modal-close", "n_clicks"),
     State("auth-state", "data"),
-    State("admin-offcanvas", "is_open"),
+    State("admin-manage-modal", "is_open"),
     prevent_initial_call=True
 )
-def open_offcanvas(manage_clicks, auth_state, is_open):
+def open_manage_modal(manage_clicks, close_clicks, auth_state, is_open):
     if not ctx.triggered_id:
-        return is_open, no_update, no_update, no_update
+        return is_open, no_update, no_update, no_update, no_update
+    
+    if ctx.triggered_id == "admin-manage-modal-close":
+        return False, no_update, no_update, no_update, no_update
     
     # If all clicks are None (initial load of elements), do not open
     if not any(manage_clicks):
-        return is_open, no_update, no_update, no_update
+        return is_open, no_update, no_update, no_update, no_update
         
     username = ctx.triggered_id["index"]
     token = auth_state.get('token') if auth_state else None
     
     # Fetch specific user permissions
     perms = []
+    companies = []
     try:
         response = api_client.get_users(token)
         if response.status_code == 200:
             users = response.json()
             if username in users:
                 perms = users[username].get("permissions", [])
+                companies = users[username].get("companies", [])
     except:
         pass
 
-    return True, username, perms, ""
+    return True, username, ", ".join(companies), perms, ""
 
 @callback(
     Output("offcanvas-save-status", "children"),
@@ -315,7 +333,7 @@ def validate_deactivate(typed_val, target_val):
 
 @callback(
     Output("admin-deactivate-modal", "is_open", allow_duplicate=True),
-    Output("admin-offcanvas", "is_open", allow_duplicate=True),
+    Output("admin-manage-modal", "is_open", allow_duplicate=True),
     Output("admin-manage-status", "children", allow_duplicate=True),
     Input("modal-btn-deactivate-confirm", "n_clicks"),
     State("deactivate-target-username", "children"),
@@ -368,9 +386,12 @@ def add_company(n_clicks, company_name, username, password, perms, auth_state):
     if not n_clicks: return no_update, no_update
     if not company_name or not username or not password:
         return html.Span("All fields required.", className="text-danger"), no_update
+    
+    companies = [c.strip() for c in company_name.split(",") if c.strip()]
+    
     token = auth_state.get('token') if auth_state else None
     try:
-        req_data = {"username": username, "password": password, "company_name": company_name, "permissions": perms or []}
+        req_data = {"username": username, "password": password, "companies": companies, "permissions": perms or []}
         response = api_client.add_user(token, req_data)
         if response.status_code == 200:
             return "", "reload"

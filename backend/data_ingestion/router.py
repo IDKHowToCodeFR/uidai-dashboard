@@ -105,13 +105,10 @@ async def get_history(impersonate: Optional[str] = None, current_user: dict = De
     files = [f for f in os.listdir(PROCESSED_DATA_DIR) if f.endswith('.csv')]
     
     if 'can_view_global' in permissions and impersonate:
-        prefix = f"{impersonate}_"
-        files = [f for f in files if f.startswith(prefix)]
+        # In impersonation mode, still show all files, but frontend will filter data.
+        pass
     elif 'can_view_global' not in permissions:
-        if 'can_view_scoped' in permissions:
-            prefix = f"{user_role}_"
-            files = [f for f in files if f.startswith(prefix)]
-        else:
+        if 'can_view_scoped' not in permissions:
             files = []
 
     file_times = []
@@ -140,12 +137,18 @@ async def get_aggregated_data(impersonate: Optional[str] = None, current_user: d
         
     for filename in os.listdir(PROCESSED_DATA_DIR):
         if filename.endswith(".csv"):
-            if impersonate and not filename.startswith(f"{impersonate}_"):
-                continue
             file_path = os.path.join(PROCESSED_DATA_DIR, filename)
             mtime = os.path.getmtime(file_path)
             data = load_data_cached(file_path, mtime)
             all_data.extend(data)
+            
+    # Apply Row-Level RBAC for aggregate
+    permissions = current_user.get("permissions", [])
+    if 'can_view_global' not in permissions:
+        user_companies = current_user.get("companies", [])
+        all_data = [row for row in all_data if str(row.get('Company')) in user_companies]
+    elif impersonate:
+        all_data = [row for row in all_data if str(row.get('Company')) == impersonate]
             
     return all_data
 
@@ -164,15 +167,19 @@ async def get_data(filename: str, impersonate: Optional[str] = None, current_use
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
         
-    if 'can_view_global' in permissions and impersonate:
-        if not safe_filename.startswith(f"{impersonate}_"):
-            raise HTTPException(status_code=403, detail="Access denied while impersonating")
-    elif 'can_view_global' not in permissions:
-        if 'can_view_scoped' not in permissions or not safe_filename.startswith(f"{user_role}_"):
-            raise HTTPException(status_code=403, detail="Access denied to this file")
+    if 'can_view_global' not in permissions and 'can_view_scoped' not in permissions:
+        raise HTTPException(status_code=403, detail="Access denied")
         
     mtime = os.path.getmtime(file_path)
     data = load_data_cached(file_path, mtime)
+    
+    # Apply Row-Level RBAC
+    if 'can_view_global' not in permissions:
+        user_companies = current_user.get("companies", [])
+        data = [row for row in data if str(row.get('Company')) in user_companies]
+    elif impersonate:
+        data = [row for row in data if str(row.get('Company')) == impersonate]
+        
     return data
 
 
@@ -193,12 +200,14 @@ async def download_file(filename: str, impersonate: Optional[str] = None, curren
     if 'can_download_files' not in permissions:
         raise HTTPException(status_code=403, detail="Download permission denied")
         
-    if 'can_view_global' in permissions and impersonate:
-        if not safe_filename.startswith(f"{impersonate}_"):
-            raise HTTPException(status_code=403, detail="Access denied while impersonating")
-    elif 'can_view_global' not in permissions:
-        if 'can_view_scoped' not in permissions or not safe_filename.startswith(f"{user_role}_"):
-            raise HTTPException(status_code=403, detail="Access denied to this file")
+    if 'can_view_global' not in permissions and 'can_view_scoped' not in permissions:
+        raise HTTPException(status_code=403, detail="Access denied to this file")
+        
+    # Security Note: Since users can download files, if they don't have global view, 
+    # downloading the raw file bypasses Row-Level RBAC if we send the raw CSV!
+    # For now, if they are scoped, block raw downloads unless they are admin.
+    if 'can_view_global' not in permissions:
+        raise HTTPException(status_code=403, detail="Raw downloads are restricted to Global Admins to preserve data privacy.")
             
     add_log(db, "FILE_DOWNLOADED", current_user["username"], f"Downloaded file: {safe_filename}")
     return FileResponse(file_path, filename=safe_filename)
