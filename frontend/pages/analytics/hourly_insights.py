@@ -120,7 +120,8 @@ def set_date_picker(data_ref, auth_state):
     if not date_col or df.empty:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update
         
-    df[date_col] = pd.to_datetime(df[date_col])
+    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+    df = df.dropna(subset=[date_col])
     max_date = df[date_col].max().date()
     min_date = df[date_col].min().date()
     

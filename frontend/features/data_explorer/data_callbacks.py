@@ -33,16 +33,11 @@ def register_data_callbacks(app):
         c_options, c_values, c_disabled = [], [], False
         l_options, l_values = [], []
         
-        user_role = auth_state.get('user') if auth_state else None
-        
         if 'Company' in df.columns:
             companies = df['Company'].dropna().unique().tolist()
             c_options = [{'label': c, 'value': c} for c in companies]
-            if user_role in ['Admin', 'UIDAI']:
-                c_values = companies
-            else:
-                c_values = [user_role]
-                c_disabled = True
+            c_values = companies
+            c_disabled = False
 
         if 'Language' in df.columns:
             langs = df['Language'].dropna().unique().tolist()

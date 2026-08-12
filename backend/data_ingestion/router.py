@@ -3,28 +3,19 @@ import io
 import pandas as pd
 from datetime import datetime
 from typing import Optional
-from functools import lru_cache
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
-from fastapi.responses import FileResponse
-
-from backend.auth.auth_utils import (
-    get_current_user, PermissionChecker, add_log
-)
-from backend.database.database import get_db
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
+
+from backend.auth.auth_utils import get_current_user, PermissionChecker, add_log
+from backend.database.database import get_db
+from backend.database.models import FileMetadata, CallMetric
 from backend.data_ingestion.websockets import process_file_background
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+UNPROCESSED_DATA_DIR = os.path.join(BASE_DIR, "data", "unprocessed")
 
 router = APIRouter()
-
-PROCESSED_DATA_DIR = os.path.join(BASE_DIR, "data", "processed")
-
-@lru_cache(maxsize=32)
-def load_data_cached(file_path: str, mtime: float):
-    df = pd.read_csv(file_path)
-    return df.to_dict('records')
 
 @router.post("/upload")
 async def upload_file(
@@ -42,172 +33,134 @@ async def upload_file(
         
     prefix = f"{user_role}_" if user_role and user_role != 'Admin' else "Admin_"
     safe_filename = os.path.basename(file.filename)
-    out_filename = prefix + os.path.splitext(safe_filename)[0] + "_processed.csv"
-    save_path = os.path.abspath(os.path.join(PROCESSED_DATA_DIR, out_filename))
+    out_filename = prefix + safe_filename
     
-    if not save_path.startswith(os.path.abspath(PROCESSED_DATA_DIR)):
+    os.makedirs(UNPROCESSED_DATA_DIR, exist_ok=True)
+    save_path = os.path.abspath(os.path.join(UNPROCESSED_DATA_DIR, out_filename))
+    
+    if not save_path.startswith(os.path.abspath(UNPROCESSED_DATA_DIR)):
         raise HTTPException(status_code=400, detail="Invalid filename")
-    
-    os.makedirs(PROCESSED_DATA_DIR, exist_ok=True)
     
     contents = await file.read()
     
     if len(contents) > 50 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="File too large")
         
+    # Standard practice: Store raw file in codebase first
+    with open(save_path, "wb") as f:
+        f.write(contents)
+        
     if client_id:
-        background_tasks.add_task(process_file_background, contents, safe_filename, save_path, client_id, current_user["username"], out_filename)
+        background_tasks.add_task(process_file_background, save_path, out_filename, client_id, current_user["username"])
         return {"message": "Processing started", "status": "processing"}
     else:
-        try:
-            if safe_filename.endswith('.csv'):
-                df = pd.read_csv(io.BytesIO(contents))
-                df.columns = df.columns.str.strip()
-            elif safe_filename.endswith('.xls') or safe_filename.endswith('.xlsx'):
-                excel_file = pd.ExcelFile(io.BytesIO(contents), engine='openpyxl')
-                dfs = []
-                for sheet_name in excel_file.sheet_names:
-                    sheet_df = pd.read_excel(excel_file, sheet_name=sheet_name)
-                    sheet_df.columns = sheet_df.columns.str.strip()
-                    if 'Company' not in sheet_df.columns:
-                        sheet_df['Company'] = sheet_name
-                    dfs.append(sheet_df)
-                df = pd.concat(dfs, ignore_index=True)
-            else:
-                raise HTTPException(status_code=400, detail="Invalid file type. Must be csv or excel.")
-                
-            df.dropna(how='all', inplace=True)
-            df.dropna(axis=1, how='all', inplace=True)
-
-            numeric_cols = df.select_dtypes(include='number').columns
-            df[numeric_cols] = df[numeric_cols].fillna(0)
-            object_cols = df.select_dtypes(include=['object', 'string']).columns
-            df[object_cols] = df[object_cols].fillna('Unknown')
-            for col in object_cols:
-                df[col] = df[col].astype(str).str.strip()
-            
-            df.to_csv(save_path, index=False)
-            add_log(db, "FILE_UPLOADED", current_user["username"], f"Uploaded file: {out_filename}")
-            return {"message": "Upload complete", "status": "complete"}
-            
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        # We don't support synchronous upload without client_id anymore because it's an ETL pipeline
+        raise HTTPException(status_code=400, detail="client_id is required for ETL processing")
 
 
 @router.get("/history")
-async def get_history(impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user)):
-    user_role = current_user["role"]
-    permissions = current_user.get("permissions", [])
+async def get_history(impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    files = db.query(FileMetadata).order_by(FileMetadata.uploaded_at.desc()).all()
     
-    if not os.path.exists(PROCESSED_DATA_DIR):
-        return []
-    
-    files = [f for f in os.listdir(PROCESSED_DATA_DIR) if f.endswith('.csv')]
-    
-    if 'can_view_global' in permissions and impersonate:
-        # In impersonation mode, still show all files, but frontend will filter data.
-        pass
-    elif 'can_view_global' not in permissions:
-        if 'can_view_scoped' not in permissions:
-            files = []
-
     file_times = []
     for f in files:
-        file_path = os.path.join(PROCESSED_DATA_DIR, f)
-        stat = os.stat(file_path)
-        mtime = datetime.fromtimestamp(stat.st_mtime)
-        size = stat.st_size
-        uploader = f.split('_')[0] if '_' in f else 'Unknown'
         file_times.append({
-            'name': f, 
-            'time': mtime.isoformat(),
-            'size': size,
-            'uploader': uploader
+            'name': f.filename, 
+            'time': f.uploaded_at,
+            'size': f.size_bytes,
+            'uploader': f.uploader
         })
     
-    file_times.sort(key=lambda x: x['time'], reverse=True)
     return file_times
 
 
 @router.get("/data/aggregate")
-async def get_aggregated_data(impersonate: Optional[str] = None, current_user: dict = Depends(PermissionChecker("can_view_global"))):
-    all_data = []
-    if not os.path.exists(PROCESSED_DATA_DIR):
-        return all_data
-        
-    for filename in os.listdir(PROCESSED_DATA_DIR):
-        if filename.endswith(".csv"):
-            file_path = os.path.join(PROCESSED_DATA_DIR, filename)
-            mtime = os.path.getmtime(file_path)
-            data = load_data_cached(file_path, mtime)
-            all_data.extend(data)
+async def get_aggregated_data(impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    query = db.query(CallMetric)
+    
+    if impersonate:
+        query = query.filter(CallMetric.company == impersonate)
             
-    # Apply Row-Level RBAC for aggregate
-    permissions = current_user.get("permissions", [])
-    if 'can_view_global' not in permissions:
-        user_companies = current_user.get("companies", [])
-        all_data = [row for row in all_data if str(row.get('Company')) in user_companies]
-    elif impersonate:
-        all_data = [row for row in all_data if str(row.get('Company')) == impersonate]
-            
-    return all_data
+    metrics = query.all()
+    # Serialize
+    return [
+        {
+            "Company": m.company,
+            "Language": m.language,
+            "Date": m.date_logged,
+            "Call Timestamp": m.call_timestamp,
+            "Day": m.day,
+            "Call Offered": m.call_offered,
+            "ABAN Calls in 10 Sec": m.aban_calls_10_sec,
+            "ACD Calls in 10 Sec": m.acd_calls_10_sec,
+            "ACD Calls in 20 Sec": m.acd_calls_20_sec,
+            "ABAN Calls": m.aban_calls,
+            "Held Calls": m.held_calls,
+            "Service Level %": m.service_level_pct,
+            "Service Level Status": m.service_level_status,
+            "ACD Calls": m.acd_calls,
+            "Hold Time": m.hold_time,
+            "Avg Hold Time": m.avg_hold_time,
+            "Hold Time Status": m.hold_time_status,
+            "ACD Time": m.acd_time,
+            "ACW Time": m.acw_time,
+            "Avg Handle Time": m.avg_handle_time,
+            "AHT Status": m.aht_status
+        } for m in metrics
+    ]
 
 
 @router.get("/data/{filename}")
-async def get_data(filename: str, impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user)):
-    user_role = current_user["role"]
-    permissions = current_user.get("permissions", [])
-    
-    safe_filename = os.path.basename(filename)
-    file_path = os.path.abspath(os.path.join(PROCESSED_DATA_DIR, safe_filename))
-    
-    if not file_path.startswith(os.path.abspath(PROCESSED_DATA_DIR)):
-        raise HTTPException(status_code=400, detail="Invalid filename")
-        
-    if not os.path.exists(file_path):
+async def get_data(filename: str, impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    file_meta = db.query(FileMetadata).filter(FileMetadata.filename == filename).first()
+    if not file_meta:
         raise HTTPException(status_code=404, detail="File not found")
         
-    if 'can_view_global' not in permissions and 'can_view_scoped' not in permissions:
-        raise HTTPException(status_code=403, detail="Access denied")
-        
-    mtime = os.path.getmtime(file_path)
-    data = load_data_cached(file_path, mtime)
+    query = db.query(CallMetric).filter(CallMetric.file_id == file_meta.id)
     
-    # Apply Row-Level RBAC
-    if 'can_view_global' not in permissions:
-        user_companies = current_user.get("companies", [])
-        data = [row for row in data if str(row.get('Company')) in user_companies]
-    elif impersonate:
-        data = [row for row in data if str(row.get('Company')) == impersonate]
+    if impersonate:
+        query = query.filter(CallMetric.company == impersonate)
         
-    return data
+    metrics = query.all()
+    return [
+        {
+            "Company": m.company,
+            "Language": m.language,
+            "Date": m.date_logged,
+            "Call Timestamp": m.call_timestamp,
+            "Day": m.day,
+            "Call Offered": m.call_offered,
+            "ABAN Calls in 10 Sec": m.aban_calls_10_sec,
+            "ACD Calls in 10 Sec": m.acd_calls_10_sec,
+            "ACD Calls in 20 Sec": m.acd_calls_20_sec,
+            "ABAN Calls": m.aban_calls,
+            "Held Calls": m.held_calls,
+            "Service Level %": m.service_level_pct,
+            "Service Level Status": m.service_level_status,
+            "ACD Calls": m.acd_calls,
+            "Hold Time": m.hold_time,
+            "Avg Hold Time": m.avg_hold_time,
+            "Hold Time Status": m.hold_time_status,
+            "ACD Time": m.acd_time,
+            "ACW Time": m.acw_time,
+            "Avg Handle Time": m.avg_handle_time,
+            "AHT Status": m.aht_status
+        } for m in metrics
+    ]
 
 
 @router.get("/download/{filename}")
 async def download_file(filename: str, impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-    user_role = current_user["role"]
-    permissions = current_user.get("permissions", [])
-    
-    safe_filename = os.path.basename(filename)
-    file_path = os.path.abspath(os.path.join(PROCESSED_DATA_DIR, safe_filename))
-    
-    if not file_path.startswith(os.path.abspath(PROCESSED_DATA_DIR)):
-        raise HTTPException(status_code=400, detail="Invalid filename")
-        
-    if not os.path.exists(file_path):
+    file_meta = db.query(FileMetadata).filter(FileMetadata.filename == filename).first()
+    if not file_meta:
         raise HTTPException(status_code=404, detail="File not found")
         
-    if 'can_download_files' not in permissions:
-        raise HTTPException(status_code=403, detail="Download permission denied")
-        
-    if 'can_view_global' not in permissions and 'can_view_scoped' not in permissions:
-        raise HTTPException(status_code=403, detail="Access denied to this file")
-        
-    # Security Note: Since users can download files, if they don't have global view, 
-    # downloading the raw file bypasses Row-Level RBAC if we send the raw CSV!
-    # For now, if they are scoped, block raw downloads unless they are admin.
-    if 'can_view_global' not in permissions:
-        raise HTTPException(status_code=403, detail="Raw downloads are restricted to Global Admins to preserve data privacy.")
-            
-    add_log(db, "FILE_DOWNLOADED", current_user["username"], f"Downloaded file: {safe_filename}")
-    return FileResponse(file_path, filename=safe_filename)
+    # Serve the original raw file from unprocessed
+    safe_filename = os.path.basename(filename)
+    file_path = os.path.abspath(os.path.join(UNPROCESSED_DATA_DIR, safe_filename))
+    
+    if os.path.exists(file_path):
+        add_log(db, "FILE_DOWNLOADED", current_user["username"], f"Downloaded raw file: {safe_filename}")
+        return FileResponse(file_path, filename=safe_filename)
+    else:
+        raise HTTPException(status_code=404, detail="Raw file not found on disk")
