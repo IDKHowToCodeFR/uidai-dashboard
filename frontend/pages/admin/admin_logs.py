@@ -22,6 +22,10 @@ action_cell_style = {
             "style": {"color": "#084298", "backgroundColor": "#cfe2ff", "fontWeight": "bold"}
         },
         {
+            "condition": "params.value.includes('PASSWORD_RESET')",
+            "style": {"color": "#4b0082", "backgroundColor": "#e6e6fa", "fontWeight": "bold"}
+        },
+        {
             "condition": "params.value.includes('LOADED') || params.value.includes('ADDED')", 
             "style": {"color": "#664d03", "backgroundColor": "#fff3cd", "fontWeight": "bold"}
         }
@@ -29,10 +33,13 @@ action_cell_style = {
 }
 
 columnDefs = [
-    {"field": "timestamp", "headerName": "Timestamp", "sortable": True, "filter": "agDateColumnFilter", "width": 220},
-    {"field": "username", "headerName": "Username", "sortable": True, "filter": True, "width": 150},
-    {"field": "action", "headerName": "Action", "sortable": True, "filter": True, "cellStyle": action_cell_style, "width": 220},
-    {"field": "details", "headerName": "Details", "sortable": True, "filter": True, "flex": 1, "wrapText": True, "autoHeight": True}
+    {"field": "timestamp", "headerName": "Timestamp", "sortable": True, "filter": "agDateColumnFilter", "width": 200, "pinned": "left"},
+    {"field": "ip_address", "headerName": "IP Address", "sortable": True, "filter": True, "width": 140},
+    {"field": "user_agent", "headerName": "User Agent", "sortable": True, "filter": True, "width": 250, "tooltipField": "user_agent"},
+    {"field": "endpoint", "headerName": "Endpoint", "sortable": True, "filter": True, "width": 160},
+    {"field": "username", "headerName": "Username", "sortable": True, "filter": True, "width": 140},
+    {"field": "action", "headerName": "Action", "sortable": True, "filter": True, "cellStyle": action_cell_style, "width": 200},
+    {"field": "details", "headerName": "Details", "sortable": True, "filter": True, "width": 400, "wrapText": False}
 ]
 
 layout = html.Div([
@@ -48,7 +55,7 @@ layout = html.Div([
                 clearable=True,
                 className="me-3"
             ),
-            dbc.Button("Export CSV", id="btn-export-logs", color="success", outline=True, size="sm", className="me-2"),
+            dbc.Button("Export", id="btn-export-logs", color="success", outline=True, size="sm", className="me-2"),
             dbc.Button("Load All Logs", id="btn-load-all-logs", color="primary", outline=True, size="sm", className="me-2"),
             dbc.Button(html.I(className="bi bi-arrow-clockwise"), id="btn-refresh-logs", color="primary", size="sm"),
         ], className="d-flex align-items-center")
@@ -62,15 +69,18 @@ layout = html.Div([
             dashGridOptions={
                 "pagination": True,
                 "paginationPageSize": 20,
-                "rowHeight": 40,
-                "domLayout": "autoHeight"
+                "rowHeight": 45,
+                "domLayout": "normal",
+                "enableCellTextSelection": True,
+                "suppressRowHoverHighlight": False
             },
-            className="ag-theme-alpine",
-            style={"height": "650px", "width": "100%"}
+            className="ag-theme-alpine custom-ag-grid",
+            style={"height": "calc(100vh - 250px)", "width": "100%", "minHeight": "500px"}
         )
     ], className="custom-card shadow-sm bg-white p-4", style={"borderRadius": "16px", "border": "1px solid #e2e8f0"}),
     
     dcc.Store(id="store-load-all", data=False),
+    dcc.Download(id="download-logs-excel"),
     html.Div(id="logs-error-msg", className="text-danger mt-2")
 ], className="container-fluid py-4")
 
@@ -83,14 +93,21 @@ def toggle_load_all(n):
     return True
 
 @callback(
-    Output("system-logs-grid", "exportDataAsCsv"),
+    Output("download-logs-excel", "data"),
     Input("btn-export-logs", "n_clicks"),
+    State("system-logs-grid", "rowData"),
     prevent_initial_call=True
 )
-def export_logs_csv(n_clicks):
-    if n_clicks:
-        return True
-    return False
+def export_logs_excel(n_clicks, row_data):
+    if not n_clicks or not row_data:
+        return no_update
+    import pandas as pd
+    df = pd.DataFrame(row_data)
+    if not df.empty:
+        cols = ["timestamp", "ip_address", "user_agent", "endpoint", "username", "action", "details"]
+        existing_cols = [c for c in cols if c in df.columns]
+        df = df[existing_cols]
+    return dcc.send_data_frame(df.to_excel, "system_logs.xlsx", sheet_name="Audit Logs", index=False)
 
 @callback(
     Output("system-logs-grid", "rowData"),

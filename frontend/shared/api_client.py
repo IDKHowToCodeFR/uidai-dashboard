@@ -2,6 +2,7 @@ import requests
 import base64
 from functools import lru_cache
 import pandas as pd
+from flask import request, has_request_context
 
 API_BASE_URL = "http://localhost:8000"
 
@@ -14,6 +15,20 @@ class ApiClient:
         headers = {}
         if token:
             headers["Authorization"] = f"Bearer {token}"
+            
+        if has_request_context():
+            # Forward the true client IP from Dash frontend to FastAPI backend
+            x_forwarded = request.headers.get("X-Forwarded-For")
+            if x_forwarded:
+                headers["X-Forwarded-For"] = x_forwarded
+            elif request.remote_addr:
+                headers["X-Real-IP"] = request.remote_addr
+                
+            # Forward User Agent
+            user_agent = request.headers.get("User-Agent")
+            if user_agent:
+                headers["User-Agent"] = user_agent
+                
         return headers
 
     def _handle_response(self, response):
@@ -22,7 +37,8 @@ class ApiClient:
     def login(self, username, password):
         return self._handle_response(self.session.post(
             f"{self.base_url}/login", 
-            data={"username": username, "password": password}
+            data={"username": username, "password": password},
+            headers=self._get_headers()
         ))
 
     def get_users(self, token: str):

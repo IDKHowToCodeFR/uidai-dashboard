@@ -39,7 +39,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     except WebSocketDisconnect:
         manager.disconnect(client_id)
 
-async def process_file_background(save_path: str, out_filename: str, client_id: str, username: str):
+async def process_file_background(save_path: str, out_filename: str, client_id: str, username: str, meta: dict = None):
     try:
         await manager.send_message({'status': 'processing', 'progress': 10, 'message': 'Parsing file...'}, client_id)
         await asyncio.sleep(0.5)
@@ -137,7 +137,9 @@ async def process_file_background(save_path: str, out_filename: str, client_id: 
             # Bulk insert
             db.bulk_insert_mappings(CallMetric, records)
             
-            add_log(db, 'FILE_UPLOADED', username, f'Uploaded and ingested file: {out_filename}')
+            if meta is None:
+                meta = {}
+            add_log(db, 'FILE_UPLOADED', username, f'Uploaded and ingested file: {out_filename}', **meta)
             db.commit()
             
         await manager.send_message({'status': 'complete', 'progress': 100, 'message': 'Upload complete!'}, client_id)

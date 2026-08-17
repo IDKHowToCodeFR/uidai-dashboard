@@ -3,11 +3,11 @@ import io
 import pandas as pd
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
-from backend.auth.auth_utils import get_current_user, PermissionChecker, add_log
+from backend.auth.auth_utils import get_current_user, PermissionChecker, add_log, extract_request_metadata
 from backend.database.database import get_db
 from backend.database.models import FileMetadata, CallMetric
 from backend.data_ingestion.websockets import process_file_background
@@ -19,6 +19,7 @@ router = APIRouter()
 
 @router.post("/upload")
 async def upload_file(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     client_id: str = Form(None),
@@ -51,7 +52,8 @@ async def upload_file(
         f.write(contents)
         
     if client_id:
-        background_tasks.add_task(process_file_background, save_path, out_filename, client_id, current_user["username"])
+        meta = extract_request_metadata(request)
+        background_tasks.add_task(process_file_background, save_path, out_filename, client_id, current_user["username"], meta)
         return {"message": "Processing started", "status": "processing"}
     else:
         # We don't support synchronous upload without client_id anymore because it's an ETL pipeline
@@ -150,7 +152,7 @@ async def get_data(filename: str, impersonate: Optional[str] = None, current_use
 
 
 @router.get("/download/{filename}")
-async def download_file(filename: str, impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def download_file(request: Request, filename: str, impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     file_meta = db.query(FileMetadata).filter(FileMetadata.filename == filename).first()
     if not file_meta:
         raise HTTPException(status_code=404, detail="File not found")
@@ -160,7 +162,8 @@ async def download_file(filename: str, impersonate: Optional[str] = None, curren
     file_path = os.path.abspath(os.path.join(UNPROCESSED_DATA_DIR, safe_filename))
     
     if os.path.exists(file_path):
-        add_log(db, "FILE_DOWNLOADED", current_user["username"], f"Downloaded raw file: {safe_filename}")
+        meta = extract_request_metadata(request)
+        add_log(db, "FILE_DOWNLOADED", current_user["username"], f"Downloaded raw file: {safe_filename}", **meta)
         return FileResponse(file_path, filename=safe_filename)
     else:
         raise HTTPException(status_code=404, detail="Raw file not found on disk")
