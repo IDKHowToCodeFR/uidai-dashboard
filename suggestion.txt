@@ -10,10 +10,11 @@
 [o] Migrate from SQLite to PostgreSQL for concurrent usage — Addresses known technical debt for backend database concurrency.
 [o] Implement Server-Side Caching (Redis) to replace client-side Dash memory caching — Addresses known technical debt to prevent browser freezing as data scales.
 [o] Multi-Tenant RBAC (Super Admin -> Tenant Admin -> Tenant User) — Parked idea; potentially over-engineered for <50 users, but tracked for future scaling.
+[ ] Add UI for creating new data type categories (currently locked to existing physical folders).
 
 ## Short-Term Tasks (1 Month Roadmap)
 [ ] Add explicit Date Range presets (Last 7 Days, MTD, YTD) to the filter drawer
-[ ] Extend AuditLog to capture and store client IP addresses
+[x] Extend AuditLog to capture and store client IP addresses
 [ ] Build an automated cron-job to deactivate accounts inactive for a specified duration
 [ ] Introduce failure tracking mechanism to lock accounts after multiple failed login attempts
 [ ] Refine chart legends, axis labels, and overall visualization layouts

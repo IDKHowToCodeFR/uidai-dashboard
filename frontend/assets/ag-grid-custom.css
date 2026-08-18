@@ -1,0 +1,32 @@
+/* Custom styling for dash-ag-grid to make it look premium and modern */
+.custom-ag-grid {
+    --ag-borders: none;
+    --ag-borders-row: solid 1px #e2e8f0;
+    --ag-row-hover-color: #f8fafc;
+    --ag-header-background-color: #f1f5f9;
+    --ag-header-foreground-color: #475569;
+    --ag-font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    --ag-font-size: 14px;
+    --ag-header-cell-hover-background-color: #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.custom-ag-grid .ag-header {
+    border-bottom: 2px solid #cbd5e1;
+}
+
+.custom-ag-grid .ag-row {
+    transition: background-color 0.2s ease;
+}
+
+/* Tooltip styling */
+.ag-theme-alpine .ag-tooltip {
+    background-color: #1e293b;
+    color: #f8fafc;
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 12px;
+    border: none;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}

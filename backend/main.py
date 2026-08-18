@@ -3,6 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from backend.auth.auth_utils import archive_old_logs
 from backend.database.database import SessionLocal
+from apscheduler.schedulers.background import BackgroundScheduler
+import os
+import glob
+import asyncio
+from backend.database.models import FileMetadata
 
 from backend.users.router import router as users_router
 from backend.data_ingestion.router import router as data_router
@@ -10,6 +15,41 @@ from backend.settings.router import router as settings_router
 from backend.data_ingestion.websockets import router as websockets_router
 
 app = FastAPI(title="UIDAI Backend API")
+
+scheduler = BackgroundScheduler()
+
+def process_unprocessed_files():
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    uidai_data_dir = os.path.join(BASE_DIR, "uidai_data")
+    if not os.path.exists(uidai_data_dir):
+        return
+        
+    db = SessionLocal()
+    try:
+        indexed = {f[0] for f in db.query(FileMetadata.filename).all()}
+        for data_type_folder in os.listdir(uidai_data_dir):
+            folder_path = os.path.join(uidai_data_dir, data_type_folder)
+            if not os.path.isdir(folder_path):
+                continue
+                
+            for file_path in glob.glob(os.path.join(folder_path, "**", "*.*"), recursive=True):
+                filename = os.path.basename(file_path)
+                if filename.startswith("~$") or filename.startswith("."):
+                    continue
+                if filename not in indexed:
+                    from backend.data_ingestion.websockets import process_file_background
+                    try:
+                        data_type = data_type_folder.replace("_", " ").title()
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        loop.run_until_complete(process_file_background(file_path, filename, "CRON", "system_cron", data_type=data_type, meta={}))
+                        loop.close()
+                    except Exception as e:
+                        print(f"CRON task failed for {filename}: {e}")
+    except Exception as e:
+        print(f"Error in CRON: {e}")
+    finally:
+        db.close()
 
 @app.on_event("startup")
 async def startup_event():
@@ -19,6 +59,13 @@ async def startup_event():
         archive_old_logs(db=db, days=90)
     finally:
         db.close()
+        
+    scheduler.add_job(process_unprocessed_files, 'interval', minutes=15)
+    scheduler.start()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    scheduler.shutdown()
 
 # Add CORS Middleware to restrict to Dash frontend origin
 origins = [

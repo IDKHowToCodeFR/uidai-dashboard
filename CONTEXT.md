@@ -1,10 +1,13 @@
 # Glossary
 
-- **Permissions**: Granular capabilities assigned to an identity. Core permissions include:
-  - `can_view_global`: Can view data across all companies.
-  - `can_view_scoped`: Can only view data specific to their assigned identity.
-  - `can_upload_files`: Can upload new data files to the system.
-  - `can_download_files`: Can download/export data files.
+- **Permissions**: Granular capabilities assigned to an identity.
+  - `can_view_global`: Can view all data.
+  - `can_view_scoped`: Can only view assigned data.
+  - `can_upload_files`: Can upload data.
+  - `can_download_files`: Can download data.
+- **Roles**:
+  - `Admin`: There is strictly only one admin account (`admin`) in the entire system. The admin can manage users and change their own password, but cannot deactivate themselves or strip their own admin privileges to prevent system lockouts.
+  - `User`: Standard user with limited access based on permissions.
 - **Dash (Frontend)**: The presentation layer. Renders UI and fetches data via API.
 - **FastAPI (Backend)**: The API layer. Handles auth, role-based data filtering, file parsing, and state management. Backed by **PostgreSQL** for scalable concurrent data storage.
 - **Session**: Connection pooling on the frontend to reuse HTTP connections, reducing latency.
@@ -14,10 +17,10 @@
 - **Dynamic Time Bucketing**: A senior-level visualization pattern that automatically resamples time-series data into Daily, Weekly (W-MON), or Monthly (MS) buckets based on the total selected date range (e.g., >31 days = Weekly). It also floors timestamps (`dt.floor('D')`) to eliminate intraday noise from trend charts.
 - **AHT Breakdown**: The decomposition of Average Handle Time into Talk Time, Hold Time, and Wrap Time (ACW).
 - **Answer Rate**: The percentage of calls successfully answered by agents out of the total calls offered.
+- **Lazy Upgrading (Password Hashing)**: The process of transparently re-hashing a user's password into a newly configured algorithm during a successful login, allowing graceful deprecation of older hash algorithms.
 
 ## Future Architecture (Parked Ideas)
 
-- **Multi-Tenant RBAC**: Transitioning from a flat admin structure to a hierarchical one (Super Admin -> Tenant Admin -> Tenant User). This will require a DB schema update (adding Tenant IDs, Roles) and separate dashboards. Parked to avoid over-engineering for <50 users.
 - **OTP & Password Verification**: Explicitly rejected. Since the dashboard is for internal use only, strict 2FA/OTP introduces unnecessary friction and will not be built.
 - **Safe Deletion Protocol**: A GitHub-style confirmation modal requiring the Admin to type the exact company name before a destructive Deactivation API call can be fired.
 

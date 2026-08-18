@@ -69,15 +69,17 @@ def register_data_callbacks(app):
         State('upload-data', 'filename'),
         State('auth-state', 'data'),
         State('ws-client-id', 'data'),
+        State('file-type-filter', 'value'),
         prevent_initial_call=True
     )
-    def update_output(contents, filename, auth_state, client_id):
+    def update_output(contents, filename, auth_state, client_id, data_type):
         if contents is not None:
             token = auth_state.get('token') if auth_state else None
             if not token:
                 return "Unauthorized", dash.no_update, dash.no_update, dash.no_update
                 
-            data = upload_file_to_api(contents, filename, token, client_id=client_id)
+            data_type_val = data_type if data_type else "CCF Data"
+            data = upload_file_to_api(contents, filename, token, client_id=client_id, data_type=data_type_val)
             if data and data.get("status") == "processing":
                 return "Upload started, processing in background...", {"height": "16px", "marginTop": "8px", "display": "block"}, 5, "Initializing..."
             return "Error starting upload.", dash.no_update, dash.no_update, dash.no_update
