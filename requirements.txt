@@ -18,3 +18,4 @@ kaleido
 reportlab
 sqlalchemy
 alembic
+apscheduler

@@ -4,6 +4,12 @@ from jose import jwt, JWTError
 from fastapi import HTTPException, status, Security, Depends, Request, WebSocket
 from fastapi.security import OAuth2PasswordBearer
 import bcrypt
+# Monkey-patch bcrypt for passlib bug
+if not hasattr(bcrypt, "__about__"):
+    class About:
+        __version__ = bcrypt.__version__
+    bcrypt.__about__ = About
+from passlib.context import CryptContext
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from sqlalchemy import delete
@@ -17,7 +23,11 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey_change_me_in_production")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
+PASSWORD_HASH_ALGORITHM = os.getenv("PASSWORD_HASH_ALGORITHM", "bcrypt")
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 day
+
+# Initialize passlib context
+pwd_context = CryptContext(schemes=[PASSWORD_HASH_ALGORITHM], deprecated="auto")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
@@ -125,7 +135,7 @@ def add_user(db: Session, username: str, password: str, companies: list, permiss
     if existing:
         return False, "Username already exists."
     
-    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    hashed_password = pwd_context.hash(password)
     new_user = User(
         username=key,
         password_hash=hashed_password,
@@ -146,6 +156,9 @@ def update_permissions(db: Session, username: str, permissions: list, ip_address
     user = db.query(User).filter(User.username == key).first()
     if not user:
         return False, "User not found."
+        
+    if key == "admin":
+        return False, "Cannot modify admin permissions."
     
     # Delete existing permissions
     db.query(UserPermission).filter(UserPermission.user_id == user.id).delete()
@@ -164,7 +177,7 @@ def reset_password(db: Session, username: str, new_password: str, ip_address: st
     if not user:
         return False, "User not found."
     
-    hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    hashed_password = pwd_context.hash(new_password)
     user.password_hash = hashed_password
     db.commit()
     add_log(db, "PASSWORD_RESET", "Admin", f"Reset password for '{username}'", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
@@ -184,7 +197,30 @@ def remove_user(db: Session, username: str, ip_address: str = None, user_agent: 
     return True, f"Account for '{username}' deactivated."
 
 def verify_password(plain_password: str, stored_password: str) -> bool:
-    return bcrypt.checkpw(plain_password.encode('utf-8'), stored_password.encode('utf-8'))
+    try:
+        return pwd_context.verify(plain_password, stored_password)
+    except Exception:
+        # Fallback for raw bcrypt hashes if passlib fails
+        return bcrypt.checkpw(plain_password.encode('utf-8'), stored_password.encode('utf-8'))
+
+def verify_and_upgrade_password(db: Session, db_user: User, plain_password: str) -> bool:
+    if not verify_password(plain_password, db_user.password_hash):
+        return False
+    
+    # Lazy upgrading
+    needs_upgrade = False
+    try:
+        if pwd_context.needs_update(db_user.password_hash):
+            needs_upgrade = True
+    except Exception:
+        # If passlib can't identify the hash (e.g., an old raw bcrypt format), force an upgrade
+        needs_upgrade = True
+        
+    if needs_upgrade:
+        db_user.password_hash = pwd_context.hash(plain_password)
+        db.commit()
+    
+    return True
 
 def create_access_token(data: dict):
     to_encode = data.copy()

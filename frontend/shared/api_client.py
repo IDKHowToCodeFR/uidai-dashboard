@@ -2,9 +2,10 @@ import requests
 import base64
 from functools import lru_cache
 import pandas as pd
+import os
 from flask import request, has_request_context
 
-API_BASE_URL = "http://localhost:8000"
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 class ApiClient:
     def __init__(self, base_url: str):
@@ -59,6 +60,9 @@ class ApiClient:
     def get_logs(self, token: str):
         return self._handle_response(self.session.get(f"{self.base_url}/logs", headers=self._get_headers(token)))
 
+    def get_data_types(self, token: str):
+        return self._handle_response(self.session.get(f"{self.base_url}/data_types", headers=self._get_headers(token)))
+
     def get_history(self, token: str, impersonate: str = None):
         url = f"{self.base_url}/history"
         if impersonate:
@@ -78,11 +82,21 @@ class ApiClient:
         response = self._handle_response(self.session.get(url, headers=self._get_headers(token)))
         if response.status_code == 200:
             encoded = base64.b64encode(response.content).decode()
-            return dict(content=encoded, filename=filename, base64=True)
+            
+            # Extract filename from Content-Disposition header
+            out_filename = filename
+            content_disposition = response.headers.get("content-disposition", "")
+            if 'filename="' in content_disposition:
+                out_filename = content_disposition.split('filename="')[1].split('"')[0]
+            elif 'filename=' in content_disposition:
+                out_filename = content_disposition.split('filename=')[1]
+                
+            return dict(content=encoded, filename=out_filename, base64=True)
         return None
 
-    def upload_file(self, token: str, files: dict, client_id: str = None):
+    def upload_file(self, token: str, files: dict, client_id: str = None, data_type: str = "CCF Data"):
         data = {"client_id": client_id} if client_id else {}
+        data["data_type"] = data_type
         return self._handle_response(self.session.post(f"{self.base_url}/upload", headers=self._get_headers(token), files=files, data=data))
 
     def get_settings(self, token: str):
@@ -135,12 +149,12 @@ def get_history_options(token, user_role=None, permissions=None, impersonate=Non
         options.append({'label': label, 'value': item['name']})
     return options
 
-def upload_file_to_api(contents, filename, token, client_id=None):
+def upload_file_to_api(contents, filename, token, client_id=None, data_type="CCF Data"):
     try:
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
         files = {'file': (filename, decoded)}
-        response = api_client.upload_file(token, files, client_id=client_id)
+        response = api_client.upload_file(token, files, client_id=client_id, data_type=data_type)
         if response.status_code == 200:
             return response.json()
         else:

@@ -71,7 +71,7 @@ layout = html.Div([
         id="admin-manage-modal",
         is_open=False,
         centered=True,
-        size="md"
+        size="lg"
     ),
 
     # Add Modal
@@ -183,8 +183,7 @@ def load_cards(auth_state, status):
             cards = []
             for username, data in users.items():
                 companies = data.get("companies", [])
-                if data.get("role") == "Admin" or "Admin" in companies or username.lower() == "admin":
-                    continue
+
                 perms = data.get("permissions", [])
                 company_str = ", ".join(companies) if companies else username
                 login_count = data.get("login_count", 0)
@@ -200,7 +199,11 @@ def load_cards(auth_state, status):
     Output("admin-manage-modal", "is_open"),
     Output("offcanvas-username", "children"),
     Output("offcanvas-companies", "value"),
+    Output("offcanvas-companies", "disabled"),
     Output("offcanvas-perms-switches", "value"),
+    Output("offcanvas-perms-switches", "options"),
+    Output("offcanvas-btn-save", "disabled"),
+    Output("offcanvas-btn-deactivate", "disabled"),
     Output("offcanvas-save-status", "children", allow_duplicate=True),
     Input({"type": "manage-btn", "index": ALL}, "n_clicks"),
     Input("admin-manage-modal-close", "n_clicks"),
@@ -209,15 +212,22 @@ def load_cards(auth_state, status):
     prevent_initial_call=True
 )
 def open_manage_modal(manage_clicks, close_clicks, auth_state, is_open):
+    default_options = [
+        {"label": " View Global Data", "value": "can_view_global"},
+        {"label": " View Scoped Data", "value": "can_view_scoped"},
+        {"label": " Upload Files", "value": "can_upload_files"},
+        {"label": " Download Files", "value": "can_download_files"}
+    ]
+    
     if not ctx.triggered_id:
-        return is_open, no_update, no_update, no_update, no_update
+        return is_open, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
     
     if ctx.triggered_id == "admin-manage-modal-close":
-        return False, no_update, no_update, no_update, no_update
+        return False, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
     
     # If all clicks are None (initial load of elements), do not open
     if not any(manage_clicks):
-        return is_open, no_update, no_update, no_update, no_update
+        return is_open, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
         
     username = ctx.triggered_id["index"]
     token = auth_state.get('token') if auth_state else None
@@ -235,7 +245,12 @@ def open_manage_modal(manage_clicks, close_clicks, auth_state, is_open):
     except:
         pass
 
-    return True, username, ", ".join(companies), perms, ""
+    is_admin = username.lower() == "admin"
+    if is_admin:
+        for opt in default_options:
+            opt["disabled"] = True
+
+    return True, username, ", ".join(companies), is_admin, perms, default_options, is_admin, is_admin, ""
 
 @callback(
     Output("offcanvas-save-status", "children"),

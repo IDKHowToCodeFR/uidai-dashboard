@@ -4,8 +4,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.database.database import get_db
+from backend.database.models import User
 from backend.auth.auth_utils import (
-    load_users, verify_password, create_access_token, get_current_user,
+    load_users, verify_and_upgrade_password, create_access_token, get_current_user,
     add_user, remove_user, update_permissions, add_log, record_login, reset_password, extract_request_metadata
 )
 
@@ -36,17 +37,21 @@ class ResetPasswordRequest(BaseModel):
 
 @router.post("/login", response_model=Token)
 async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    users = load_users(db)
-    user = users.get(form_data.username)
-    if not user or not verify_password(form_data.password, user["password"]):
+    key = form_data.username.lower().strip()
+    db_user = db.query(User).filter(User.username == key).first()
+    
+    if not db_user or not verify_and_upgrade_password(db, db_user, form_data.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    companies = user.get("companies", [])
-    role = "Admin" if "Admin" in companies or form_data.username.lower() == "admin" else "User"
-    permissions = user.get("permissions", [])
+        
+    companies = db_user.companies or []
+    role = "Admin" if "Admin" in companies or key == "admin" else "User"
+    
+    # We still need permissions to generate the token, we can get them from db_user.permissions
+    permissions = [p.permission_name for p in db_user.permissions] if db_user.permissions else []
     
     # We still pass 'role' for frontend backward compatibility, and add 'companies' for data filtering
     access_token = create_access_token(data={

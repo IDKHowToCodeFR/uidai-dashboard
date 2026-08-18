@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime, Float
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime, Float, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from backend.database.database import Base
@@ -51,18 +51,21 @@ class FileMetadata(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, index=True, nullable=False)
+    data_type = Column(String, default="CCF Data")
     uploaded_at = Column(String, default=lambda: datetime.now().isoformat())
     uploader = Column(String, nullable=True)
     size_bytes = Column(Integer, default=0)
     
-    metrics = relationship("CallMetric", back_populates="file", cascade="all, delete-orphan")
+    metrics = relationship("CCFData", back_populates="file", cascade="all, delete-orphan")
 
 
-class CallMetric(Base):
-    __tablename__ = "call_metrics"
+class CCFData(Base):
+    __tablename__ = "ccf_data"
 
     id = Column(Integer, primary_key=True, index=True)
     file_id = Column(Integer, ForeignKey("file_metadata.id"), nullable=False)
+    
+    __table_args__ = (UniqueConstraint('company', 'language', 'call_timestamp', name='uq_ccf_data'),)
     
     company = Column(String, index=True)
     language = Column(String, index=True)

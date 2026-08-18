@@ -6,7 +6,8 @@ import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from backend.auth.auth_utils import add_log
 from backend.database.database import SessionLocal
-from backend.database.models import FileMetadata, CallMetric
+from backend.database.models import FileMetadata, CCFData
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -39,7 +40,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     except WebSocketDisconnect:
         manager.disconnect(client_id)
 
-async def process_file_background(save_path: str, out_filename: str, client_id: str, username: str, meta: dict = None):
+async def process_file_background(save_path: str, out_filename: str, client_id: str, username: str, data_type: str = "CCF Data", meta: dict = None):
     try:
         await manager.send_message({'status': 'processing', 'progress': 10, 'message': 'Parsing file...'}, client_id)
         await asyncio.sleep(0.5)
@@ -92,6 +93,7 @@ async def process_file_background(save_path: str, out_filename: str, client_id: 
         with SessionLocal() as db:
             file_meta = FileMetadata(
                 filename=out_filename,
+                data_type=data_type,
                 uploader=username,
                 size_bytes=os.path.getsize(save_path)
             )
@@ -134,8 +136,17 @@ async def process_file_background(save_path: str, out_filename: str, client_id: 
             for record in records:
                 record['file_id'] = file_meta.id
                 
-            # Bulk insert
-            db.bulk_insert_mappings(CallMetric, records)
+            # Bulk upsert using SQLite ON CONFLICT DO UPDATE
+            batch_size = 1000
+            for i in range(0, len(records), batch_size):
+                batch = records[i:i + batch_size]
+                stmt = sqlite_insert(CCFData).values(batch)
+                update_dict = {c.name: c for c in stmt.excluded if c.name not in ('id',)}
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=['company', 'language', 'call_timestamp'],
+                    set_=update_dict
+                )
+                db.execute(stmt)
             
             if meta is None:
                 meta = {}
