@@ -32,8 +32,10 @@ def process_unprocessed_files():
             if not os.path.isdir(folder_path):
                 continue
                 
-            for file_path in glob.glob(os.path.join(folder_path, "*.*")):
+            for file_path in glob.glob(os.path.join(folder_path, "**", "*.*"), recursive=True):
                 filename = os.path.basename(file_path)
+                if filename.startswith("~$") or filename.startswith("."):
+                    continue
                 if filename not in indexed:
                     from backend.data_ingestion.websockets import process_file_background
                     try:

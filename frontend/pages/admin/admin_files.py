@@ -23,19 +23,19 @@ layout = html.Div([
                 value='CCF Data',
                 clearable=False,
                 style={'width': '220px'},
-                className="me-4 shadow-sm d-inline-block"
+                className="shadow-sm d-inline-block"
             ),
             dcc.DatePickerRange(
                 id='file-date-picker',
-                min_date_allowed=date(2023, 1, 1),
+                # min_date_allowed=date(2023, 1, 1),
                 max_date_allowed=date.today() + timedelta(days=1),
                 initial_visible_month=date.today(),
                 clearable=True,
-                className="me-3 shadow-sm border-0 rounded"
+                className="shadow-sm border-0 rounded"
             ),
-            dbc.Button("Export List", id="btn-export-files", color="success", outline=True, size="sm", className="me-2 shadow-sm"),
+            dbc.Button("Export List", id="btn-export-files", color="success", outline=True, size="sm", className="shadow-sm"),
             dbc.Button(html.I(className="bi bi-arrow-clockwise"), id="btn-refresh-files", color="primary", size="sm", className="shadow-sm"),
-        ], className="d-flex align-items-center")
+        ], className="d-flex align-items-center gap-3")
     ], className="d-flex justify-content-between align-items-center mb-4"),
     
     html.Div([
