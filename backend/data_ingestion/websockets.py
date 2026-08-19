@@ -42,117 +42,29 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
 
 async def process_file_background(save_path: str, out_filename: str, client_id: str, username: str, data_type: str = "CCF Data", meta: dict = None):
     try:
-        await manager.send_message({'status': 'processing', 'progress': 10, 'message': 'Parsing file...'}, client_id)
-        await asyncio.sleep(0.5)
+        from backend.data_ingestion.ccf_parser import CCFParser
+        from backend.database.repo import CCFDatabaseRepo
         
-        if save_path.endswith('.csv'):
-            df = pd.read_csv(save_path)
-            df.columns = df.columns.str.strip()
-        elif save_path.endswith('.xls') or save_path.endswith('.xlsx'):
-            excel_file = pd.ExcelFile(save_path, engine='openpyxl')
-            dfs = []
-            for i, sheet_name in enumerate(excel_file.sheet_names):
-                await manager.send_message({'status': 'processing', 'progress': 10 + int(40 * (i / len(excel_file.sheet_names))), 'message': f'Parsing sheet {sheet_name}...'}, client_id)
-                sheet_df = pd.read_excel(excel_file, sheet_name=sheet_name)
-                sheet_df.columns = sheet_df.columns.str.strip()
-                if 'Company' not in sheet_df.columns:
-                    sheet_df['Company'] = sheet_name
-                dfs.append(sheet_df)
-            df = pd.concat(dfs, ignore_index=True)
+        async def progress_callback(progress, message):
+            await manager.send_message({'status': 'processing', 'progress': progress, 'message': message}, client_id)
             
-        await manager.send_message({'status': 'processing', 'progress': 60, 'message': 'Cleaning data...'}, client_id)
-        df.dropna(how='all', inplace=True)
-        df.dropna(axis=1, how='all', inplace=True)
-
-        numeric_cols = df.select_dtypes(include='number').columns
-        df[numeric_cols] = df[numeric_cols].fillna(0)
-        
-        await manager.send_message({'status': 'processing', 'progress': 75, 'message': 'Formatting columns...'}, client_id)
-        object_cols = df.select_dtypes(include=['object', 'string']).columns
-        df[object_cols] = df[object_cols].fillna('Unknown')
-        for col in object_cols:
-            df[col] = df[col].astype(str).str.strip()
+        # 1. Parse File (Pure Domain Module)
+        df = await CCFParser.parse(save_path, progress_callback=progress_callback)
             
-        # Derived Quantities
-        if 'ACD Calls in 20 Sec' in df.columns and 'Call Offered' in df.columns and 'ABAN Calls in 10 Sec' in df.columns:
-            denom = (df['Call Offered'] - df['ABAN Calls in 10 Sec'])
-            df['Service Level %'] = pd.Series(np.where(denom > 0, (df['ACD Calls in 20 Sec'] / denom) * 100, 0))
-            df['Service Level Status'] = np.where(df['Service Level %'] > 85, 'Good', 'Penalty')
-            
-        if 'Hold Time' in df.columns and 'ACD Calls' in df.columns:
-            df['Avg Hold Time'] = pd.Series(np.where(df['ACD Calls'] > 0, df['Hold Time'] / df['ACD Calls'], 0))
-            df['Hold Time Status'] = np.where(df['Avg Hold Time'] <= 20, 'Good', 'Penalty')
-            
-        if 'ACD Time' in df.columns and 'ACW Time' in df.columns and 'Hold Time' in df.columns and 'ACD Calls' in df.columns:
-            df['Avg Handle Time'] = pd.Series(np.where(df['ACD Calls'] > 0, (df['ACD Time'] + df['ACW Time'] + df['Hold Time']) / df['ACD Calls'], 0))
-            df['AHT Status'] = np.where(df['Avg Handle Time'] <= 240, 'Good', 'Penalty')
-            
+        # 2. Database Insert
         await manager.send_message({'status': 'processing', 'progress': 90, 'message': 'Inserting into database...'}, client_id)
-        
-        # Insert File Metadata
         with SessionLocal() as db:
-            file_meta = FileMetadata(
-                filename=out_filename,
-                data_type=data_type,
-                uploader=username,
-                size_bytes=os.path.getsize(save_path)
+            CCFDatabaseRepo.save_parsed_data(
+                db=db, 
+                df=df, 
+                save_path=save_path, 
+                out_filename=out_filename, 
+                username=username, 
+                data_type=data_type, 
+                meta=meta
             )
-            db.add(file_meta)
-            db.commit()
-            db.refresh(file_meta)
-            
-            # Map df columns to db schema
-            mapping = {
-                'Company': 'company',
-                'Language': 'language',
-                'Date': 'date_logged',
-                'Call Timestamp': 'call_timestamp',
-                'Day': 'day',
-                'Call Offered': 'call_offered',
-                'ABAN Calls in 10 Sec': 'aban_calls_10_sec',
-                'ACD Calls in 10 Sec': 'acd_calls_10_sec',
-                'ACD Calls in 20 Sec': 'acd_calls_20_sec',
-                'ABAN Calls': 'aban_calls',
-                'Held Calls': 'held_calls',
-                'Service Level %': 'service_level_pct',
-                'Service Level Status': 'service_level_status',
-                'ACD Calls': 'acd_calls',
-                'Hold Time': 'hold_time',
-                'Avg Hold Time': 'avg_hold_time',
-                'Hold Time Status': 'hold_time_status',
-                'ACD Time': 'acd_time',
-                'ACW Time': 'acw_time',
-                'Avg Handle Time': 'avg_handle_time',
-                'AHT Status': 'aht_status'
-            }
-            
-            df = df.rename(columns=mapping)
-            available_cols = [col for col in mapping.values() if col in df.columns]
-            
-            # Convert to list of dicts for bulk insert
-            records = df[available_cols].to_dict('records')
-            
-            # Inject file_id
-            for record in records:
-                record['file_id'] = file_meta.id
-                
-            # Bulk upsert using SQLite ON CONFLICT DO UPDATE
-            batch_size = 1000
-            for i in range(0, len(records), batch_size):
-                batch = records[i:i + batch_size]
-                stmt = sqlite_insert(CCFData).values(batch)
-                update_dict = {c.name: c for c in stmt.excluded if c.name not in ('id',)}
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=['company', 'language', 'call_timestamp'],
-                    set_=update_dict
-                )
-                db.execute(stmt)
-            
-            if meta is None:
-                meta = {}
-            add_log(db, 'FILE_UPLOADED', username, f'Uploaded and ingested file: {out_filename}', **meta)
-            db.commit()
             
         await manager.send_message({'status': 'complete', 'progress': 100, 'message': 'Upload complete!'}, client_id)
     except Exception as e:
+        print("EXCEPTION OCCURRED:", e)
         await manager.send_message({'status': 'error', 'message': str(e)}, client_id)

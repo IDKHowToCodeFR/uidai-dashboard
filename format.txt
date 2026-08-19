@@ -22,9 +22,10 @@ CCF Data :
 
     ## GOT VALUES{For Digitech only simlar for NSB} :
     
+    - Sheets : "Digitech", "NSB" (Vendor name is represented by the sheet name, not as a column)
     - Date : Monthly (july 2026)
     - Day : Monday To Sunday
-    - Vendor : "Digitech", "NSB"
+    - Call Timestamp : Date_Time, (YYYY-MM-DD HH:MM:SS)
     - Language : Hindi, English, Kannada, Assamese, Bengali, Punjabi, Marathi , Gujrati, Odia, Tamil, Telegu, Malyalam
     - ACD{Answered} Calls in 10 Sec of ringing(monthly) : ~2.3-2.7L
     - ACD{Answered} Calls in 20 Sec of ringing(monthly) : ~2.5-3.0L
@@ -37,7 +38,7 @@ CCF Data :
     - Hold Time(hr) (monthly) : ~2 - 2.5K
     - Held/Total Calls (monthly) : ~1.3-1.7L
     
-    ## DERIVED QUANTITES :
+    ## DERIVED QUANTITES (Calculated during ingestion, not in raw file) :
     - % Within Service Level : ACD Calls in 20 sec / (Call Offered - ABAN Calls in 10 seconds) * 100
     - Avg Hold Time : Hold Time / ACD Calls
     - Avg handeling Time : ACD + ACW + Hold Time / ACD Calls

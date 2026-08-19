@@ -3,15 +3,15 @@ import random
 from datetime import datetime, timedelta
 import os
 
-# Ensure the ccf_data directory exists
-output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ccf_data')
+# Ensure the uidai_data/ccf_data directory exists
+output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'uidai_data', 'ccf_data')
 os.makedirs(output_dir, exist_ok=True)
 
 # Define constants
 VENDORS = ["Digitech", "NSB"]
 LANGUAGES = [
     "Hindi", "English", "Kannada", "Assamese", "Bengali", "Punjabi", 
-    "Marathi", "Gujrati", "Odia", "Tamil", "Telegu", "Malyalam"
+    "Marathi", "Gujarati", "Odia", "Tamil", "Telugu", "Malayalam"
 ]
 
 def generate_sample_ccf_data(num_records):
@@ -29,7 +29,8 @@ def generate_sample_ccf_data(num_records):
         date_str = call_timestamp.strftime("%Y-%m-%d")
         day_name = call_timestamp.strftime("%A")
         vendor = random.choices(VENDORS, weights=[0.6, 0.4], k=1)[0]
-        lang = random.choice(LANGUAGES)
+        # Weighted random choice for languages to match observed distribution more naturally
+        lang = random.choices(LANGUAGES, weights=[0.11, 0.08, 0.08, 0.09, 0.09, 0.06, 0.09, 0.08, 0.07, 0.08, 0.09, 0.08], k=1)[0]
         
         # Per row values based on proportional monthly distribution
         # Assuming ~30 ACD calls per 15-min interval per language
@@ -42,10 +43,11 @@ def generate_sample_ccf_data(num_records):
         
         call_offered = acd_calls + aban_calls
         
-        # Time values per interval per language
-        acd_time = random.randint(0, 4) # approx hours per row
-        acw_time = random.randint(0, 1) # approx hours per row
-        hold_time = random.randint(0, 1) # approx hours per row
+        # Time values per interval per language (cumulative seconds)
+        # Naturality observation: ACD Time ~1389 mean, ACW ~341 mean, Hold ~207 mean
+        acd_time = random.randint(0, acd_calls * 300) # up to 5 mins per call
+        acw_time = random.randint(0, acd_calls * 60)  # up to 1 min per call
+        hold_time = random.randint(0, acd_calls * 45) # up to 45 seconds per call
         held_calls = random.randint(0, acd_calls) if acd_calls > 0 else 0
         
         data.append({

@@ -27,11 +27,16 @@ def process_unprocessed_files():
     db = SessionLocal()
     try:
         indexed = {f[0] for f in db.query(FileMetadata.filename).all()}
+        from backend.config import ActiveFoldersConfig
+        active_folders = ActiveFoldersConfig.get_active_folders(db)
+        
         for data_type_folder in os.listdir(uidai_data_dir):
             folder_path = os.path.join(uidai_data_dir, data_type_folder)
             if not os.path.isdir(folder_path):
                 continue
-                
+            if data_type_folder.lower() not in active_folders:
+                continue
+
             for file_path in glob.glob(os.path.join(folder_path, "**", "*.*"), recursive=True):
                 filename = os.path.basename(file_path)
                 if filename.startswith("~$") or filename.startswith("."):
@@ -60,7 +65,7 @@ async def startup_event():
     finally:
         db.close()
         
-    scheduler.add_job(process_unprocessed_files, 'interval', minutes=15)
+    scheduler.add_job(process_unprocessed_files, 'interval', minutes=3)
     scheduler.start()
 
 @app.on_event("shutdown")
