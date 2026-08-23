@@ -208,61 +208,35 @@ def get_sidebar(user_role, token, permissions):
             className="premium-offcanvas sidebar-container border-0 shadow-lg"
         )
         
-    opts = get_history_options(token, user_role, permissions)
-    val = None
-    
-    if has_permission(permissions, 'can_view_global') and any(opt.get('value') == 'aggregate' for opt in opts):
-        val = 'aggregate'
-    else:
-        for opt in opts:
-            if not opt['value'].startswith('HEADER_'):
-                val = opt['value']
-                break
-            
     can_upload = 'can_upload_files' in permissions
 
     sidebar_content = html.Div([
-        html.H6("MAIN", className="section-title mb-3"),
-        dbc.Nav(
-            [
-                dbc.NavLink(
-                    [html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")],
-                    href="/",
-                    active="exact",
-                    className="body-strong mb-2 d-flex align-items-center"
-                ),
-                dbc.NavLink(
-                    [html.I(className="bi bi-calendar-range me-3"), html.Span("Date Comparison", className="nav-link-text")],
-                    href="/date-comparison",
-                    active="exact",
-                    className="body-strong mb-2 d-flex align-items-center"
-                ),
-                dbc.NavLink(
-                    [html.I(className="bi bi-clock-history me-3"), html.Span("Hourly Insights", className="nav-link-text")],
-                    href="/hourly",
-                    active="exact",
-                    className="body-strong mb-2 d-flex align-items-center"
-                ),
-                dbc.NavLink(
-                    [html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")],
-                    href="/raw-data",
-                    active="exact",
-                    className="body-strong mb-2 d-flex align-items-center"
-                ),
-            ],
-            vertical=True,
-            pills=True,
-            className="custom-sidebar-nav mb-5"
+        html.Div(
+            dbc.RadioItems(
+                id="context-switcher",
+                className="btn-group w-100 mb-4",
+                inputClassName="btn-check",
+                labelClassName="btn btn-outline-primary",
+                labelCheckedClassName="active",
+                options=[
+                    {"label": "CCF", "value": "Ccf Data"},
+                    {"label": "UniMate", "value": "UniMate Data"},
+                ],
+                value="Ccf Data",
+            ),
+            className="radio-group",
         ),
+        
+        html.Div(id="sidebar-nav-container"),
 
         html.Hr(style={"borderColor": "#e2e8f0"}),
-
+        html.H6("HISTORY", className="section-title mb-3"),
 
         html.Div(
             dbc.RadioItems(
                 id="file-history",
-                options=opts,
-                value=val,
+                options=[],
+                value=None,
                 className="mb-4 history-radio-group"
             )
         )

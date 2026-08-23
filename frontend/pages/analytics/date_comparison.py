@@ -6,26 +6,13 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
+from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown
 from frontend.shared.api_client import get_dataframe
+import dash_bootstrap_components as dbc
+from frontend.components.cards import make_kpi_card, wrap_chart_card
+from frontend.components.empty_state import render_empty_state
 
 dash.register_page(__name__, path='/date-comparison', name='Date Comparison')
-
-def make_kpi_card(title, value, status="neutral"):
-    color_class = "text-primary"
-    if status == "Good":
-        color_class = "text-success"
-    elif status == "Penalty":
-        color_class = "text-danger"
-    elif status == "Neutral":
-        color_class = "text-secondary"
-
-    return Card([
-        CardBody([
-            html.H6(title, className="kpi-label mb-2"),
-            html.H3(value, className=f"mb-0 display-lg {color_class}", style={'fontWeight': 'bold'})
-        ])
-    ], className="custom-card h-100")
 
 layout = Container([
     Row([
@@ -87,49 +74,23 @@ layout = Container([
 
     # Charts Row 1: Company Performance
     Row([
-        Col([
-            Card([
-                CardHeader(make_header_with_download("Company Performance (Volume & SL%)", "compare-volume-chart", "compare")),
-                CardBody(wrap_graph_with_download("compare-volume-chart", dcc.Graph(id='compare-volume-chart', config={'displayModeBar': False}), "compare"))
-            ], className="custom-card h-100")
-        ], width=12, className="mb-4"),
+        Col([wrap_chart_card("compare-volume-chart", "Company Performance (Volume & SL%)", "compare")], width=12, className="mb-4"),
     ]),
 
     # Charts Row 2: Hourly Trends
     Row([
-        Col([
-            Card([
-                CardHeader(make_header_with_download("Hourly Volume Trends", "compare-hourly-chart", "compare")),
-                CardBody(wrap_graph_with_download("compare-hourly-chart", dcc.Graph(id='compare-hourly-chart', config={'displayModeBar': False}), "compare"))
-            ], className="custom-card h-100")
-        ], width=12, className="mb-4"),
+        Col([wrap_chart_card("compare-hourly-chart", "Hourly Volume Trends", "compare")], width=12, className="mb-4"),
     ]),
 
     # Charts Row 3: Funnel
     Row([
-        Col([
-            Card([
-                CardHeader(make_header_with_download("Abandonment Flow", "compare-funnel-chart", "compare")),
-                CardBody(wrap_graph_with_download("compare-funnel-chart", dcc.Graph(id='compare-funnel-chart', config={'displayModeBar': False}, style={'height': '450px'}), "compare"))
-            ], className="custom-card h-100")
-        ], width=12, className="mb-4"),
+        Col([wrap_chart_card("compare-funnel-chart", "Abandonment Flow", "compare")], width=12, className="mb-4"),
     ]),
     
     # Charts Row 4: Language & Radar
     Row([
-        Col([
-            Card([
-                CardHeader(make_header_with_download("Total Volume by Language", "compare-lang-chart", "compare")),
-                CardBody(wrap_graph_with_download("compare-lang-chart", dcc.Graph(id='compare-lang-chart', config={'displayModeBar': False}, style={'height': '450px'}), "compare"))
-            ], className="custom-card h-100")
-        ], width=12, lg=6, className="mb-4"),
-        
-        Col([
-            Card([
-                CardHeader(make_header_with_download("Vendor Performance Footprint (Averaged)", "compare-radar-chart", "compare")),
-                CardBody(wrap_graph_with_download("compare-radar-chart", dcc.Graph(id='compare-radar-chart', config={'displayModeBar': False}, style={'height': '450px'}), "compare"))
-            ], className="custom-card h-100")
-        ], width=12, lg=6, className="mb-4"),
+        Col([wrap_chart_card("compare-lang-chart", "Total Volume by Language", "compare")], width=12, lg=6, className="mb-4"),
+        Col([wrap_chart_card("compare-radar-chart", "Vendor Performance Footprint (Averaged)", "compare")], width=12, lg=6, className="mb-4"),
     ]),
     
     # Data Table Row
@@ -171,6 +132,10 @@ def populate_date_selector(data_ref, auth_state):
         
     df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
     df = df.dropna(subset=[date_col])
+    
+    if df.empty:
+        return []
+        
     unique_dates = df[date_col].dt.date.unique()
     unique_dates = sorted(unique_dates, reverse=True)
     d_options = [{'label': d.strftime('%Y-%m-%d'), 'value': d.strftime('%Y-%m-%d')} for d in unique_dates]
@@ -179,11 +144,11 @@ def populate_date_selector(data_ref, auth_state):
 
 @callback(
     Output('comparison-kpi-row', 'children'),
-    Output('compare-volume-chart', 'figure'),
-    Output('compare-hourly-chart', 'figure'),
-    Output('compare-funnel-chart', 'figure'),
-    Output('compare-lang-chart', 'figure'),
-    Output('compare-radar-chart', 'figure'),
+    Output('compare-volume-chart-container', 'children'),
+    Output('compare-hourly-chart-container', 'children'),
+    Output('compare-funnel-chart-container', 'children'),
+    Output('compare-lang-chart-container', 'children'),
+    Output('compare-radar-chart-container', 'children'),
     Output('comparison-data-table', 'children'),
     Input('data-store', 'data'),
     Input('discrete-date-selector', 'value'),
@@ -193,22 +158,22 @@ def populate_date_selector(data_ref, auth_state):
     State('auth-state', 'data')
 )
 def update_comparison_charts(data_ref, selected_dates, selected_days, companies, languages, auth_state):
+    def e_ui(gid):
+        return render_empty_state(graph_id=gid)
+
     template = get_plotly_template()
-    empty_fig = px.bar(template=template).update_layout(
-        xaxis={"visible": False}, yaxis={"visible": False},
-        annotations=[{"text": "Select dates or days to view comparison", "xref": "paper", "yref": "paper", "showarrow": False, "font": {"size": 16, "color": "#64748b"}}]
-    )
+    no_data_table = html.P("No data available.")
     
     if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or (not selected_dates and not selected_days):
-        return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, html.P("No data selected.")
+        return [], e_ui('compare-volume-chart'), e_ui('compare-hourly-chart'), e_ui('compare-funnel-chart'), e_ui('compare-lang-chart'), e_ui('compare-radar-chart'), html.P("Select dates or days to view comparison.")
         
     token = auth_state.get('token') if auth_state else None
     if not token:
-        return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, html.P("Unauthorized.")
+        return [], e_ui('compare-volume-chart'), e_ui('compare-hourly-chart'), e_ui('compare-funnel-chart'), e_ui('compare-lang-chart'), e_ui('compare-radar-chart'), html.P("Unauthorized.")
         
     df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
-    if df.empty:
-        return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, html.P("No data available.")
+    if df is None or df.empty:
+        return [], e_ui('compare-volume-chart'), e_ui('compare-hourly-chart'), e_ui('compare-funnel-chart'), e_ui('compare-lang-chart'), e_ui('compare-radar-chart'), no_data_table
     
     # Filter by Company and Language
     if companies and 'Company' in df.columns:
@@ -225,10 +190,13 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
         date_col = 'Call Start Time'
         
     if not date_col:
-        return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, html.P("No data available.")
+        return [], e_ui('compare-volume-chart'), e_ui('compare-hourly-chart'), e_ui('compare-funnel-chart'), e_ui('compare-lang-chart'), e_ui('compare-radar-chart'), no_data_table
 
     df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
     df = df.dropna(subset=[date_col])
+    if df.empty:
+        return [], e_ui('compare-volume-chart'), e_ui('compare-hourly-chart'), e_ui('compare-funnel-chart'), e_ui('compare-lang-chart'), e_ui('compare-radar-chart'), no_data_table
+
     df['Date_Str'] = df[date_col].dt.strftime('%Y-%m-%d')
     df['Day_Name'] = df[date_col].dt.day_name()
     
@@ -239,12 +207,12 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
         dates_to_include.update(resolved_dates)
         
     if not dates_to_include:
-        return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, html.P("No matching dates found.")
+        return [], e_ui('compare-volume-chart'), e_ui('compare-hourly-chart'), e_ui('compare-funnel-chart'), e_ui('compare-lang-chart'), e_ui('compare-radar-chart'), html.P("No matching dates found.")
         
     df = df[df['Date_Str'].isin(dates_to_include)]
     
     if df.empty:
-        return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, html.P("No data available for selected dates.")
+        return [], e_ui('compare-volume-chart'), e_ui('compare-hourly-chart'), e_ui('compare-funnel-chart'), e_ui('compare-lang-chart'), e_ui('compare-radar-chart'), html.P("No data available for selected dates.")
         
     has_company = 'Company' in df.columns
     has_lang = 'Language' in df.columns
@@ -378,8 +346,9 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
             yaxis2=dict(title='Service Level %', side='right', overlaying='y', range=[0, 105], showgrid=False),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
+        ui_vol = dcc.Graph(id='compare-volume-chart', figure=fig_vol, config={'displayModeBar': False})
     else:
-        fig_vol = empty_fig
+        ui_vol = e_ui('compare-volume-chart')
 
     # --- 2. Hourly Volume Trends (Multi-Line Chart) ---
     if 'Call Timestamp' in df.columns:
@@ -393,8 +362,9 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
         # Apply spline smoothing to all traces
         fig_heat.update_traces(line_shape='spline')
         fig_heat.update_layout(xaxis_title="Hour of Day", yaxis_title="Call Volume", legend_title="Date", margin=dict(l=20, r=20, t=20, b=20), xaxis=dict(tickmode='linear', tick0=0, dtick=1))
+        ui_heat = dcc.Graph(id='compare-hourly-chart', figure=fig_heat, config={'displayModeBar': False})
     else:
-        fig_heat = empty_fig
+        ui_heat = e_ui('compare-hourly-chart')
 
     # --- 3. Abandonment Flow (Grouped Bar Chart) ---
     if all(c in grouped.columns for c in ['Call Offered', 'ACD Calls in 20 Sec', 'ABAN Calls']):
@@ -420,8 +390,9 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
         )
         fig_funnel.update_traces(textposition='outside')
         fig_funnel.update_layout(xaxis_title="Call Flow Stage", yaxis_title="Number of Calls", legend_title="Date", margin=dict(l=20, r=20, t=20, b=20))
+        ui_funnel = dcc.Graph(id='compare-funnel-chart', figure=fig_funnel, config={'displayModeBar': False}, style={'height': '450px'})
     else:
-        fig_funnel = empty_fig
+        ui_funnel = e_ui('compare-funnel-chart')
         
     # --- 4. Language breakdown (Pie Chart) ---
     if has_lang:
@@ -429,8 +400,9 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
         fig_lang = px.pie(lang_grp, values='Volume', names='Language', hole=0.4, template=template)
         fig_lang.update_traces(textinfo='percent+label', textposition='inside', hoverinfo='label+percent+value')
         fig_lang.update_layout(margin=dict(t=20, b=20, l=20, r=20))
+        ui_lang = dcc.Graph(id='compare-lang-chart', figure=fig_lang, config={'displayModeBar': False}, style={'height': '450px'})
     else:
-        fig_lang = empty_fig
+        ui_lang = e_ui('compare-lang-chart')
 
     # --- 5. Vendor Radar Chart (Averaged Footprint) ---
     if has_company and all(c in df.columns for c in ['Call Offered', 'ACD Calls in 20 Sec', 'ABAN Calls in 10 Sec', 'ACD Time', 'ACW Time', 'Hold Time', 'ACD Calls']):
@@ -487,8 +459,9 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
             ),
             showlegend=True, template=template, margin=dict(l=80, r=80, t=40, b=40)
         )
+        ui_radar = dcc.Graph(id='compare-radar-chart', figure=fig_radar, config={'displayModeBar': False}, style={'height': '450px'})
     else:
-        fig_radar = empty_fig
+        ui_radar = e_ui('compare-radar-chart')
 
     # --- 6. Data Table ---
     # Round numerical columns for display
@@ -504,7 +477,7 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
         style={"height": 300, "width": "100%"},
     )
         
-    return kpis, fig_vol, fig_heat, fig_funnel, fig_lang, fig_radar, data_table
+    return kpis, ui_vol, ui_heat, ui_funnel, ui_lang, ui_radar, data_table
 
 # CSV Export Callback
 @callback(

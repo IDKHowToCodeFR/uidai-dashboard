@@ -30,9 +30,7 @@ def register_routing_callbacks(app, content_div):
 
     @app.callback(
         Output("app-container", "children"),
-        Output("data-store", "data", allow_duplicate=True),
-        Input("auth-state", "data"),
-        prevent_initial_call='initial_duplicate'
+        Input("auth-state", "data")
     )
     def render_page(auth_state):
         if auth_state and auth_state.get('user') and auth_state.get('token'):
@@ -40,22 +38,6 @@ def register_routing_callbacks(app, content_div):
             token = auth_state.get('token')
             permissions = auth_state.get('permissions', [])
             sidebar = get_sidebar(user_role, token, permissions)
-            
-            opts = get_history_options(token, user_role, permissions)
-            val = None
-            data = []
-            
-            if has_permission(permissions, 'can_view_global') and any(opt.get('value') == 'aggregate' for opt in opts):
-                val = 'aggregate'
-            else:
-                for opt in opts:
-                    if not opt['value'].startswith('HEADER_'):
-                        val = opt['value']
-                        break
-                    
-            if val:
-                data = {"filename": val, "impersonate": None}
-
             topbar = get_topbar(user_role, permissions)
             
             return html.Div([
@@ -63,9 +45,88 @@ def register_routing_callbacks(app, content_div):
                 sidebar,
                 filter_drawer,
                 content_div
-            ], style={"backgroundColor": "var(--color-background)", "minHeight": "100vh"}), data
+            ], style={"backgroundColor": "var(--color-background)", "minHeight": "100vh"})
             
-        return login_page, []
+        return login_page
+
+    @app.callback(
+        Output("sidebar-nav-container", "children"),
+        Output("file-history", "options"),
+        Output("file-history", "value"),
+        Output("data-store", "data", allow_duplicate=True),
+        Output("url", "pathname", allow_duplicate=True),
+        Input("context-switcher", "value"),
+        State("auth-state", "data"),
+        State("url", "pathname"),
+        prevent_initial_call='initial_duplicate'
+    )
+    def switch_context(context, auth_state, current_path):
+        if not auth_state or not auth_state.get('token'):
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+            
+        user_role = auth_state.get('user')
+        token = auth_state.get('token')
+        permissions = auth_state.get('permissions', [])
+        
+        # Build Navigation
+        if context == "UniMate Data":
+            nav_content = [
+                html.H6("UNIMATE", className="section-title mb-3"),
+                dbc.Nav(
+                    [
+                        dbc.NavLink([html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")], href="/unimate-dashboard", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                        dbc.NavLink([html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")], href="/unimate-raw-data", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                    ], vertical=True, pills=True, className="custom-sidebar-nav mb-4"
+                )
+            ]
+            target_url = "/unimate-dashboard"
+        else:
+            nav_content = [
+                html.H6("CCF", className="section-title mb-3"),
+                dbc.Nav(
+                    [
+                        dbc.NavLink([html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")], href="/", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                        dbc.NavLink([html.I(className="bi bi-calendar-range me-3"), html.Span("Date Comparison", className="nav-link-text")], href="/date-comparison", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                        dbc.NavLink([html.I(className="bi bi-clock-history me-3"), html.Span("Hourly Insights", className="nav-link-text")], href="/hourly", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                        dbc.NavLink([html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")], href="/raw-data", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                    ], vertical=True, pills=True, className="custom-sidebar-nav mb-4"
+                )
+            ]
+            target_url = "/"
+            
+        # Get History options filtered by data_type (context)
+        opts = get_history_options(token, user_role, permissions, data_type=context)
+        val = None
+        data = []
+        
+        if has_permission(permissions, 'can_view_global') and any(opt.get('value') == 'aggregate' for opt in opts):
+            val = 'aggregate'
+        else:
+            for opt in opts:
+                if not opt['value'].startswith('HEADER_'):
+                    val = opt['value']
+                    break
+                    
+        if val:
+            data = {"filename": val, "impersonate": None}
+            
+        # Decide if redirect is needed
+        # We redirect if the user switches contexts (and isn't on a valid page for that context)
+        # For simplicity, let's always redirect to target_url if they trigger the switcher
+        url_update = dash.no_update
+        if current_path != target_url:
+            url_update = target_url
+            
+        # BUT if it's the initial load, context-switcher triggers. We don't want to redirect them 
+        # from a valid page (e.g., they manually hit /hourly) just because of the initial callback.
+        # Let's check dash.callback_context to see if it was triggered by user click
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            url_update = dash.no_update # Initial load, let dash-pages handle routing
+        elif ctx.triggered[0]['prop_id'] == 'context-switcher.value':
+            url_update = target_url # Explicit user switch
+            
+        return nav_content, opts, val, data, url_update
 
     @app.callback(
         Output("url", "pathname"),

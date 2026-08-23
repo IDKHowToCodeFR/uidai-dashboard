@@ -9,8 +9,57 @@ from sqlalchemy.orm import Session
 
 from backend.auth.auth_utils import get_current_user, PermissionChecker, add_log, extract_request_metadata
 from backend.database.database import get_db
-from backend.database.models import FileMetadata, CCFData
+from backend.database.models import FileMetadata, CCFData, UniMateData
 from backend.data_ingestion.websockets import process_file_background
+
+def serialize_data(metrics, data_type):
+    if data_type == "UniMate Data":
+        return [
+            {
+                "UCID": m.ucid,
+                "Session ID": m.session_id,
+                "Company": m.company,
+                "Day of Week": m.day_of_week,
+                "Call Start Time": m.call_start_time,
+                "Call End Time": m.call_end_time,
+                "Call Duration": m.call_duration,
+                "ANI": m.ani,
+                "DNIS": m.dnis,
+                "Language": m.language,
+                "Authentication": m.authentication,
+                "Authentication Mechanism": m.auth_mechanism,
+                "Termination Type": m.termination_type,
+                "Termination Reason": m.termination_reason,
+                "Description": m.description,
+                "Region": m.region
+            } for m in metrics
+        ]
+    else:
+        return [
+            {
+                "Company": m.company,
+                "Language": m.language,
+                "Date": m.date_logged,
+                "Call Timestamp": m.call_timestamp,
+                "Day": m.day,
+                "Call Offered": m.call_offered,
+                "ABAN Calls in 10 Sec": m.aban_calls_10_sec,
+                "ACD Calls in 10 Sec": m.acd_calls_10_sec,
+                "ACD Calls in 20 Sec": m.acd_calls_20_sec,
+                "ABAN Calls": m.aban_calls,
+                "Held Calls": m.held_calls,
+                "Service Level %": m.service_level_pct,
+                "Service Level Status": m.service_level_status,
+                "ACD Calls": m.acd_calls,
+                "Hold Time": m.hold_time,
+                "Avg Hold Time": m.avg_hold_time,
+                "Hold Time Status": m.hold_time_status,
+                "ACD Time": m.acd_time,
+                "ACW Time": m.acw_time,
+                "Avg Handle Time": m.avg_handle_time,
+                "AHT Status": m.aht_status
+            } for m in metrics
+        ]
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 UIDAI_DATA_DIR = os.path.join(BASE_DIR, "uidai_data")
@@ -80,8 +129,12 @@ async def get_data_types(current_user: dict = Depends(get_current_user), db: Ses
 
 
 @router.get("/history")
-async def get_history(impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-    files = db.query(FileMetadata).order_by(FileMetadata.uploaded_at.desc()).all()
+async def get_history(data_type: Optional[str] = None, impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    query = db.query(FileMetadata)
+    if data_type:
+        query = query.filter(FileMetadata.data_type == data_type)
+    
+    files = query.order_by(FileMetadata.uploaded_at.desc()).all()
     
     file_times = []
     for f in files:
@@ -97,39 +150,15 @@ async def get_history(impersonate: Optional[str] = None, current_user: dict = De
 
 
 @router.get("/data/aggregate")
-async def get_aggregated_data(impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-    query = db.query(CCFData)
+async def get_aggregated_data(data_type: str = "CCF Data", impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    model_class = UniMateData if data_type == "UniMate Data" else CCFData
+    query = db.query(model_class)
     
     if impersonate:
-        query = query.filter(CCFData.company == impersonate)
+        query = query.filter(model_class.company == impersonate)
             
     metrics = query.all()
-    # Serialize
-    return [
-        {
-            "Company": m.company,
-            "Language": m.language,
-            "Date": m.date_logged,
-            "Call Timestamp": m.call_timestamp,
-            "Day": m.day,
-            "Call Offered": m.call_offered,
-            "ABAN Calls in 10 Sec": m.aban_calls_10_sec,
-            "ACD Calls in 10 Sec": m.acd_calls_10_sec,
-            "ACD Calls in 20 Sec": m.acd_calls_20_sec,
-            "ABAN Calls": m.aban_calls,
-            "Held Calls": m.held_calls,
-            "Service Level %": m.service_level_pct,
-            "Service Level Status": m.service_level_status,
-            "ACD Calls": m.acd_calls,
-            "Hold Time": m.hold_time,
-            "Avg Hold Time": m.avg_hold_time,
-            "Hold Time Status": m.hold_time_status,
-            "ACD Time": m.acd_time,
-            "ACW Time": m.acw_time,
-            "Avg Handle Time": m.avg_handle_time,
-            "AHT Status": m.aht_status
-        } for m in metrics
-    ]
+    return serialize_data(metrics, data_type)
 
 
 @router.get("/data/{filename}")
@@ -138,37 +167,14 @@ async def get_data(filename: str, impersonate: Optional[str] = None, current_use
     if not file_meta:
         raise HTTPException(status_code=404, detail="File not found")
         
-    query = db.query(CCFData).filter(CCFData.file_id == file_meta.id)
+    model_class = UniMateData if file_meta.data_type == "UniMate Data" else CCFData
+    query = db.query(model_class).filter(model_class.file_id == file_meta.id)
     
     if impersonate:
-        query = query.filter(CCFData.company == impersonate)
+        query = query.filter(model_class.company == impersonate)
         
     metrics = query.all()
-    return [
-        {
-            "Company": m.company,
-            "Language": m.language,
-            "Date": m.date_logged,
-            "Call Timestamp": m.call_timestamp,
-            "Day": m.day,
-            "Call Offered": m.call_offered,
-            "ABAN Calls in 10 Sec": m.aban_calls_10_sec,
-            "ACD Calls in 10 Sec": m.acd_calls_10_sec,
-            "ACD Calls in 20 Sec": m.acd_calls_20_sec,
-            "ABAN Calls": m.aban_calls,
-            "Held Calls": m.held_calls,
-            "Service Level %": m.service_level_pct,
-            "Service Level Status": m.service_level_status,
-            "ACD Calls": m.acd_calls,
-            "Hold Time": m.hold_time,
-            "Avg Hold Time": m.avg_hold_time,
-            "Hold Time Status": m.hold_time_status,
-            "ACD Time": m.acd_time,
-            "ACW Time": m.acw_time,
-            "Avg Handle Time": m.avg_handle_time,
-            "AHT Status": m.aht_status
-        } for m in metrics
-    ]
+    return serialize_data(metrics, file_meta.data_type)
 
 
 @router.get("/download/{filename}")
@@ -187,27 +193,17 @@ async def download_file(request: Request, filename: str, impersonate: Optional[s
             headers = {'Content-Disposition': f'attachment; filename="{filename}"'}
             return FileResponse(file_path, headers=headers, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             
-    query = db.query(CCFData).filter(CCFData.file_id == file_meta.id)
+    model_class = UniMateData if file_meta.data_type == "UniMate Data" else CCFData
+    query = db.query(model_class).filter(model_class.file_id == file_meta.id)
     
     if impersonate:
-        query = query.filter(CCFData.company == impersonate)
+        query = query.filter(model_class.company == impersonate)
         
     metrics = query.all()
     if not metrics:
         raise HTTPException(status_code=404, detail="No data available for this file")
         
-    data = [{
-        "Company": m.company, "Language": m.language, "Date": m.date_logged,
-        "Call Timestamp": m.call_timestamp, "Day": m.day, "Call Offered": m.call_offered,
-        "ABAN Calls in 10 Sec": m.aban_calls_10_sec, "ACD Calls in 10 Sec": m.acd_calls_10_sec,
-        "ACD Calls in 20 Sec": m.acd_calls_20_sec, "ABAN Calls": m.aban_calls,
-        "Held Calls": m.held_calls, "Service Level %": m.service_level_pct,
-        "Service Level Status": m.service_level_status, "ACD Calls": m.acd_calls,
-        "Hold Time": m.hold_time, "Avg Hold Time": m.avg_hold_time,
-        "Hold Time Status": m.hold_time_status, "ACD Time": m.acd_time,
-        "ACW Time": m.acw_time, "Avg Handle Time": m.avg_handle_time,
-        "AHT Status": m.aht_status
-    } for m in metrics]
+    data = serialize_data(metrics, file_meta.data_type)
 
     df = pd.DataFrame(data)
     
@@ -220,7 +216,8 @@ async def download_file(request: Request, filename: str, impersonate: Optional[s
     safe_filename = os.path.basename(filename)
     base_name = os.path.splitext(safe_filename)[0]
     today_str = datetime.now().strftime("%Y-%m-%d")
-    export_filename = f"CCF_Report_{base_name}_{today_str}.xlsx"
+    export_prefix = "UniMate_Report" if file_meta.data_type == "UniMate Data" else "CCF_Report"
+    export_filename = f"{export_prefix}_{base_name}_{today_str}.xlsx"
     
     meta = extract_request_metadata(request)
     add_log(db, "FILE_DOWNLOADED", current_user["username"], f"Downloaded report: {export_filename}", **meta)

@@ -4,9 +4,11 @@ from dash_bootstrap_components import Container, Row, Col, Card, CardHeader, Car
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
+from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown
 from frontend.shared.api_client import get_dataframe
 import dash_bootstrap_components as dbc
+from frontend.components.cards import wrap_chart_card
+from frontend.components.empty_state import render_empty_state
 
 dash.register_page(__name__, path='/hourly', name='Hourly Insights')
 
@@ -67,28 +69,12 @@ layout = Container([
     ]),
 
     Row([
-        Col([
-            Card([
-                CardHeader(make_header_with_download("Intraday Performance (Volume & Service Level)", "intraday-chart", "hourly")),
-                CardBody(wrap_graph_with_download("intraday-chart", dcc.Graph(id='intraday-chart', config={'displayModeBar': False}, style={'height': '400px'}), "hourly"))
-            ], className="custom-card h-100")
-        ], width=12, className="mb-4")
+        wrap_chart_card("intraday-chart", "Intraday Performance (Volume & Service Level)", "hourly")
     ]),
     
     Row([
-        Col([
-            Card([
-                CardHeader(make_header_with_download("Highest Abandonment by Language", "hourly-heatmap", "hourly")),
-                CardBody(wrap_graph_with_download("hourly-heatmap", dcc.Graph(id='hourly-heatmap', config={'displayModeBar': False}, style={'height': '400px'}), "hourly"))
-            ], className="custom-card h-100")
-        ], width=12, lg=6, className="mb-4"),
-        
-        Col([
-            Card([
-                CardHeader(make_header_with_download("Average Handle Time (AHT) by Time of Day", "aht-time-chart", "hourly")),
-                CardBody(wrap_graph_with_download("aht-time-chart", dcc.Graph(id='aht-time-chart', config={'displayModeBar': False}, style={'height': '400px'}), "hourly"))
-            ], className="custom-card h-100")
-        ], width=12, lg=6, className="mb-4")
+        Col([wrap_chart_card("hourly-heatmap", "Highest Abandonment by Language", "hourly")], width=12, lg=6, className="mb-4"),
+        Col([wrap_chart_card("aht-time-chart", "Average Handle Time (AHT) by Time of Day", "hourly")], width=12, lg=6, className="mb-4")
     ])
 ], fluid=True, className="px-4")
 
@@ -117,20 +103,24 @@ def set_date_picker(data_ref, auth_state):
     elif 'Date' in df.columns:
         date_col = 'Date'
         
-    if not date_col or df.empty:
+    if not date_col or df is None or df.empty:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update
         
     df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
     df = df.dropna(subset=[date_col])
+    
+    if df.empty:
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        
     max_date = df[date_col].max().date()
     min_date = df[date_col].min().date()
     
     return min_date, max_date, min_date, max_date
 
 @callback(
-    Output('intraday-chart', 'figure'),
-    Output('hourly-heatmap', 'figure'),
-    Output('aht-time-chart', 'figure'),
+    Output('intraday-chart-container', 'children'),
+    Output('hourly-heatmap-container', 'children'),
+    Output('aht-time-chart-container', 'children'),
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
@@ -141,19 +131,24 @@ def set_date_picker(data_ref, auth_state):
     State('auth-state', 'data')
 )
 def update_hourly_insights(data_ref, company_filter, language_filter, start_date, end_date, time_start, time_end, auth_state):
-    empty_fig = px.pie(title="No Data")
+    def e_ui(gid):
+        return render_empty_state(graph_id=gid)
+
     if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or not start_date or not end_date:
-        return empty_fig, empty_fig, empty_fig
+        return e_ui('intraday-chart'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
         
     token = auth_state.get('token') if auth_state else None
     if not token:
-        return empty_fig, empty_fig, empty_fig
+        return e_ui('intraday-chart'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
         
     df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
     
+    if df is None or df.empty:
+        return e_ui('intraday-chart'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
+    
     date_col = 'Date' if 'Date' in df.columns else 'Timestamp' if 'Timestamp' in df.columns else None
-    if not date_col or df.empty:
-        return empty_fig, empty_fig, empty_fig
+    if not date_col:
+        return e_ui('intraday-chart'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
 
     df['DateCol'] = pd.to_datetime(df[date_col])
     start_dt = pd.to_datetime(start_date)
@@ -177,7 +172,7 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
         df_current = df_current[df_current['Language'].isin(language_filter)]
         
     if df_current.empty or ts_col not in df_current.columns:
-        return empty_fig, empty_fig, empty_fig
+        return e_ui('intraday-chart'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
 
     df_current['Time'] = pd.to_datetime(df_current[ts_col]).dt.time
     df_current['TimeStr'] = df_current['Time'].astype(str)
@@ -217,6 +212,7 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
         yaxis2=dict(title='Service Level %', side='right', overlaying='y', range=[0, 105], showgrid=False),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
+    ui_intraday = dcc.Graph(id='intraday-chart', figure=fig_intraday, config={'displayModeBar': False}, style={'height': '400px'})
 
     # Chart 2: Highest Abandonment by Language (Bar Chart)
     if 'Language' in df_current.columns:
@@ -236,8 +232,9 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
             margin=dict(t=30, b=30, l=10, r=10),
             showlegend=False
         )
+        ui_heat = dcc.Graph(id='hourly-heatmap', figure=fig_heat, config={'displayModeBar': False}, style={'height': '400px'})
     else:
-        fig_heat = px.pie(title="No Language Data")
+        ui_heat = e_ui('hourly-heatmap')
 
     # Chart 3: AHT by Time of Day (Stacked Bar Chart)
     if all(c in df_current.columns for c in ['ACD Calls', 'ACD Time', 'ACW Time', 'Hold Time']):
@@ -259,10 +256,11 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
             yaxis=dict(title='Average Time (s)'),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
+        ui_aht = dcc.Graph(id='aht-time-chart', figure=fig_aht, config={'displayModeBar': False}, style={'height': '400px'})
     else:
-        fig_aht = px.pie(title="No AHT Data")
+        ui_aht = e_ui('aht-time-chart')
 
-    return fig_intraday, fig_heat, fig_aht
+    return ui_intraday, ui_heat, ui_aht
 
 # CSV Export Callback
 @callback(

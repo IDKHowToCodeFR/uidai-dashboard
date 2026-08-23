@@ -19,6 +19,9 @@ def generate_sample_ccf_data(num_records):
     
     start_date = datetime.now() - timedelta(days=30)
     
+    # Population-based language weights (approx)
+    lang_weights = [0.45, 0.20, 0.03, 0.01, 0.06, 0.02, 0.05, 0.04, 0.02, 0.05, 0.05, 0.02]
+    
     for _ in range(num_records):
         # Generate random 15-minute interval timestamp
         random_seconds = random.randint(0, 30 * 24 * 60 * 60)
@@ -29,13 +32,25 @@ def generate_sample_ccf_data(num_records):
         date_str = call_timestamp.strftime("%Y-%m-%d")
         day_name = call_timestamp.strftime("%A")
         vendor = random.choices(VENDORS, weights=[0.6, 0.4], k=1)[0]
-        # Weighted random choice for languages to match observed distribution more naturally
-        lang = random.choices(LANGUAGES, weights=[0.11, 0.08, 0.08, 0.09, 0.09, 0.06, 0.09, 0.08, 0.07, 0.08, 0.09, 0.08], k=1)[0]
         
-        # Per row values based on proportional monthly distribution
-        # Assuming ~30 ACD calls per 15-min interval per language
-        acd_calls = random.randint(0, 50)
-        aban_calls = random.randint(0, 15)
+        lang = random.choices(LANGUAGES, weights=lang_weights, k=1)[0]
+        
+        # Add time-of-day noise (fewer calls at night, more during day)
+        hour = call_timestamp.hour
+        if 9 <= hour <= 18:
+            tod_multiplier = random.uniform(0.8, 1.5)
+        elif 6 <= hour < 9 or 18 < hour <= 21:
+            tod_multiplier = random.uniform(0.4, 0.8)
+        else:
+            tod_multiplier = random.uniform(0.05, 0.2)
+            
+        # Add day-of-week noise (fewer calls on weekends)
+        if day_name in ["Saturday", "Sunday"]:
+            tod_multiplier *= random.uniform(0.5, 0.7)
+            
+        base_calls = random.randint(10, 50)
+        acd_calls = int(base_calls * tod_multiplier)
+        aban_calls = int(random.randint(0, 15) * tod_multiplier)
         
         acd_10 = random.randint(0, int(acd_calls * 0.5)) if acd_calls > 0 else 0
         acd_20 = random.randint(acd_10, int(acd_calls * 0.8)) if acd_calls > 0 else 0

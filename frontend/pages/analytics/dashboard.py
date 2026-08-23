@@ -6,34 +6,13 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, wrap_graph_with_download
+from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_NEUTRAL, COLOR_INFO
 from frontend.shared.api_client import get_dataframe
 import dash_bootstrap_components as dbc
-# Global config removed in favor of API
+from frontend.components.cards import make_kpi_card, wrap_chart_card
+from frontend.components.empty_state import render_empty_state
 
 dash.register_page(__name__, path='/', name='Dashboard')
-
-def make_kpi_card(title, value, status="neutral"):
-    color_class = "text-primary"
-    if status == "Good":
-        color_class = "text-success"
-    elif status == "Penalty":
-        color_class = "text-danger"
-
-    return Card([
-        CardBody([
-            html.H6(title, className="kpi-label mb-2"),
-            html.H3(value, className=f"mb-0 display-lg {color_class}")
-        ])
-    ], className="custom-card h-100")
-
-def make_chart_card(title, chart_id, height_class="h-100", extra_style=None):
-    if extra_style is None:
-        extra_style = {}
-    return Card([
-        CardHeader(make_header_with_download(title, chart_id)),
-        CardBody(wrap_graph_with_download(chart_id, dcc.Graph(id=chart_id, config={'displayModeBar': False}, style=extra_style)))
-    ], className=f"custom-card {height_class}")
 
 layout = Container([
     Row([
@@ -54,46 +33,46 @@ layout = Container([
     Row(id='kpi-row'),
 
     Row([
-        Col([make_chart_card("Service Level Trend (%)", "sl-trend")], width=12, lg=7, className="mb-4"),
-        Col([make_chart_card("Volume by Language", "lang-pie")], width=12, lg=5, className="mb-4"),
+        Col([wrap_chart_card("sl-trend", "Service Level Trend (%)")], width=12, lg=7, className="mb-4"),
+        Col([wrap_chart_card("lang-pie", "Volume by Language")], width=12, lg=5, className="mb-4"),
     ]),
 
     Row([
-        Col([make_chart_card("Company KPI Radar (Monthly Median)", "aht-line-chart")], width=12, lg=6, className="mb-4"),
-        Col([make_chart_card("AHT Composition Sunburst", "aht-lang-bar")], width=12, lg=6, className="mb-4"),
+        Col([wrap_chart_card("aht-line-chart", "Company KPI Radar (Monthly Median)")], width=12, lg=6, className="mb-4"),
+        Col([wrap_chart_card("aht-lang-bar", "AHT Composition Sunburst")], width=12, lg=6, className="mb-4"),
     ]),
 
     Row([
-        Col([make_chart_card("Talk Time Distribution (s)", "talk-hist")], width=12, lg=4, className="mb-4"),
-        Col([make_chart_card("Wrap Time (ACW) Distribution (s)", "wrap-hist")], width=12, lg=4, className="mb-4"),
-        Col([make_chart_card("Hold Time Distribution (s)", "hold-hist")], width=12, lg=4, className="mb-4")
+        Col([wrap_chart_card("talk-hist", "Talk Time Distribution (s)")], width=12, lg=4, className="mb-4"),
+        Col([wrap_chart_card("wrap-hist", "Wrap Time (ACW) Distribution (s)")], width=12, lg=4, className="mb-4"),
+        Col([wrap_chart_card("hold-hist", "Hold Time Distribution (s)")], width=12, lg=4, className="mb-4")
     ]),
 
     Row([
-        Col([make_chart_card("Average Intraday Performance (Volume & SL)", "intraday-chart-overall", extra_style={'height': '400px'})], width=12, className="mb-4")
+        Col([wrap_chart_card("intraday-chart-overall", "Average Intraday Performance (Volume & SL)")], width=12, className="mb-4")
     ]),
 
     Row([
-        Col([make_chart_card("Volume vs Abandonment Trend", "vol-aban-trend")], width=12, className="mb-4"),
+        Col([wrap_chart_card("vol-aban-trend", "Volume vs Abandonment Trend")], width=12, className="mb-4"),
     ]),
     
     Row([
-        Col([make_chart_card("Calls Offered vs Answered (Daily)", "offered-ans-bar")], width=12, className="mb-4")
+        Col([wrap_chart_card("offered-ans-bar", "Calls Offered vs Answered (Daily)")], width=12, className="mb-4")
     ])
 ], fluid=True, className="px-4")
 
 @callback(
     Output('kpi-row', 'children'),
-    Output('sl-trend', 'figure'),
-    Output('lang-pie', 'figure'),
-    Output('talk-hist', 'figure'),
-    Output('wrap-hist', 'figure'),
-    Output('hold-hist', 'figure'),
-    Output('intraday-chart-overall', 'figure'),
-    Output('aht-line-chart', 'figure'),
-    Output('vol-aban-trend', 'figure'),
-    Output('aht-lang-bar', 'figure'),
-    Output('offered-ans-bar', 'figure'),
+    Output('sl-trend-container', 'children'),
+    Output('lang-pie-container', 'children'),
+    Output('talk-hist-container', 'children'),
+    Output('wrap-hist-container', 'children'),
+    Output('hold-hist-container', 'children'),
+    Output('intraday-chart-overall-container', 'children'),
+    Output('aht-line-chart-container', 'children'),
+    Output('vol-aban-trend-container', 'children'),
+    Output('aht-lang-bar-container', 'children'),
+    Output('offered-ans-bar-container', 'children'),
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
@@ -102,17 +81,19 @@ layout = Container([
     State('auth-state', 'data')
 )
 def update_dashboard(data_ref, company_filter, language_filter, start_date, end_date, auth_state):
-    empty_fig = px.pie(title="No Data")
+    def e_ui(gid):
+        return render_empty_state(graph_id=gid)
+
     if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref:
-        return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
+        return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('offered-ans-bar')
         
     token = auth_state.get('token') if auth_state else None
     if not token:
-        return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
+        return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('offered-ans-bar')
         
     df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
-    if df.empty:
-        return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
+    if df is None or df.empty:
+        return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('offered-ans-bar')
 
     date_candidates = ['Timestamp', 'Call Timestamp', 'Date', 'Call Start Time']
     df['Date'] = pd.NaT
@@ -149,7 +130,7 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
     df_current = df[mask].copy()
 
     if df_current.empty:
-        return [], empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig
+        return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('offered-ans-bar')
 
     # Dynamic Time Bucketing
     if 'Date' in df_current.columns and not df_current['Date'].isna().all():
@@ -234,20 +215,21 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             fig_sl.update_traces(mode='lines+markers', hovertemplate='<b>Date:</b> %{x}<br><b>SL:</b> %{y:.2f}%<extra></extra>')
             
         fig_sl.update_layout(xaxis_title="Date")
-        fig_sl.add_hline(y=85, line_dash="dash", line_color="green", annotation_text="85% Target")
+        fig_sl.add_hline(y=85, line_dash="dash", line_color=COLOR_SUCCESS, annotation_text="85% Target")
+        fig_sl.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10))
+        ui_sl = dcc.Graph(id='sl-trend', figure=fig_sl, config={'displayModeBar': False})
     else:
-        fig_sl = px.line(title="No SL Data")
-    fig_sl.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10))
+        ui_sl = e_ui('sl-trend')
 
     # Chart 2: Language Pie
     if 'Language' in df_current.columns and 'Call Offered' in df_current.columns:
         lang_grp = df_current.groupby('Language')['Call Offered'].sum().reset_index()
         fig_lang = px.pie(lang_grp, names='Language', values='Call Offered', hole=0.6, color_discrete_sequence=px.colors.qualitative.Pastel)
-        fig_lang.update_traces(textposition='inside', textinfo='percent+label', hoverinfo='label+value', marker=dict(line=dict(color='#ffffff', width=2)))
+        fig_lang.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>%{label}</b><br>Count: %{value:,}<extra></extra>', marker=dict(line=dict(color='#ffffff', width=2)))
         fig_lang.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
+        ui_lang = dcc.Graph(id='lang-pie', figure=fig_lang, config={'displayModeBar': False})
     else:
-        fig_lang = px.pie(title="No Language Data")
-        fig_lang.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), showlegend=False)
+        ui_lang = e_ui('lang-pie')
 
     # Chart 3, 4, 5: Histograms
     if all(c in df_current.columns for c in ['ACD Time', 'ACW Time', 'Hold Time', 'ACD Calls']):
@@ -258,18 +240,24 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
         df_valid['Wrap Time'] = np.where(den_hist == 0, 0, df_valid['ACW Time'] / den_hist)
         df_valid['Hold Time Avg'] = np.where(den_hist == 0, 0, df_valid['Hold Time'] / den_hist)
         
-        fig_talk = px.histogram(df_valid, x='Talk Time', nbins=30, color_discrete_sequence=['#4299E1'])
+        fig_talk = px.histogram(df_valid, x='Talk Time', nbins=30, color_discrete_sequence=[COLOR_PRIMARY])
+        fig_talk.update_traces(hovertemplate='<b>Talk Time:</b> %{x}s<br><b>Frequency:</b> %{y}<extra></extra>')
         fig_talk.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False, yaxis_title="Frequency")
+        ui_talk = dcc.Graph(id='talk-hist', figure=fig_talk, config={'displayModeBar': False})
         
-        fig_wrap = px.histogram(df_valid, x='Wrap Time', nbins=30, color_discrete_sequence=['#48BB78'])
+        fig_wrap = px.histogram(df_valid, x='Wrap Time', nbins=30, color_discrete_sequence=[COLOR_NEUTRAL])
+        fig_wrap.update_traces(hovertemplate='<b>Wrap Time:</b> %{x}s<br><b>Frequency:</b> %{y}<extra></extra>')
         fig_wrap.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False, yaxis_title="")
+        ui_wrap = dcc.Graph(id='wrap-hist', figure=fig_wrap, config={'displayModeBar': False})
         
-        fig_hold = px.histogram(df_valid, x='Hold Time Avg', nbins=30, color_discrete_sequence=['#ED8936'])
+        fig_hold = px.histogram(df_valid, x='Hold Time Avg', nbins=30, color_discrete_sequence=[COLOR_WARNING])
+        fig_hold.update_traces(hovertemplate='<b>Hold Time:</b> %{x}s<br><b>Frequency:</b> %{y}<extra></extra>')
         fig_hold.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False, yaxis_title="")
+        ui_hold = dcc.Graph(id='hold-hist', figure=fig_hold, config={'displayModeBar': False})
     else:
-        fig_talk = px.histogram(title="No Data")
-        fig_wrap = px.histogram(title="No Data")
-        fig_hold = px.histogram(title="No Data")
+        ui_talk = e_ui('talk-hist')
+        ui_wrap = e_ui('wrap-hist')
+        ui_hold = e_ui('hold-hist')
 
     # Chart 6: Intraday
     if 'Date' in df_current.columns and not df_current['Date'].isna().all():
@@ -282,16 +270,15 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
         den_intra = avg_intraday['Call Offered'] - avg_intraday['ABAN Calls in 10 Sec']
         avg_intraday['SL %'] = np.where(den_intra == 0, 0, (avg_intraday['ACD Calls in 20 Sec'] / den_intra * 100))
         
-        # Intraday is always 48 points, too dense for static text labels
         fig_intra = go.Figure()
         fig_intra.add_trace(go.Bar(
             x=avg_intraday['TimeStr'], y=avg_intraday['Call Offered'].round(2), 
-            name='Avg Volume', marker_color='#3182ce', opacity=0.7, yaxis='y',
+            name='Avg Volume', marker_color=COLOR_NEUTRAL, opacity=0.7, yaxis='y',
             hovertemplate='<b>Time:</b> %{x}<br><b>Volume:</b> %{y}<extra></extra>'
         ))
         fig_intra.add_trace(go.Scatter(
             x=avg_intraday['TimeStr'], y=avg_intraday['SL %'].round(2), 
-            name='Avg SL %', mode='lines+markers', line=dict(color='#38a169', width=2), yaxis='y2',
+            name='Avg SL %', mode='lines+markers', line=dict(color=COLOR_SUCCESS, width=2), yaxis='y2',
             hovertemplate='<b>Time:</b> %{x}<br><b>SL:</b> %{y:.2f}%<extra></extra>'
         ))
         fig_intra.update_layout(
@@ -299,12 +286,13 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             yaxis=dict(title='Avg Volume', side='left', showgrid=False), yaxis2=dict(title='Avg SL %', side='right', overlaying='y', range=[0, 105], showgrid=False),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
+        ui_intra = dcc.Graph(id='intraday-chart-overall', figure=fig_intra, config={'displayModeBar': False}, style={'height': '400px'})
     else:
-        fig_intra = px.line(title="No Timestamp Data")
+        ui_intra = e_ui('intraday-chart-overall')
 
     # Chart 7: Company KPI Radar
     if all(c in df_current.columns for c in ['Company', 'Call Offered', 'ABAN Calls', 'ACD Time', 'ACW Time', 'Hold Time', 'ACD Calls', 'ACD Calls in 20 Sec', 'ABAN Calls in 10 Sec']):
-        comp_df = df_current.copy() # Removed hardcoded vendors
+        comp_df = df_current.copy() 
         comp_grp = comp_df.groupby('Company').sum(numeric_only=True).reset_index()
         
         comp_off = comp_grp['Call Offered']
@@ -354,8 +342,9 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             ))
             
         fig_agent.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True, template=get_plotly_template(), margin=dict(t=40, b=40, l=40, r=40))
+        ui_agent = dcc.Graph(id='aht-line-chart', figure=fig_agent, config={'displayModeBar': False})
     else:
-        fig_agent = px.line(title="No Company KPI Data")
+        ui_agent = e_ui('aht-line-chart')
 
     # Vol vs Abandonment Trend (using shared daily_grp)
     if not daily_grp.empty and all(c in daily_grp.columns for c in ['Call Offered', 'ABAN Calls']):
@@ -365,11 +354,11 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
         from plotly.subplots import make_subplots
         fig_vol = make_subplots(specs=[[{"secondary_y": True}]])
         
-        vol_trace = go.Bar(x=daily_grp['Date_Bucket'], y=daily_grp['Call Offered'].round(2), name="Volume", marker_color='#818cf8', opacity=0.85, hovertemplate='<b>Date:</b> %{x}<br><b>Volume:</b> %{y}<extra></extra>')
+        vol_trace = go.Bar(x=daily_grp['Date_Bucket'], y=daily_grp['Call Offered'].round(2), name="Volume", marker_color=COLOR_INFO, opacity=0.85, hovertemplate='<b>Date:</b> %{x}<br><b>Volume:</b> %{y}<extra></extra>')
         if show_text:
             vol_trace.update(text=daily_grp['Call Offered'].round(2), textposition='auto')
             
-        aban_trace = go.Scatter(x=daily_grp['Date_Bucket'], y=daily_grp['Aban %'].round(2), name="Abandon %", mode='lines+markers+text' if show_text else 'lines+markers', line=dict(color='#f43f5e', width=3), hovertemplate='<b>Date:</b> %{x}<br><b>Abandon %:</b> %{y:.2f}%<extra></extra>')
+        aban_trace = go.Scatter(x=daily_grp['Date_Bucket'], y=daily_grp['Aban %'].round(2), name="Abandon %", mode='lines+markers+text' if show_text else 'lines+markers', line=dict(color=COLOR_DANGER, width=3), hovertemplate='<b>Date:</b> %{x}<br><b>Abandon %:</b> %{y:.2f}%<extra></extra>')
         if show_text:
             aban_trace.update(text=daily_grp['Aban %'].round(2), textposition='top center')
             
@@ -379,8 +368,9 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
         fig_vol.update_xaxes(title_text="Date")
         fig_vol.update_yaxes(title_text="Volume", secondary_y=False, showgrid=False)
         fig_vol.update_yaxes(title_text="Abandon Rate %", secondary_y=True, showgrid=False)
+        ui_vol = dcc.Graph(id='vol-aban-trend', figure=fig_vol, config={'displayModeBar': False})
     else:
-        fig_vol = px.bar(title="No Volume Data")
+        ui_vol = e_ui('vol-aban-trend')
 
     # AHT Breakdown by Language (Sunburst)
     if all(c in df_current.columns for c in ['Language', 'ACD Time', 'ACW Time', 'Hold Time', 'ACD Calls']):
@@ -400,20 +390,20 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             sunburst_data.append({'Language': lang, 'Metric': 'Hold Time', 'Value': round(h_time, 2)})
             
         sb_df = pd.DataFrame(sunburst_data)
-        # Semantic enterprise color scheme based on CONTEXT.md rules
-        color_map = {'Talk Time': '#3b82f6', 'Wrap Time': '#64748b', 'Hold Time': '#ef4444'}
+        color_map = {'Talk Time': COLOR_PRIMARY, 'Wrap Time': COLOR_NEUTRAL, 'Hold Time': COLOR_DANGER}
         fig_aht_lang = px.sunburst(sb_df, path=['Language', 'Metric'], values='Value', color='Metric', color_discrete_map=color_map)
         fig_aht_lang.update_traces(textinfo='label+value', texttemplate='%{label}: %{value}s', hovertemplate='<b>%{label}</b><br>Value: %{value}s<extra></extra>')
         fig_aht_lang.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10))
+        ui_aht_lang = dcc.Graph(id='aht-lang-bar', figure=fig_aht_lang, config={'displayModeBar': False})
     else:
-        fig_aht_lang = px.pie(title="No Language AHT Data")
+        ui_aht_lang = e_ui('aht-lang-bar')
 
-    # Calls Offered vs Answered (using shared daily_grp)
+    # Calls Offered vs Answered
     if not daily_grp.empty and all(c in daily_grp.columns for c in ['Call Offered', 'ACD Calls']):
         show_text = len(daily_grp) <= 15
         
-        trace_off = go.Bar(name='Offered', x=daily_grp['Date_Bucket'], y=daily_grp['Call Offered'].round(2), marker_color='#38bdf8', opacity=0.9, hovertemplate='<b>Date:</b> %{x}<br><b>Offered:</b> %{y}<extra></extra>')
-        trace_ans = go.Bar(name='Answered', x=daily_grp['Date_Bucket'], y=daily_grp['ACD Calls'].round(2), marker_color='#6366f1', opacity=0.9, hovertemplate='<b>Date:</b> %{x}<br><b>Answered:</b> %{y}<extra></extra>')
+        trace_off = go.Bar(name='Offered', x=daily_grp['Date_Bucket'], y=daily_grp['Call Offered'].round(2), marker_color=COLOR_NEUTRAL, opacity=0.9, hovertemplate='<b>Date:</b> %{x}<br><b>Offered:</b> %{y}<extra></extra>')
+        trace_ans = go.Bar(name='Answered', x=daily_grp['Date_Bucket'], y=daily_grp['ACD Calls'].round(2), marker_color=COLOR_SUCCESS, opacity=0.9, hovertemplate='<b>Date:</b> %{x}<br><b>Answered:</b> %{y}<extra></extra>')
         
         if show_text:
             trace_off.update(text=daily_grp['Call Offered'].round(2), textposition='auto')
@@ -422,10 +412,11 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
         fig_off_ans = go.Figure(data=[trace_off, trace_ans])
         fig_off_ans.update_layout(barmode='group', template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
         fig_off_ans.update_xaxes(title_text="Date")
+        ui_off_ans = dcc.Graph(id='offered-ans-bar', figure=fig_off_ans, config={'displayModeBar': False})
     else:
-        fig_off_ans = px.bar(title="No Data")
+        ui_off_ans = e_ui('offered-ans-bar')
 
-    return kpis, fig_sl, fig_lang, fig_talk, fig_wrap, fig_hold, fig_intra, fig_agent, fig_vol, fig_aht_lang, fig_off_ans
+    return kpis, ui_sl, ui_lang, ui_talk, ui_wrap, ui_hold, ui_intra, ui_agent, ui_vol, ui_aht_lang, ui_off_ans
 
 # CSV Export Callback
 @callback(
@@ -547,7 +538,6 @@ def export_png_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_lin
     }
     
     if index == 'dashboard':
-        # Fallback to PDF for multi-chart dashboard export
         pdf_bytes = generate_dashboard_pdf(figures, "Dashboard")
         return dcc.send_bytes(pdf_bytes, "dashboard_export.pdf")
     else:

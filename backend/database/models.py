@@ -51,12 +51,16 @@ class FileMetadata(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, index=True, nullable=False)
+    upload_directory = Column(String, index=True, nullable=False, default="unknown")
     data_type = Column(String, default="CCF Data")
     uploaded_at = Column(String, default=lambda: datetime.now().isoformat())
     uploader = Column(String, nullable=True)
     size_bytes = Column(Integer, default=0)
     
+    __table_args__ = (UniqueConstraint('filename', 'upload_directory', name='uq_file_metadata'),)
+    
     metrics = relationship("CCFData", back_populates="file", cascade="all, delete-orphan")
+    unimate_metrics = relationship("UniMateData", back_populates="file", cascade="all, delete-orphan")
 
 
 class CCFData(Base):
@@ -94,3 +98,31 @@ class CCFData(Base):
     aht_status = Column(String)
     
     file = relationship("FileMetadata", back_populates="metrics")
+
+
+class UniMateData(Base):
+    __tablename__ = "unimate_data"
+
+    id = Column(Integer, primary_key=True, index=True)
+    file_id = Column(Integer, ForeignKey("file_metadata.id"), nullable=False)
+    
+    __table_args__ = (UniqueConstraint('ucid', name='uq_unimate_data'),)
+    
+    ucid = Column(String, index=True)
+    session_id = Column(String, index=True)
+    company = Column(String, index=True) # Derived from DNIS
+    day_of_week = Column(String)
+    call_start_time = Column(String, index=True)
+    call_end_time = Column(String)
+    call_duration = Column(Integer)
+    ani = Column(String)
+    dnis = Column(String)
+    language = Column(String, index=True)
+    authentication = Column(String)
+    auth_mechanism = Column(String)
+    termination_type = Column(String)
+    termination_reason = Column(String)
+    description = Column(String)
+    region = Column(String)
+    
+    file = relationship("FileMetadata", back_populates="unimate_metrics")

@@ -1,6 +1,14 @@
 import plotly.io as pio
 import plotly.graph_objects as go
 
+# Semantic Color Palette
+COLOR_PRIMARY = '#2563eb' # Blue
+COLOR_SUCCESS = '#10b981' # Green
+COLOR_WARNING = '#f59e0b' # Amber
+COLOR_DANGER = '#ef4444' # Red
+COLOR_NEUTRAL = '#64748b' # Slate
+COLOR_INFO = '#0ea5e9' # Light Blue
+
 def get_plotly_template():
     """
     Returns a Plotly graph template matching the PostHog light theme.
@@ -56,15 +64,7 @@ def make_header_with_download(title, graph_id, page_id="dashboard"):
         )
     ], className="d-flex justify-content-between align-items-center w-100")
 
-def wrap_graph_with_download(graph_id, graph_component, page_id="dashboard"):
-    from dash import html, dcc
-    return html.Div([
-        dcc.Loading(
-            custom_spinner=html.Div(className="skeleton-pulse"),
-            children=[graph_component]
-        ),
-        dcc.Download(id={'type': f'download-data-{page_id}', 'index': graph_id})
-    ])
+
 
 def make_export_dropdown(page_id):
     import dash_bootstrap_components as dbc
