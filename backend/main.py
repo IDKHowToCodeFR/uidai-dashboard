@@ -26,7 +26,7 @@ def process_unprocessed_files():
         
     db = SessionLocal()
     try:
-        indexed = {f[0] for f in db.query(FileMetadata.filename).all()}
+        indexed = {(f[0], f[1]) for f in db.query(FileMetadata.filename, FileMetadata.upload_directory).all()}
         from backend.config import ActiveFoldersConfig
         active_folders = ActiveFoldersConfig.get_active_folders(db)
         
@@ -41,10 +41,14 @@ def process_unprocessed_files():
                 filename = os.path.basename(file_path)
                 if filename.startswith("~$") or filename.startswith("."):
                     continue
-                if filename not in indexed:
+                upload_dir = os.path.basename(os.path.dirname(file_path))
+                if (filename, upload_dir) not in indexed:
                     from backend.data_ingestion.websockets import process_file_background
                     try:
                         data_type = data_type_folder.replace("_", " ").title()
+                        if data_type.lower() == "unimate data":
+                            data_type = "UniMate Data"
+                            
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
                         loop.run_until_complete(process_file_background(file_path, filename, "CRON", "system_cron", data_type=data_type, meta={}))

@@ -63,10 +63,15 @@ class ApiClient:
     def get_data_types(self, token: str):
         return self._handle_response(self.session.get(f"{self.base_url}/data_types", headers=self._get_headers(token)))
 
-    def get_history(self, token: str, impersonate: str = None):
+    def get_history(self, token: str, impersonate: str = None, data_type: str = None):
         url = f"{self.base_url}/history"
+        params = []
         if impersonate:
-            url += f"?impersonate={impersonate}"
+            params.append(f"impersonate={impersonate}")
+        if data_type:
+            params.append(f"data_type={data_type}")
+        if params:
+            url += "?" + "&".join(params)
         return self._handle_response(self.session.get(url, headers=self._get_headers(token)))
 
     def get_data(self, token: str, val: str, impersonate: str = None):
@@ -94,7 +99,7 @@ class ApiClient:
             return dict(content=encoded, filename=out_filename, base64=True)
         return None
 
-    def upload_file(self, token: str, files: dict, client_id: str = None, data_type: str = "CCF Data"):
+    def upload_file(self, token: str, files: dict, client_id: str = None, data_type: str = "Ccf Data"):
         data = {"client_id": client_id} if client_id else {}
         data["data_type"] = data_type
         return self._handle_response(self.session.post(f"{self.base_url}/upload", headers=self._get_headers(token), files=files, data=data))
@@ -110,10 +115,10 @@ api_client = ApiClient(API_BASE_URL)
 from datetime import datetime
 from dash import html
 
-def get_history_options(token, user_role=None, permissions=None, impersonate=None):
+def get_history_options(token, user_role=None, permissions=None, impersonate=None, data_type=None):
     if permissions is None: permissions = []
     try:
-        response = api_client.get_history(token, impersonate)
+        response = api_client.get_history(token, impersonate, data_type)
         if response.status_code == 200:
             file_times = response.json()
         else:
@@ -149,7 +154,7 @@ def get_history_options(token, user_role=None, permissions=None, impersonate=Non
         options.append({'label': label, 'value': item['name']})
     return options
 
-def upload_file_to_api(contents, filename, token, client_id=None, data_type="CCF Data"):
+def upload_file_to_api(contents, filename, token, client_id=None, data_type="Ccf Data"):
     try:
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)

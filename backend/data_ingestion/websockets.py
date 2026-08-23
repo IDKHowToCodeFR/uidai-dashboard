@@ -42,27 +42,44 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
 
 async def process_file_background(save_path: str, out_filename: str, client_id: str, username: str, data_type: str = "CCF Data", meta: dict = None):
     try:
-        from backend.data_ingestion.ccf_parser import CCFParser
-        from backend.database.repo import CCFDatabaseRepo
-        
         async def progress_callback(progress, message):
             await manager.send_message({'status': 'processing', 'progress': progress, 'message': message}, client_id)
+
+        if data_type == "UniMate Data":
+            from backend.data_ingestion.unimate_parser import UniMateParser
+            from backend.database.repo import UniMateDatabaseRepo
+            df = await UniMateParser.parse(save_path, progress_callback=progress_callback)
             
-        # 1. Parse File (Pure Domain Module)
-        df = await CCFParser.parse(save_path, progress_callback=progress_callback)
+            await manager.send_message({'status': 'processing', 'progress': 90, 'message': 'Inserting into database...'}, client_id)
+            with SessionLocal() as db:
+                UniMateDatabaseRepo.save_parsed_data(
+                    db=db, 
+                    df=df, 
+                    save_path=save_path, 
+                    out_filename=out_filename, 
+                    username=username, 
+                    data_type=data_type, 
+                    meta=meta
+                )
+        else:
+            from backend.data_ingestion.ccf_parser import CCFParser
+            from backend.database.repo import CCFDatabaseRepo
             
-        # 2. Database Insert
-        await manager.send_message({'status': 'processing', 'progress': 90, 'message': 'Inserting into database...'}, client_id)
-        with SessionLocal() as db:
-            CCFDatabaseRepo.save_parsed_data(
-                db=db, 
-                df=df, 
-                save_path=save_path, 
-                out_filename=out_filename, 
-                username=username, 
-                data_type=data_type, 
-                meta=meta
-            )
+            # 1. Parse File (Pure Domain Module)
+            df = await CCFParser.parse(save_path, progress_callback=progress_callback)
+                
+            # 2. Database Insert
+            await manager.send_message({'status': 'processing', 'progress': 90, 'message': 'Inserting into database...'}, client_id)
+            with SessionLocal() as db:
+                CCFDatabaseRepo.save_parsed_data(
+                    db=db, 
+                    df=df, 
+                    save_path=save_path, 
+                    out_filename=out_filename, 
+                    username=username, 
+                    data_type=data_type, 
+                    meta=meta
+                )
             
         await manager.send_message({'status': 'complete', 'progress': 100, 'message': 'Upload complete!'}, client_id)
     except Exception as e:

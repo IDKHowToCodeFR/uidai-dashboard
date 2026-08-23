@@ -12,4 +12,4 @@ class ActiveFoldersConfig:
         if setting and isinstance(setting.value, list):
             return setting.value
         # Default fallback to preserve existing behavior if setting isn't configured yet
-        return ["ccf_data"]
+        return ["ccf_data", "unimate_data"]
