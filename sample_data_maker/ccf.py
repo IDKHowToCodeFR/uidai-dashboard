@@ -102,6 +102,10 @@ def generate_sample_ccf_data(num_records = 1000, days = 30):
     print(f"Successfully generated {num_records} CCF sample records at {file_path}")
 
 if __name__ == "__main__":
-    n = int(input("Input rows : "))
-    days = int(input("Input days (default 30) : "))
+    n_input = input("Input rows (default 1000) : ")
+    n = int(n_input) if n_input.strip() else 1000
+    
+    days_input = input("Input days (default 30) : ")
+    days = int(days_input) if days_input.strip() else 30
+    
     generate_sample_ccf_data(n, days)

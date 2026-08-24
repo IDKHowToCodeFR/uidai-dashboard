@@ -1,5 +1,7 @@
 # Glossary
 
+- **Vendor**: A third-party operator handling calls for the contact center (e.g., Digitech, NSB). Replaces "agency" or "company" for consistency. Vendor identification is extracted from raw data (e.g., parsing the first digit of the `split1` column in CDR) because raw files strictly omit explicit Vendor columns.
+- **Datasets**: CDR, Unimate, and CCF data streams are treated as completely independent sources for aggregated visualizations. There is no requirement to join them at the individual call/session level (e.g., linking UCID to Call ID).
 - **Permissions**: Granular capabilities assigned to an identity.
   - `can_view_global`: Can view all data.
   - `can_view_scoped`: Can only view assigned data.
