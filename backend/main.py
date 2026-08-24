@@ -45,9 +45,16 @@ def process_unprocessed_files():
                 if (filename, upload_dir) not in indexed:
                     from backend.data_ingestion.websockets import process_file_background
                     try:
-                        data_type = data_type_folder.replace("_", " ").title()
-                        if data_type.lower() == "unimate data":
-                            data_type = "UniMate Data"
+                        # Canonical mapping — .title() breaks acronyms ("Cdr Data" instead of "CDR Data")
+                        FOLDER_TO_DATA_TYPE = {
+                            "ccf_data": "CCF Data",
+                            "cdr_data": "CDR Data",
+                            "unimate_data": "UniMate Data",
+                        }
+                        data_type = FOLDER_TO_DATA_TYPE.get(data_type_folder.lower())
+                        if data_type is None:
+                            print(f"CRON: Unknown data folder '{data_type_folder}', skipping {filename}")
+                            continue
                             
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)

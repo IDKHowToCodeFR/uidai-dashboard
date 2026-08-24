@@ -9,13 +9,38 @@ output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file
 os.makedirs(output_dir, exist_ok=True)
 
 # Define constants
-# Languages codes (11 to 22 for 12 languages)
-LANGUAGE_CODES = [str(i) for i in range(11, 23)] # 11 to 22
+# Language code mapping (split1 encodes vendor + language as a 3-digit code)
+# First digit: 8 = Digitech, 9 = NSB
+# Last two digits: language code
+LANGUAGE_CODES = {
+    "11": "Hindi",
+    "12": "English",
+    "13": "Bengali",
+    "14": "Telugu",
+    "15": "Marathi",
+    "16": "Tamil",
+    "17": "Gujarati",
+    "18": "Kannada",
+    "19": "Odia",
+    "20": "Malayalam",
+    "21": "Punjabi",
+    "22": "Assamese",
+}
+
+# Population-based weights matching the same 12 languages in order
+# Hindi >> English > Bengali > Telugu ~ Marathi > Tamil > Gujarati > Kannada > Odia ~ Punjabi ~ Malayalam > Assamese
+LANG_CODES_LIST = list(LANGUAGE_CODES.keys())
+LANG_WEIGHTS = [0.44, 0.18, 0.07, 0.05, 0.05, 0.05, 0.04, 0.03, 0.02, 0.02, 0.03, 0.02]
+
 
 def generate_sample_cdr_data(num_records=1000, days=30):
     data = []
     
     start_date = datetime.now() - timedelta(days=days)
+    
+    # Pre-generate a pool of ~50 agent logins per vendor for realism
+    digitech_agents = [f"56{random.randint(10000, 99999)}" for _ in range(50)]
+    nsb_agents = [f"57{random.randint(10000, 99999)}" for _ in range(50)]
     
     for _ in range(num_records):
         call_id = str(uuid.uuid4())
@@ -24,49 +49,72 @@ def generate_sample_cdr_data(num_records=1000, days=30):
         random_seconds = random.randint(0, days * 24 * 60 * 60)
         segstart = start_date + timedelta(seconds=random_seconds)
         
-        # Duration, talktime, acwtime, ansholdtime
-        # Let's say talktime is between 0 and 3240 seconds
-        talktime = random.randint(0, 3240)
+        # --- Time-of-day realism (matches CCF/UniMate patterns) ---
+        hour = segstart.hour
+        day_name = segstart.strftime("%A")
         
-        # acwtime is answered call waiting time
-        acwtime = random.randint(0, 300) 
+        if 9 <= hour <= 18:
+            tod_multiplier = random.uniform(0.8, 1.3)
+        elif 6 <= hour < 9 or 18 < hour <= 21:
+            tod_multiplier = random.uniform(0.5, 0.9)
+        else:
+            # Late night / early morning: very few calls, mostly short/abandoned
+            tod_multiplier = random.uniform(0.1, 0.4)
+            
+        # Weekend dip
+        if day_name in ("Saturday", "Sunday"):
+            tod_multiplier *= random.uniform(0.5, 0.7)
         
-        # ansholdtime is hold time for answered call
-        ansholdtime = random.randint(0, 600)
+        # --- Realistic call timings ---
+        # Talktime: most calls 30s-8min, occasional long calls up to 54min
+        # Use lognormal for realistic heavy-tail distribution
+        raw_talk = random.lognormvariate(4.5, 1.2)  # median ~90s, long tail
+        talktime = max(0, min(int(raw_talk * tod_multiplier), 3240))
         
-        # Duration can be the sum of these, plus ringing time etc. We'll just make it total
-        duration = talktime + acwtime + ansholdtime + random.randint(5, 60)
+        # ACW (after-call work): typically 10-120s, skewed short
+        acwtime = max(0, int(random.lognormvariate(3.2, 0.8) * tod_multiplier))
+        acwtime = min(acwtime, 300)
+        
+        # Hold time: most calls no hold, some have 10-180s hold
+        if random.random() < 0.35:  # 35% of calls have hold time
+            ansholdtime = max(0, int(random.lognormvariate(3.0, 1.0)))
+            ansholdtime = min(ansholdtime, 600)
+        else:
+            ansholdtime = 0
+        
+        # Duration = talk + acw + hold + ring/setup overhead
+        ring_time = random.randint(5, 30)
+        duration = talktime + acwtime + ansholdtime + ring_time
         
         segstop = segstart + timedelta(seconds=duration)
         
-        # UTC times (assuming segstart is IST (UTC+5:30) for example, we subtract 5.5 hours)
-        # But we can just subtract 5:30 hours to make a UTC equivalent
+        # UTC times (IST = UTC+5:30)
         segstartutc = segstart - timedelta(hours=5, minutes=30)
         segstoputc = segstop - timedelta(hours=5, minutes=30)
         
-        # split1: 811-822 (Digitech) / 911-922 (NSB)
-        agency_code = random.choice(["8", "9"])
-        lang_code = random.choice(LANGUAGE_CODES)
+        # --- Vendor & Language from split1 ---
+        # Digitech (8xx) handles 60% of volume, NSB (9xx) handles 40%
+        agency_code = random.choices(["8", "9"], weights=[0.6, 0.4], k=1)[0]
+        lang_code = random.choices(LANG_CODES_LIST, weights=LANG_WEIGHTS, k=1)[0]
         split1 = f"{agency_code}{lang_code}"
         
-        transferred = random.choice([0, 1])
+        # --- Transfer / agent release logic ---
+        # ~8% of calls get transferred (realistic for contact center)
+        transferred = 1 if random.random() < 0.08 else 0
         
         if transferred == 1:
             agt_released = 1
         else:
-            agt_released = random.choice([0, 1])
+            # ~90% of non-transferred calls release normally
+            agt_released = 1 if random.random() < 0.90 else 0
             
-        # Agency for login (56 for Digitech if split1 starts with 8, 57 for NSB if 9)
+        # Agent logins from the vendor's pool (reuse agents for realism)
         if agency_code == "8":
-            anslogin_prefix = "56"
-            origlogin_prefix = "56"
+            anslogin = random.choice(digitech_agents)
+            origlogin = random.choice(digitech_agents)
         else:
-            anslogin_prefix = "57"
-            origlogin_prefix = "57"
-            
-        anslogin = f"{anslogin_prefix}{random.randint(10000, 99999)}"
-        # origlogin similar to anslogin but different number from same organization
-        origlogin = f"{origlogin_prefix}{random.randint(10000, 99999)}"
+            anslogin = random.choice(nsb_agents)
+            origlogin = random.choice(nsb_agents)
         
         data.append({
             "Call Id": call_id,

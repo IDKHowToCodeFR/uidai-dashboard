@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from backend.auth.auth_utils import get_current_user, PermissionChecker, add_log, extract_request_metadata
 from backend.database.database import get_db
-from backend.database.models import FileMetadata, CCFData, UniMateData
+from backend.database.models import FileMetadata, CCFData, UniMateData, CDRData
 from backend.data_ingestion.websockets import process_file_background
 
 def serialize_data(metrics, data_type):
@@ -32,6 +32,27 @@ def serialize_data(metrics, data_type):
                 "Termination Reason": m.termination_reason,
                 "Description": m.description,
                 "Region": m.region
+            } for m in metrics
+        ]
+    elif data_type == "CDR Data":
+        return [
+            {
+                "Call Id": m.call_id,
+                "acwtime": m.acwtime,
+                "ansholdtime": m.ansholdtime,
+                "duration": m.duration,
+                "segstart": m.segstart,
+                "segstartutc": m.segstartutc,
+                "segstop": m.segstop,
+                "segstoputc": m.segstoputc,
+                "talktime": m.talktime,
+                "split1": m.split1,
+                "transferred": m.transferred,
+                "agt_released": m.agt_released,
+                "origlogin": m.origlogin,
+                "anslogin": m.anslogin,
+                "Company": m.company,
+                "Language": m.language
             } for m in metrics
         ]
     else:
@@ -82,19 +103,6 @@ async def upload_file(
     if "can_upload_files" not in permissions:
         raise HTTPException(status_code=403, detail="You do not have permission to upload files.")
         
-    prefix = f"{user_role}_" if user_role and user_role != 'Admin' else "Admin_"
-    safe_filename = os.path.basename(file.filename)
-    out_filename = prefix + safe_filename
-    
-    safe_data_type = "".join([c if c.isalnum() else "_" for c in data_type.lower()])
-    unprocessed_dir = os.path.join(UIDAI_DATA_DIR, safe_data_type)
-    os.makedirs(unprocessed_dir, exist_ok=True)
-    
-    save_path = os.path.abspath(os.path.join(unprocessed_dir, out_filename))
-    
-    if not save_path.startswith(os.path.abspath(unprocessed_dir)):
-        raise HTTPException(status_code=400, detail="Invalid filename")
-        
     if file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="CSV files are not allowed. Please upload an Excel file (.xlsx, .xls)")
     
@@ -103,18 +111,52 @@ async def upload_file(
     if len(contents) > 50 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="File too large")
         
+    # Auto-detect data_type from file headers
+    detected_type = data_type
+    try:
+        df_sniff = pd.read_excel(io.BytesIO(contents), nrows=0, engine='openpyxl')
+        columns = df_sniff.columns.str.strip().tolist()
+        if 'Call Id' in columns or 'split1' in columns:
+            detected_type = "CDR Data"
+        elif 'UCID' in columns:
+            detected_type = "UniMate Data"
+        else:
+            detected_type = "CCF Data"
+    except Exception:
+        # Fallback to the one provided by form if sniffing fails
+        pass
+
+    prefix = f"{user_role}_" if user_role and user_role != 'Admin' else "Admin_"
+    safe_filename = os.path.basename(file.filename)
+    out_filename = prefix + safe_filename
+    
+    safe_data_type = "".join([c if c.isalnum() else "_" for c in detected_type.lower()])
+    unprocessed_dir = os.path.join(UIDAI_DATA_DIR, safe_data_type)
+    os.makedirs(unprocessed_dir, exist_ok=True)
+    
+    save_path = os.path.abspath(os.path.join(unprocessed_dir, out_filename))
+    
+    if not save_path.startswith(os.path.abspath(unprocessed_dir)):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+        
     # Standard practice: Store raw file in codebase first
     with open(save_path, "wb") as f:
         f.write(contents)
         
     if client_id:
         meta = extract_request_metadata(request)
-        background_tasks.add_task(process_file_background, save_path, out_filename, client_id, current_user["username"], data_type, meta)
+        background_tasks.add_task(process_file_background, save_path, out_filename, client_id, current_user["username"], detected_type, meta)
         return {"message": "Processing started", "status": "processing"}
     else:
         # We don't support synchronous upload without client_id anymore because it's an ETL pipeline
         raise HTTPException(status_code=400, detail="client_id is required for ETL processing")
 
+
+FOLDER_TO_DATA_TYPE = {
+    "ccf_data": "CCF Data",
+    "cdr_data": "CDR Data",
+    "unimate_data": "UniMate Data",
+}
 
 @router.get("/data_types")
 async def get_data_types(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -122,7 +164,7 @@ async def get_data_types(current_user: dict = Depends(get_current_user), db: Ses
         return ["CCF Data"]
         
     folders = [d for d in os.listdir(UIDAI_DATA_DIR) if os.path.isdir(os.path.join(UIDAI_DATA_DIR, d))]
-    valid_types = [f.replace("_", " ").title() for f in folders]
+    valid_types = [FOLDER_TO_DATA_TYPE[f] for f in folders if f in FOLDER_TO_DATA_TYPE]
     if not valid_types:
         valid_types = ["CCF Data"]
     return valid_types
@@ -151,7 +193,13 @@ async def get_history(data_type: Optional[str] = None, impersonate: Optional[str
 
 @router.get("/data/aggregate")
 async def get_aggregated_data(data_type: str = "CCF Data", impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-    model_class = UniMateData if data_type == "UniMate Data" else CCFData
+    if data_type == "UniMate Data":
+        model_class = UniMateData
+    elif data_type == "CDR Data":
+        model_class = CDRData
+    else:
+        model_class = CCFData
+        
     query = db.query(model_class)
     
     if impersonate:
@@ -167,7 +215,13 @@ async def get_data(filename: str, impersonate: Optional[str] = None, current_use
     if not file_meta:
         raise HTTPException(status_code=404, detail="File not found")
         
-    model_class = UniMateData if file_meta.data_type == "UniMate Data" else CCFData
+    if file_meta.data_type == "UniMate Data":
+        model_class = UniMateData
+    elif file_meta.data_type == "CDR Data":
+        model_class = CDRData
+    else:
+        model_class = CCFData
+        
     query = db.query(model_class).filter(model_class.file_id == file_meta.id)
     
     if impersonate:
@@ -193,7 +247,13 @@ async def download_file(request: Request, filename: str, impersonate: Optional[s
             headers = {'Content-Disposition': f'attachment; filename="{filename}"'}
             return FileResponse(file_path, headers=headers, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             
-    model_class = UniMateData if file_meta.data_type == "UniMate Data" else CCFData
+    if file_meta.data_type == "UniMate Data":
+        model_class = UniMateData
+    elif file_meta.data_type == "CDR Data":
+        model_class = CDRData
+    else:
+        model_class = CCFData
+        
     query = db.query(model_class).filter(model_class.file_id == file_meta.id)
     
     if impersonate:
@@ -216,7 +276,14 @@ async def download_file(request: Request, filename: str, impersonate: Optional[s
     safe_filename = os.path.basename(filename)
     base_name = os.path.splitext(safe_filename)[0]
     today_str = datetime.now().strftime("%Y-%m-%d")
-    export_prefix = "UniMate_Report" if file_meta.data_type == "UniMate Data" else "CCF_Report"
+    
+    if file_meta.data_type == "UniMate Data":
+        export_prefix = "UniMate_Report"
+    elif file_meta.data_type == "CDR Data":
+        export_prefix = "CDR_Report"
+    else:
+        export_prefix = "CCF_Report"
+        
     export_filename = f"{export_prefix}_{base_name}_{today_str}.xlsx"
     
     meta = extract_request_metadata(request)

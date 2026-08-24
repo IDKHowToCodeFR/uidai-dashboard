@@ -61,6 +61,23 @@ async def process_file_background(save_path: str, out_filename: str, client_id: 
                     data_type=data_type, 
                     meta=meta
                 )
+        elif data_type == "CDR Data":
+            from backend.data_ingestion.cdr_parser import CDRParser
+            from backend.database.repo import CDRDatabaseRepo
+            
+            df = await CDRParser.parse(save_path, progress_callback=progress_callback)
+            
+            await manager.send_message({'status': 'processing', 'progress': 90, 'message': 'Inserting into database...'}, client_id)
+            with SessionLocal() as db:
+                CDRDatabaseRepo.save_parsed_data(
+                    db=db, 
+                    df=df, 
+                    save_path=save_path, 
+                    out_filename=out_filename, 
+                    username=username, 
+                    data_type=data_type, 
+                    meta=meta
+                )
         else:
             from backend.data_ingestion.ccf_parser import CCFParser
             from backend.database.repo import CCFDatabaseRepo

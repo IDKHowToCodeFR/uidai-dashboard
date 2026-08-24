@@ -61,6 +61,7 @@ class FileMetadata(Base):
     
     metrics = relationship("CCFData", back_populates="file", cascade="all, delete-orphan")
     unimate_metrics = relationship("UniMateData", back_populates="file", cascade="all, delete-orphan")
+    cdr_metrics = relationship("CDRData", back_populates="file", cascade="all, delete-orphan")
 
 
 class CCFData(Base):
@@ -126,3 +127,33 @@ class UniMateData(Base):
     region = Column(String)
     
     file = relationship("FileMetadata", back_populates="unimate_metrics")
+
+
+class CDRData(Base):
+    __tablename__ = "cdr_data"
+
+    id = Column(Integer, primary_key=True, index=True)
+    file_id = Column(Integer, ForeignKey("file_metadata.id"), nullable=False)
+    
+    __table_args__ = (UniqueConstraint('call_id', name='uq_cdr_data'),)
+    
+    call_id = Column(String, index=True)
+    acwtime = Column(Integer)
+    ansholdtime = Column(Integer)
+    duration = Column(Integer)
+    segstart = Column(String, index=True)
+    segstartutc = Column(String)
+    segstop = Column(String)
+    segstoputc = Column(String)
+    talktime = Column(Integer)
+    split1 = Column(String)
+    transferred = Column(Integer)
+    agt_released = Column(Integer)
+    origlogin = Column(String)
+    anslogin = Column(String)
+    
+    company = Column(String, index=True)
+    language = Column(String, index=True)
+    
+    file = relationship("FileMetadata", back_populates="cdr_metrics")
+

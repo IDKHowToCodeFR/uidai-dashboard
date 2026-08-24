@@ -99,7 +99,7 @@ class ApiClient:
             return dict(content=encoded, filename=out_filename, base64=True)
         return None
 
-    def upload_file(self, token: str, files: dict, client_id: str = None, data_type: str = "Ccf Data"):
+    def upload_file(self, token: str, files: dict, client_id: str = None, data_type: str = "CCF Data"):
         data = {"client_id": client_id} if client_id else {}
         data["data_type"] = data_type
         return self._handle_response(self.session.post(f"{self.base_url}/upload", headers=self._get_headers(token), files=files, data=data))
@@ -154,7 +154,7 @@ def get_history_options(token, user_role=None, permissions=None, impersonate=Non
         options.append({'label': label, 'value': item['name']})
     return options
 
-def upload_file_to_api(contents, filename, token, client_id=None, data_type="Ccf Data"):
+def upload_file_to_api(contents, filename, token, client_id=None, data_type="CCF Data"):
     try:
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
