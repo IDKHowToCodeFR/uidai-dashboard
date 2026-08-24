@@ -143,7 +143,12 @@ def register_auth_callbacks(app):
             response = api_client.login(username, password)
             if response.status_code == 200:
                 data = response.json()
-                auth_data = {'user': data['role'], 'token': data['access_token'], 'permissions': data.get('permissions', [])}
+                auth_data = {
+                    'user': data['role'],
+                    'token': data['access_token'],
+                    'permissions': data.get('permissions', []),
+                    'companies': data.get('companies', [])
+                }
                 if remember:
                     return auth_data, None, "", "text-danger small mb-3"
                 else:

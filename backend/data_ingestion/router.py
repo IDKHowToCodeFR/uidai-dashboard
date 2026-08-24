@@ -172,10 +172,40 @@ async def get_data_types(current_user: dict = Depends(get_current_user), db: Ses
 
 @router.get("/history")
 async def get_history(data_type: Optional[str] = None, impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    user_companies = current_user.get("companies", [])
+    permissions = current_user.get("permissions", [])
+    is_global = current_user.get("role") == "Admin" or "can_view_global" in permissions
+    
     query = db.query(FileMetadata)
     if data_type:
         query = query.filter(FileMetadata.data_type == data_type)
     
+    target_company = None
+    if is_global:
+        if impersonate:
+            target_company = impersonate
+    else:
+        if impersonate:
+            if impersonate not in user_companies:
+                raise HTTPException(status_code=403, detail="Access denied.")
+            target_company = impersonate
+        else:
+            # Filter files containing data for the user's scoped companies
+            if data_type == "UniMate Data":
+                query = query.filter(FileMetadata.unimate_metrics.any(UniMateData.company.in_(user_companies)))
+            elif data_type == "CDR Data":
+                query = query.filter(FileMetadata.cdr_metrics.any(CDRData.company.in_(user_companies)))
+            else:
+                query = query.filter(FileMetadata.metrics.any(CCFData.company.in_(user_companies)))
+                
+    if target_company:
+        if data_type == "UniMate Data":
+            query = query.filter(FileMetadata.unimate_metrics.any(UniMateData.company == target_company))
+        elif data_type == "CDR Data":
+            query = query.filter(FileMetadata.cdr_metrics.any(CDRData.company == target_company))
+        else:
+            query = query.filter(FileMetadata.metrics.any(CCFData.company == target_company))
+            
     files = query.order_by(FileMetadata.uploaded_at.desc()).all()
     
     file_times = []
@@ -189,8 +219,8 @@ async def get_history(data_type: Optional[str] = None, impersonate: Optional[str
         })
     
     return file_times
-
-
+    
+    
 @router.get("/data/aggregate")
 async def get_aggregated_data(data_type: str = "CCF Data", impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     if data_type == "UniMate Data":
@@ -202,13 +232,25 @@ async def get_aggregated_data(data_type: str = "CCF Data", impersonate: Optional
         
     query = db.query(model_class)
     
-    if impersonate:
-        query = query.filter(model_class.company == impersonate)
+    user_companies = current_user.get("companies", [])
+    permissions = current_user.get("permissions", [])
+    is_global = current_user.get("role") == "Admin" or "can_view_global" in permissions
+    
+    if is_global:
+        if impersonate:
+            query = query.filter(model_class.company == impersonate)
+    else:
+        if impersonate:
+            if impersonate not in user_companies:
+                raise HTTPException(status_code=403, detail="Access denied to this company.")
+            query = query.filter(model_class.company == impersonate)
+        else:
+            query = query.filter(model_class.company.in_(user_companies))
             
     metrics = query.all()
     return serialize_data(metrics, data_type)
-
-
+    
+    
 @router.get("/data/{filename}")
 async def get_data(filename: str, impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     file_meta = db.query(FileMetadata).filter(FileMetadata.filename == filename).first()
@@ -224,20 +266,37 @@ async def get_data(filename: str, impersonate: Optional[str] = None, current_use
         
     query = db.query(model_class).filter(model_class.file_id == file_meta.id)
     
-    if impersonate:
-        query = query.filter(model_class.company == impersonate)
-        
+    user_companies = current_user.get("companies", [])
+    permissions = current_user.get("permissions", [])
+    is_global = current_user.get("role") == "Admin" or "can_view_global" in permissions
+    
+    if is_global:
+        if impersonate:
+            query = query.filter(model_class.company == impersonate)
+    else:
+        if impersonate:
+            if impersonate not in user_companies:
+                raise HTTPException(status_code=403, detail="Access denied to this company.")
+            query = query.filter(model_class.company == impersonate)
+        else:
+            query = query.filter(model_class.company.in_(user_companies))
+            
     metrics = query.all()
     return serialize_data(metrics, file_meta.data_type)
-
-
+    
+    
 @router.get("/download/{filename}")
 async def download_file(request: Request, filename: str, impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     file_meta = db.query(FileMetadata).filter(FileMetadata.filename == filename).order_by(FileMetadata.id.desc()).first()
     if not file_meta:
         raise HTTPException(status_code=404, detail="File not found")
         
-    if not impersonate:
+    user_companies = current_user.get("companies", [])
+    permissions = current_user.get("permissions", [])
+    is_global = current_user.get("role") == "Admin" or "can_view_global" in permissions
+    
+    # Restrict raw file downloads to global viewers only
+    if not impersonate and is_global:
         safe_data_type = "".join([c if c.isalnum() else "_" for c in file_meta.data_type.lower()])
         file_path = os.path.join(UIDAI_DATA_DIR, safe_data_type, filename)
         
@@ -256,15 +315,22 @@ async def download_file(request: Request, filename: str, impersonate: Optional[s
         
     query = db.query(model_class).filter(model_class.file_id == file_meta.id)
     
-    if impersonate:
-        query = query.filter(model_class.company == impersonate)
-        
+    if is_global:
+        if impersonate:
+            query = query.filter(model_class.company == impersonate)
+    else:
+        if impersonate:
+            if impersonate not in user_companies:
+                raise HTTPException(status_code=403, detail="Access denied to this company.")
+            query = query.filter(model_class.company == impersonate)
+        else:
+            query = query.filter(model_class.company.in_(user_companies))
+            
     metrics = query.all()
     if not metrics:
         raise HTTPException(status_code=404, detail="No data available for this file")
         
     data = serialize_data(metrics, file_meta.data_type)
-
     df = pd.DataFrame(data)
     
     output = io.BytesIO()
