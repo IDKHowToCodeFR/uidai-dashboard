@@ -1,27 +1,43 @@
 $$$$ No matter what happens never remove this file from the code. $$$$
 
-Unimate Data : 
-    - UCID : A random unique id for each case, for now anything, just used as primary key no use in dashboard. 
-    - Session ID : Again a random session ID, genreated for refence case. 
-    - Day of Week : Integer between 1 & 7. 1 stands for SUNDAY. 
+CDR Data :
+    - Call Id : Random Id just for Call Identifcation and primary key making.
+    - acwtime (in seconds) : answered call waiting time.
+    - ansholdtime (in seconds) : hold time for answered call.
+    - duration (in seconds) : call duration in seconds.
+    - segstart : call start time (DD-MM-YYYY HH:MM:SS).
+    - segstartutc : segstart in utc.
+    - segstop : call stop time (DD-MM-YYYY HH:MM:SS).
+    - segstoputc : segstop in utc.
+    - talktime : describes the actual talk time (0-3240).
+    - split1 : 811-822/911-922. All 12 languages in form of codes and 8 meand to digitech and 9 means to NSB. Next two digit is language code 11 : Hindi. Means 811, Hindi in Digitech.
+    - transferred : 0/1 (False & True).
+    - agt_released : 0/1 (False & True). If transfered = 1 then this is always else if transferred is 0 then it can be 0 or 1.
+    - origlogin : kinda similar ro origlogin just different number but from same organization.
+    - anslogin : agent id. What the agent sees or logs in the record, let's say 7 digit random number based on agency, 56..... for digitech, 57....... for NSB.
+
+Unimate Data :
+    - UCID : A random unique id for each case, for now anything, just used as primary key no use in dashboard.
+    - Session ID : Again a random session ID, genreated for refence case.
+    - Day of Week : Integer between 1 & 7. 1 stands for SUNDAY.
     - Call Start Time : Date_Time, (YYYY-MM-DD, HH:MM:SS).
     - Call End Time : Date_Time, (YYYY-MM-DD, HH:MM:SS).
-    - Call Duration : Call End Time - Call Start Time. 
-    - ANI : Phone number of the user, can be anything 10 digit. 
-    - DNIS : What the agent sees or logs in the record, let's say 7 digit random number based on agency, 56..... for digitech, 57....... for NSB. 
-    - Language : 12 Regional Languages in codes like hn-in for Hindi. All languages are as : ("Bengali","English","Gujarati","Hindi","Kannada","Malayalam","Marathi","Odia","Punjabi","Tamil","Telugu") 
-    - Authentication : True / False. Describes weather the user was authenticated using any means of authentication like DOB, OTP, etc. 
-    - Authentication Mechanism : OTP / DOB / Blank(Authentication = False). Describes what auth mechanism was used to make it. 
-    - Termination Type : Disconnect / Terminate / Transfer. Describes how the call got disconnected. 
-    - Termination Reason : Customer Opted / Error / Exceed Tries / System. Describes what might be the reason behind the termination. 
-    - Description : Keep it any sentence 10-12, describing the reason like API failure and all, you may keep it dynamic so that when real data is uploaded then it works and does not fail. 
-    - Region : State, Union Teritory. 
+    - Call Duration : Call End Time - Call Start Time.
+    - ANI : Phone number of the user, can be anything 10 digit.
+    - DNIS : What the agent sees or logs in the record, let's say 7 digit random number based on agency, 56..... for digitech, 57....... for NSB.
+    - Language : 12 Regional Languages in codes like hn-in for Hindi. All languages are as : ("Bengali","English","Gujarati","Hindi","Kannada","Malayalam","Marathi","Odia","Punjabi","Tamil","Telugu")
+    - Authentication : True / False. Describes weather the user was authenticated using any means of authentication like DOB, OTP, etc.
+    - Authentication Mechanism : OTP / DOB / Blank(Authentication = False). Describes what auth mechanism was used to make it.
+    - Termination Type : Disconnect / Terminate / Transfer. Describes how the call got disconnected.
+    - Termination Reason : Customer Opted / Error / Exceed Tries / System. Describes what might be the reason behind the termination.
+    - Description : Keep it any sentence 10-12, describing the reason like API failure and all, you may keep it dynamic so that when real data is uploaded then it works and does not fail.
+    - Region : State, Union Teritory.
 
-CCF Data : 
+CCF Data :
     "The data reprsented here is only for the company "DIGITECH" and it holds 60% of the total Calls, for NSB assume similar trend with "40%" contribution and overall they make the total 100%. All the code could be such that if we assume to add one more company in future then it should support that too lets say make it resiliant for n-companies"
 
     ## GOT VALUES{For Digitech only simlar for NSB} :
-    
+
     - Sheets : "Digitech", "NSB" (Vendor name is represented by the sheet name, not as a column)
     - Date : Monthly (july 2026)
     - Day : Monday To Sunday
@@ -37,12 +53,12 @@ CCF Data :
     - ACW{Wait/Hold} Time(in hr) (monthly): ~1 - 1.5K
     - Hold Time(hr) (monthly) : ~2 - 2.5K
     - Held/Total Calls (monthly) : ~1.3-1.7L
-    
+
     ## DERIVED QUANTITES (Calculated during ingestion, not in raw file) :
     - % Within Service Level : ACD Calls in 20 sec / (Call Offered - ABAN Calls in 10 seconds) * 100
     - Avg Hold Time : Hold Time / ACD Calls
     - Avg handeling Time : ACD + ACW + Hold Time / ACD Calls
-    
+
     ## Accepted scores and panelties (useful for showing data and all in a nice manner and distinguishable)
     - Service Level -> >85% = good , else =  penalty
     - Avg Handle Time -> <= 240 sec = good, else penalty

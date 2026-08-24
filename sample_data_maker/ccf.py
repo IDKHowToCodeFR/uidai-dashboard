@@ -14,10 +14,10 @@ LANGUAGES = [
     "Marathi", "Gujarati", "Odia", "Tamil", "Telugu", "Malayalam"
 ]
 
-def generate_sample_ccf_data(num_records):
+def generate_sample_ccf_data(num_records = 1000, days = 30):
     data = []
     
-    start_date = datetime.now() - timedelta(days=30)
+    start_date = datetime.now() - timedelta(days=days)
     
     # Population-based language weights (approx)
     lang_weights = [0.45, 0.20, 0.03, 0.01, 0.06, 0.02, 0.05, 0.04, 0.02, 0.05, 0.05, 0.02]
@@ -103,4 +103,5 @@ def generate_sample_ccf_data(num_records):
 
 if __name__ == "__main__":
     n = int(input("Input rows : "))
-    generate_sample_ccf_data(n)
+    days = int(input("Input days (default 30) : "))
+    generate_sample_ccf_data(n, days)
