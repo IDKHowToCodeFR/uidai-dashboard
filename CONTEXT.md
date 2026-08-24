@@ -1,38 +1,54 @@
-# Glossary
+# Glossary & Ubiquitous Language
 
-- **Permissions**: Granular capabilities assigned to an identity.
-  - `can_view_global`: Can view all data.
-  - `can_view_scoped`: Can only view assigned data.
-  - `can_upload_files`: Can upload data.
-  - `can_download_files`: Can download data.
+## Core Domain Terms & Telemetry
+
+- **Permissions**: Granular capabilities assigned to a user identity.
+  - `can_view_global`: Can view all data across all companies and agencies.
+  - `can_view_scoped`: Can only view data for assigned companies.
+  - `can_upload_files`: Can upload raw Excel/CSV telemetry data.
+  - `can_download_files`: Can download raw files and aggregated Excel/PDF reports.
 - **Roles**:
-  - `Admin`: There is strictly only one admin account (`admin`) in the entire system. The admin can manage users and change their own password, but cannot deactivate themselves or strip their own admin privileges to prevent system lockouts.
-  - `User`: Standard user with limited access based on permissions.
-- **Dash (Frontend)**: The presentation layer. Renders UI and fetches data via API.
-- **FastAPI (Backend)**: The API layer. Handles auth, role-based data filtering, file parsing, and state management. Backed by **PostgreSQL** for scalable concurrent data storage.
-- **Session**: Connection pooling on the frontend to reuse HTTP connections, reducing latency.
-- **Cache**: In-memory caching (`lru_cache`) on the backend to avoid repetitive disk/database reads for frequently requested data.
-- **Tenant Isolation (Database)**: Replaces file-system isolation. All uploaded raw data is stored in a single unified metrics table (`call_metrics`), isolated by a `company_id` column. A separate metadata table (`files_metadata`) tracks upload history and lineage (`file_id`).
-- **Context Switcher**: A global UI control (currently a pill-style toggle at the top of the sidebar) that dictates the active scope of the dashboard (e.g., CCF vs UniMate). It filters both the available navigation routes and the file history selection.
-- **Weighted Average SL (Service Level)**: Calculated by aggregating all call volumes across all intervals for a period before determining the percentage, ensuring statistical accuracy over simple unweighted averages.
-- **Dynamic Time Bucketing**: A senior-level visualization pattern that automatically resamples time-series data into Daily, Weekly (W-MON), or Monthly (MS) buckets based on the total selected date range (e.g., >31 days = Weekly). It also floors timestamps (`dt.floor('D')`) to eliminate intraday noise from trend charts.
-- **AHT Breakdown**: The decomposition of Average Handle Time into Talk Time, Hold Time, and Wrap Time (ACW).
-- **Answer Rate**: The percentage of calls successfully answered by agents out of the total calls offered.
-- **Lazy Upgrading (Password Hashing)**: The process of transparently re-hashing a user's password into a newly configured algorithm during a successful login, allowing graceful deprecation of older hash algorithms.
+  - `Admin`: Single protected administrator account (`admin`) managing users, permissions, global settings, and audit logs. Protected against self-deactivation and privilege removal.
+  - `User`: Standard user with scoped capabilities governed by assigned permissions and company restrictions.
+- **CCF Data (Contact Center Facility)**: High-volume interval metrics capturing queue telephony (Offered, Answered, Abandoned, Talk Time, Hold Time, Wrap Time, SLA %).
+- **UniMate Data (IVR & Journey Telemetry)**: Granular call-level telemetry records tracking citizen journey stages through the interactive voice response system.
+- **UCID (Universal Call Identifier)**: Unique identifier for an individual call interaction within UniMate telemetry, serving as the primary idempotency key.
+- **DNIS Company Resolution**: Automated vendor attribution for UniMate call streams derived from the Dialed Number Identification Service prefix (`56*` &rarr; Digitech, `57*` &rarr; NSB).
+- **Service Level (SL %)**: Percentage of answered calls connected within the designated SLA threshold (&le; 20s). Mathematical model: `SL % = (ACD_20s / (Call_Offered - ABAN_10s)) * 100`.
+- **Weighted Average SL**: Period-level Service Level calculated by summing answered calls within threshold divided by net offered calls across all intervals, preventing statistical distortion from arithmetic averages.
+- **Average Handle Time (AHT)**: Total time spent handling an interaction across talk time, hold time, and after-call work (ACW) per answered call. Threshold: `≤ 240s` is Good; `> 240s` breaches SLA.
+- **Average Hold Time**: Average duration a caller is placed on hold per answered call. Threshold: `≤ 20s` is Good; `> 20s` breaches SLA.
+- **Answer Rate**: Percentage of calls offered that were successfully answered by agents (`Total_ACD / Total_Offered * 100`).
+- **Dynamic Time Bucketing**: Automated resampling of time-series visual trends into Daily (`≤ 7d`), Weekly (`> 31d`), or Monthly (`> 90d`) buckets based on selected query range, with timestamp floor normalization.
+- **Temporal Preset Pills**: Segmented 1-click filter controls (`Today`, `Yesterday`, `Last 7D`, `MTD`, `YTD`, `Custom`) that instantly set query dates and synchronize the active resolution badge.
+- **Resolution Badge**: Visual indicator in the filter bar reflecting the current time-series aggregation level (Daily, Weekly, Monthly) applied to trend charts.
+- **Operational KPI Cards**: Structured metric cards displaying high-impact values, period-over-period comparative delta chips, explicit contract SLA benchmark status tags, and mini trend sparklines.
+- **Bidirectional Chart Cross-Filtering**: Interactive behavior where clicking chart elements (bars, pie slices, trends) dynamically isolates that dimension across all charts, synchronized with clearable active filter chips.
+- **Active Filter Chips**: Dismissible badges displayed in the sticky control bar representing active cross-filters, allowing one-click removal of specific filters.
+- **Tenant Isolation (Database)**: Row-level tenant data filtering at query time constrained by JWT claims (`companies` attribute) against normalized `ccf_data` and `unimate_data` tables.
+- **Context Switcher**: Pinned UI control at the top of the persistent navigation bar toggling the active analytics workspace between CCF Analytics and UniMate Analytics.
+- **Sticky In-Page Filter Bar**: Persistent top-level control bar containing Date Presets, Company Multi-Select, and Language filters for zero-click-overhead operational adjustments.
+- **Lazy Upgrading (Password Hashing)**: Transparent re-hashing of credentials into the newest configured algorithm upon successful login.
+- **Provenance Audit Logging**: Non-repudiation audit trail recording operator identity, action, timestamp, target endpoint, and forwarded client provenance (`X-Forwarded-For`, `User-Agent`).
+- **Active Folders Config**: Database-driven configuration (`Setting` table key `active_folders`) determining which filesystem subdirectories are monitored by the scheduled cron ingestion worker.
 
-## Future Architecture (Parked Ideas)
+## Architectural Seams & Patterns
 
-- **OTP & Password Verification**: Explicitly rejected. Since the dashboard is for internal use only, strict 2FA/OTP introduces unnecessary friction and will not be built.
-- **Safe Deletion Protocol**: A GitHub-style confirmation modal requiring the Admin to type the exact company name before a destructive Deactivation API call can be fired.
+- **Pure Parser Modules (`CCFParser`, `UniMateParser`)**: Stateless domain parsers handling multi-sheet workbook extraction, type coercion, duration calculation, and vectorized KPI computation.
+- **Database Repositories (`CCFDatabaseRepo`, `UniMateDatabaseRepo`)**: Dedicated persistence modules managing metadata tracking, chunked batching, and composite key upsert execution.
+- **Dual-Channel WebSocket Ingestion**: Non-blocking upload mechanism where background processing threads stream real-time percentage and step progress to the Dash client over WebSocket.
+- **Dynamic Ingestion Sweep**: Background APScheduler worker executing every 3 minutes to automatically ingest new unindexed files from active folders.
+- **90-Day Log Archiving**: Automated cleanup routine pruning audit records older than 90 days during application startup.
 
 ## Design System & Visual Language
 
-- **Semantic Color Palette**: The dashboard strictly adheres to an authoritative, semantic color scheme suitable for an operational BPO environment. Colors are not used purely for aesthetics; they communicate state:
-  - **Negative/Action Required**: Red (`#ef4444`) for Abandonment, SLA breaches, and excessive Hold Times.
-  - **Positive/Success**: Emerald Green (`#10b981`) or Tech Blue (`#3b82f6`) for Answered calls, SLAs met, and productive Talk Time.
-  - **Neutral/Baseline**: Slate Grays (`#e2e8f0`, `#94a3b8`, `#64748b`) for Call Volume (Offered), Wrap Time (ACW), and background elements.
+- **Semantic Color Palette**: Strict operational color palette communicating operational status:
+  - **Negative / Action Required**: Red (`#ef4444`) for Abandonment, SLA penalties, and hold time breaches.
+  - **Positive / Success**: Emerald Green (`#10b981`) or Tech Blue (`#3b82f6`) for Answered calls, SLA compliance, and productive Talk Time.
+  - **Neutral / Baseline**: Slate Grays (`#e2e8f0`, `#94a3b8`, `#64748b`) for Call Volume (Offered), Wrap Time (ACW), and structural layout.
 
-## Known Technical Debt (To Fix Later)
+## Future Architecture & Parked Ideas
 
-- **Frontend Memory Caching (Dash `dcc.Store`)**: We have agreed to migrate from client-side JSON memory caching to Server-Side Caching using **Redis** to avoid freezing the browser and choking the network as data scales. Redis will also be used to enforce single active sessions across the load-balanced servers.
-- **Backend DB Concurrency (Race Condition)**: We have agreed to migrate from raw JSON files (`users.json`, `logs.json`) to PostgreSQL to resolve concurrency issues across load-balanced servers.
+- **OTP & Password Verification**: Explicitly rejected. Internal dashboard environment makes strict 2FA/OTP unnecessary friction.
+- **Safe Deletion Protocol**: GitHub-style confirmation modal requiring user to type exact username/company before deactivation.
+- **Server-Side Caching (Redis)**: Future migration from client-side `dcc.Store` memory caching to Redis to support horizontally scaled workers.
