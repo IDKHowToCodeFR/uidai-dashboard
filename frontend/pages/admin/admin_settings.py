@@ -1,7 +1,7 @@
 import dash
 from dash import html, dcc, callback, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
-from frontend.shared.api_client import api_client
+from frontend.shared.api_client import api_get, api_post, get_history_options, download_file
 
 dash.register_page(__name__, path='/admin-settings', name='Global Settings')
 
@@ -48,7 +48,7 @@ def load_settings_ui(auth_state):
     if not token:
         return [dash.no_update] * len(SLA_CATEGORIES)
     try:
-        response = api_client.get_settings(token)
+        response = api_get("settings", token=token)
         if response.status_code == 200:
             data = response.json()
             targets = data.get("radar_sla_targets", [85, 95, 95, 85, 85, 85])
@@ -81,7 +81,7 @@ def save_settings_ui(n_clicks, v1, v2, v3, v4, v5, v6, auth_state):
         "radar_sla_targets": vals
     }
     try:
-        response = api_client.update_settings(token, settings)
+        response = api_post("settings", token=token, json=settings)
         if response.status_code == 200:
             return html.Span("Settings saved successfully.", className="text-success")
         return html.Span("Failed to save settings.", className="text-danger")

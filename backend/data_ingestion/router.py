@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, B
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
-from backend.auth.auth_utils import get_current_user, PermissionChecker, add_log, extract_request_metadata
+from backend.auth.auth_utils import get_current_user, require_permission, add_log, extract_request_metadata
 from backend.database.database import get_db
 from backend.database.models import FileMetadata, CCFData, UniMateData, CDRData
 from backend.data_ingestion.websockets import process_file_background

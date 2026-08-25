@@ -2,7 +2,7 @@ import dash
 from dash import Input, Output, State
 from dash import html
 from frontend.auth import login_page
-from frontend.shared.api_client import api_client, get_history_options
+from frontend.shared.api_client import api_get, api_post, get_history_options, download_file
 from frontend.shared.permissions import has_permission
 from frontend.shared.layout import get_topbar, get_sidebar, filter_drawer
 import dash_bootstrap_components as dbc

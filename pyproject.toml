@@ -26,6 +26,5 @@ dependencies = [
     "reportlab>=5.0.0",
     "requests>=2.34.2",
     "sqlalchemy>=2.0.51",
-    "streamlit>=1.59.2",
     "uvicorn>=0.51.0",
 ]

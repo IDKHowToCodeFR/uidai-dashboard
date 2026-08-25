@@ -247,18 +247,16 @@ async def get_current_user(token: str = Security(oauth2_scheme)):
     except JWTError:
         raise credentials_exception
 
-class PermissionChecker:
-    def __init__(self, required_permission: str):
-        self.required_permission = required_permission
-
-    def __call__(self, current_user: dict = Security(get_current_user)):
+def require_permission(required_permission: str):
+    def checker(current_user: dict = Security(get_current_user)):
         permissions = current_user.get("permissions", [])
-        if self.required_permission not in permissions:
+        if required_permission not in permissions:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Requires permission: {self.required_permission}"
+                detail=f"Requires permission: {required_permission}"
             )
         return current_user
+    return checker
 
 def record_login(db: Session, username: str):
     key = username.lower().strip()

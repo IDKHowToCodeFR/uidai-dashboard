@@ -1,7 +1,7 @@
 import dash
 from dash import Input, Output, State, ctx
 import pandas as pd
-from frontend.shared.api_client import api_client, upload_file_to_api, get_history_options, get_dataframe
+from frontend.shared.api_client import api_get, get_dataframe, upload_file_to_api, api_post, get_history_options, download_file
 
 def register_data_callbacks(app):
     @app.callback(
@@ -187,7 +187,7 @@ def register_data_callbacks(app):
         permissions = auth_state.get('permissions', [])
         token = auth_state.get('token')
         if 'can_view_global' in permissions:
-            response = api_client.get_users(token)
+            response = api_get("users", token=token)
             if response.status_code == 200:
                 users = response.json()
                 return [{'label': k, 'value': k} for k in users.keys() if k != 'Admin']

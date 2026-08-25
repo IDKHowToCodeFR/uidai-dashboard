@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from backend.database.database import get_db
 from backend.auth.auth_utils import (
-    get_current_user, PermissionChecker, add_log,
+    get_current_user, require_permission, add_log,
     load_settings, save_settings, load_logs, extract_request_metadata
 )
 
@@ -13,7 +13,7 @@ async def get_settings(current_user: dict = Depends(get_current_user), db: Sessi
     return load_settings(db)
 
 @router.post('/settings')
-async def update_settings(request: Request, settings: dict, current_user: dict = Depends(PermissionChecker('can_view_global')), db: Session = Depends(get_db)):
+async def update_settings(request: Request, settings: dict, current_user: dict = Depends(require_permission('can_view_global')), db: Session = Depends(get_db)):
     save_settings(db, settings)
     meta = extract_request_metadata(request)
     add_log(db, 'SETTINGS_UPDATED', current_user['username'], 'Updated SLA targets', **meta)

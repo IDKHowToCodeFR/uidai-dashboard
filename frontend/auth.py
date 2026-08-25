@@ -2,7 +2,7 @@ import dash
 from dash import html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
 import requests
-from frontend.shared.api_client import api_client
+from frontend.shared.api_client import api_get, api_post, get_history_options, download_file
 
 # --- LOGIN PAGE LAYOUT ---
 login_page = dbc.Row(
@@ -140,7 +140,7 @@ def register_auth_callbacks(app):
             return dash.no_update, dash.no_update, "Please enter password.", error_class
 
         try:
-            response = api_client.login(username, password)
+            response = api_post("login", data={"username": username, "password": password})
             if response.status_code == 200:
                 data = response.json()
                 auth_data = {

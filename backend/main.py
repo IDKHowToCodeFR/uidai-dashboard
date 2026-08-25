@@ -27,8 +27,8 @@ def process_unprocessed_files():
     db = SessionLocal()
     try:
         indexed = {(f[0], f[1]) for f in db.query(FileMetadata.filename, FileMetadata.upload_directory).all()}
-        from backend.config import ActiveFoldersConfig
-        active_folders = ActiveFoldersConfig.get_active_folders(db)
+        from backend.config import get_active_folders
+        active_folders = get_active_folders(db)
         
         for data_type_folder in os.listdir(uidai_data_dir):
             folder_path = os.path.join(uidai_data_dir, data_type_folder)

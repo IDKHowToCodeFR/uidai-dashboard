@@ -4,7 +4,6 @@ CDR Data :
     - Call Id : Random Id just for Call Identifcation and primary key making.
     - acwtime (in seconds) : answered call waiting time.
     - ansholdtime (in seconds) : hold time for answered call.
-    - duration (in seconds) : call duration in seconds.
     - segstart : call start time (DD-MM-YYYY HH:MM:SS).
     - segstartutc : segstart in utc.
     - segstop : call stop time (DD-MM-YYYY HH:MM:SS).
