@@ -62,3 +62,8 @@ CCF Data :
     - Service Level -> >85% = good , else =  penalty
     - Avg Handle Time -> <= 240 sec = good, else penalty
     - Avg Hold Time -> <= 20 sec = good, else penalty
+
+
+ok now listen what more we need to add in the data to make it more real and work on it, if somethign can be inferred and and can be processed after preprocessing it must be performed after that only. Keep them as didtinct in sheets as you can adn keep as closed as you can after preprocessing make a plan for it now. Few things extra I would like to add. 
+
+ [grill-with-docs](slashCommand;grill-with-docs) 
