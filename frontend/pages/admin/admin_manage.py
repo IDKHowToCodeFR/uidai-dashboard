@@ -6,7 +6,7 @@ import random
 import string
 from frontend.shared.api_client import api_get, api_post, get_history_options, download_file
 
-dash.register_page(__name__, path='/admin-manage', name='Manage Users')
+dash.register_page(__name__, path='/admin/user_management', name='Manage Users')
 
 layout = html.Div([
     html.Div([
@@ -33,7 +33,7 @@ layout = html.Div([
             ),
             dbc.ModalBody([
                 dbc.Label("Assigned Companies", className="small text-muted text-uppercase fw-bold"),
-                dbc.Input(id="offcanvas-companies", placeholder="e.g. Acme, Beta", type="text", className="mb-3"),
+                dcc.Dropdown(id="offcanvas-companies", options=[{"label": "Digitech", "value": "Digitech"}, {"label": "NSB", "value": "NSB"}], multi=True, className="mb-3"),
                 
                 dbc.Label("Granted Permissions", className="small text-muted text-uppercase fw-bold"),
                 dbc.Checklist(
@@ -78,8 +78,8 @@ layout = html.Div([
     dbc.Modal([
         dbc.ModalHeader(dbc.ModalTitle("Add New User")),
         dbc.ModalBody([
-            dbc.Label("Assigned Companies (comma separated)", className="small text-muted text-uppercase fw-bold"),
-            dbc.Input(id="page-new-company-name", placeholder="e.g. Acme Corp, Beta LLC", type="text", className="mb-3"),
+            dbc.Label("Assigned Companies", className="small text-muted text-uppercase fw-bold"),
+            dcc.Dropdown(id="page-new-company-name", options=[{"label": "Digitech", "value": "Digitech"}, {"label": "NSB", "value": "NSB"}], multi=True, className="mb-3"),
             
             dbc.Label("Username", className="small text-muted text-uppercase fw-bold"),
             dbc.Input(id="page-new-company-username", placeholder="Login username", type="text", className="mb-3"),
@@ -250,7 +250,7 @@ def open_manage_modal(manage_clicks, close_clicks, auth_state, is_open):
         for opt in default_options:
             opt["disabled"] = True
 
-    return True, username, ", ".join(companies), is_admin, perms, default_options, is_admin, is_admin, ""
+    return True, username, companies, is_admin, perms, default_options, is_admin, is_admin, ""
 
 @callback(
     Output("offcanvas-save-status", "children"),
@@ -402,7 +402,7 @@ def add_company(n_clicks, company_name, username, password, perms, auth_state):
     if not company_name or not username or not password:
         return html.Span("All fields required.", className="text-danger"), no_update
     
-    companies = [c.strip() for c in company_name.split(",") if c.strip()]
+    companies = company_name if isinstance(company_name, list) else []
     
     token = auth_state.get('token') if auth_state else None
     try:
@@ -413,3 +413,16 @@ def add_company(n_clicks, company_name, username, password, perms, auth_state):
         return html.Span(response.json().get("detail", "Error"), className="text-danger"), no_update
     except:
         return html.Span("API Error", className="text-danger"), no_update
+@callback(
+    Output("offcanvas-companies", "options"),
+    Output("page-new-company-name", "options"),
+    Input("admin-manage-status", "children"),
+    Input("admin-btn-add-modal", "n_clicks"),
+    State("auth-state", "data")
+)
+def populate_company_dropdowns(status, add_clicks, auth_state):
+    from frontend.shared.api_client import get_all_companies
+    token = auth_state.get('token') if auth_state else None
+    companies = get_all_companies(token)
+    opts = [{"label": c, "value": c} for c in companies]
+    return opts, opts

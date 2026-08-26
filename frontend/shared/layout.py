@@ -74,7 +74,7 @@ def get_topbar(user_role, permissions):
                 }
             ),
             html.Span(
-                "Internal Administrator Dashboard",
+                "Internal Administrator Dashboard" if user_role == 'Admin' else "UIDAI Vendor Portal",
                 style={
                     "fontSize": "11px",
                     "color": "var(--color-text-muted, #6c757d)",
@@ -167,25 +167,25 @@ def get_sidebar(user_role, token, permissions):
                 [
                     dbc.NavLink(
                         [html.I(className="bi bi-people-fill me-3"), html.Span("Manage Users", className="nav-link-text")],
-                        href="/admin-manage",
+                        href="/admin/user_management",
                         active="exact",
                         className="body-strong mb-2 d-flex align-items-center"
                     ),
                     dbc.NavLink(
                         [html.I(className="bi bi-card-list me-3"), html.Span("System Logs", className="nav-link-text")],
-                        href="/admin-logs",
+                        href="/admin/logs",
                         active="exact",
                         className="body-strong mb-2 d-flex align-items-center"
                     ),
                     dbc.NavLink(
                         [html.I(className="bi bi-folder-fill me-3"), html.Span("File Repository", className="nav-link-text")],
-                        href="/admin-files",
+                        href="/admin/files",
                         active="exact",
                         className="body-strong mb-2 d-flex align-items-center"
                     ),
                     dbc.NavLink(
                         [html.I(className="bi bi-gear-fill me-3"), html.Span("Global Settings", className="nav-link-text")],
-                        href="/admin-settings",
+                        href="/admin/settings",
                         active="exact",
                         className="body-strong mb-2 d-flex align-items-center"
                     ),

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from frontend.shared.api_client import get_dataframe
 
-dash.register_page(__name__, path='/raw-data')
+dash.register_page(__name__, path='/ccf/raw_data')
 
 layout = html.Div([
     html.Div([

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from backend.database.database import get_db
 from backend.database.models import User
 from backend.auth.auth_utils import (
-    load_users, verify_and_upgrade_password, create_access_token, get_current_user,
+    load_users, verify_and_upgrade_password, create_access_token, create_refresh_token, get_current_user,
     add_user, remove_user, update_permissions, add_log, record_login, reset_password, extract_request_metadata
 )
 
@@ -14,10 +14,14 @@ router = APIRouter()
 
 class Token(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str
     role: str
     permissions: List[str]
     companies: List[str]
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 class UserAddRequest(BaseModel):
     username: str
@@ -54,23 +58,71 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     # We still need permissions to generate the token, we can get them from db_user.permissions
     permissions = [p.permission_name for p in db_user.permissions] if db_user.permissions else []
     
-    # We still pass 'role' for frontend backward compatibility, and add 'companies' for data filtering
-    access_token = create_access_token(data={
-        "sub": form_data.username, 
-        "role": role, 
-        "permissions": permissions,
-        "companies": companies
-    })
+    # We only need the 'sub' claim now as get_current_user checks the DB dynamically.
+    access_token = create_access_token(data={"sub": form_data.username})
+    refresh_token = create_refresh_token(data={"sub": form_data.username})
+    
     record_login(db, form_data.username)
     meta = extract_request_metadata(request)
     add_log(db, "LOGIN_SUCCESS", form_data.username, f"User {form_data.username} logged in successfully", **meta)
-    return {"access_token": access_token, "token_type": "bearer", "role": role, "permissions": permissions, "companies": companies}
+    
+    # Return role/permissions/companies for the frontend's initial state
+    return {
+        "access_token": access_token, 
+        "refresh_token": refresh_token,
+        "token_type": "bearer", 
+        "role": role, 
+        "permissions": permissions, 
+        "companies": companies
+    }
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token(req: RefreshRequest, db: Session = Depends(get_db)):
+    from jose import jwt, JWTError
+    from backend.auth.auth_utils import SECRET_KEY, ALGORITHM
+    
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate refresh token",
+    )
+    try:
+        payload = jwt.decode(req.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        token_type: str = payload.get("type")
+        if username is None or token_type != "refresh":
+            raise credentials_exception
+            
+        db_user = db.query(User).filter(User.username == username).first()
+        if not db_user:
+            raise credentials_exception
+            
+        companies = db_user.companies or []
+        role = "Admin" if "Admin" in companies or username == "admin" else "User"
+        permissions = [p.permission_name for p in db_user.permissions] if db_user.permissions else []
+        
+        access_token = create_access_token(data={"sub": username})
+        new_refresh_token = create_refresh_token(data={"sub": username})
+        
+        return {
+            "access_token": access_token, 
+            "refresh_token": new_refresh_token,
+            "token_type": "bearer", 
+            "role": role, 
+            "permissions": permissions, 
+            "companies": companies
+        }
+    except JWTError:
+        raise credentials_exception
+
+@router.post("/logout")
+async def logout(current_user: dict = Depends(get_current_user)):
+    return {"message": "Successfully logged out"}
 
 @router.get("/users")
 async def list_users(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     if current_user["role"] != "Admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    return load_users(db)
+    return load_users(db, current_user)
 
 @router.post("/users/add")
 async def add_new_user(request: Request, req: UserAddRequest, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):

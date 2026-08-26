@@ -11,7 +11,7 @@ from frontend.shared.theme import COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, C
 from frontend.components.cards import make_kpi_card, wrap_chart_card
 from frontend.components.empty_state import render_empty_state
 
-dash.register_page(__name__, path='/unimate-dashboard', name='UniMate Dashboard')
+dash.register_page(__name__, path='/unimate/dashboard', name='UniMate Dashboard')
 
 layout = html.Div([
     html.Div([

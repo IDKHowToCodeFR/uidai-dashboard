@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from frontend.shared.api_client import get_dataframe
 
-dash.register_page(__name__, path='/cdr-raw-data', name='CDR Raw Data Explorer')
+dash.register_page(__name__, path='/cdr/raw_data', name='CDR Raw Data Explorer')
 
 layout = html.Div([
     html.Div([

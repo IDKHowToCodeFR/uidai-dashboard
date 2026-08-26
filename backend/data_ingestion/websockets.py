@@ -40,58 +40,23 @@ async def process_file_background(save_path: str, out_filename: str, client_id: 
         async def progress_callback(progress, message):
             await ws_send_message({'status': 'processing', 'progress': progress, 'message': message}, client_id)
 
-        if data_type == "UniMate Data":
-            from backend.data_ingestion.unimate_parser import parse_unimate
-            from backend.database.repo import save_unimate_data
-            df = await parse_unimate(save_path, progress_callback=progress_callback)
+        DATA_TYPE_MAP = {
+            "UniMate Data": ("backend.data_ingestion.unimate_parser", "parse_unimate", "save_unimate_data"),
+            "CDR Data": ("backend.data_ingestion.cdr_parser", "parse_cdr", "save_cdr_data"),
+        }
+        mod_name, parse_name, save_name = DATA_TYPE_MAP.get(data_type, ("backend.data_ingestion.ccf_parser", "parse_ccf", "save_ccf_data"))
+        
+        import importlib
+        parse_mod = importlib.import_module(mod_name)
+        save_mod = importlib.import_module("backend.database.repo")
+        parse_fn = getattr(parse_mod, parse_name)
+        save_fn = getattr(save_mod, save_name)
             
-            await ws_send_message({'status': 'processing', 'progress': 90, 'message': 'Inserting into database...'}, client_id)
-            with SessionLocal() as db:
-                save_unimate_data(
-                    db=db, 
-                    df=df, 
-                    save_path=save_path, 
-                    out_filename=out_filename, 
-                    username=username, 
-                    data_type=data_type, 
-                    meta=meta
-                )
-        elif data_type == "CDR Data":
-            from backend.data_ingestion.cdr_parser import parse_cdr
-            from backend.database.repo import save_cdr_data
-            
-            df = await parse_cdr(save_path, progress_callback=progress_callback)
-            
-            await ws_send_message({'status': 'processing', 'progress': 90, 'message': 'Inserting into database...'}, client_id)
-            with SessionLocal() as db:
-                save_cdr_data(
-                    db=db, 
-                    df=df, 
-                    save_path=save_path, 
-                    out_filename=out_filename, 
-                    username=username, 
-                    data_type=data_type, 
-                    meta=meta
-                )
-        else:
-            from backend.data_ingestion.ccf_parser import parse_ccf
-            from backend.database.repo import save_ccf_data
-            
-            # 1. Parse File (Pure Domain Module)
-            df = await parse_ccf(save_path, progress_callback=progress_callback)
-                
-            # 2. Database Insert
-            await ws_send_message({'status': 'processing', 'progress': 90, 'message': 'Inserting into database...'}, client_id)
-            with SessionLocal() as db:
-                save_ccf_data(
-                    db=db, 
-                    df=df, 
-                    save_path=save_path, 
-                    out_filename=out_filename, 
-                    username=username, 
-                    data_type=data_type, 
-                    meta=meta
-                )
+        df = await parse_fn(save_path, progress_callback=progress_callback)
+        
+        await ws_send_message({'status': 'processing', 'progress': 90, 'message': 'Inserting into database...'}, client_id)
+        with SessionLocal() as db:
+            save_fn(db=db, df=df, save_path=save_path, out_filename=out_filename, username=username, data_type=data_type, meta=meta)
             
         await ws_send_message({'status': 'complete', 'progress': 100, 'message': 'Upload complete!'}, client_id)
     except Exception as e:

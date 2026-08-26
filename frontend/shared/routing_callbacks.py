@@ -30,9 +30,13 @@ def register_routing_callbacks(app, content_div):
 
     @app.callback(
         Output("app-container", "children"),
-        Input("auth-state", "data")
+        Input("auth-state", "data"),
+        Input("url", "pathname")
     )
-    def render_page(auth_state):
+    def render_page(auth_state, pathname):
+        if pathname == '/login':
+            return html.Div([content_div], style={"backgroundColor": "var(--color-background)", "minHeight": "100vh"})
+            
         if auth_state and auth_state.get('user') and auth_state.get('token'):
             user_role = auth_state.get('user')
             token = auth_state.get('token')
@@ -47,7 +51,7 @@ def register_routing_callbacks(app, content_div):
                 content_div
             ], style={"backgroundColor": "var(--color-background)", "minHeight": "100vh"})
             
-        return login_page
+        return html.Div()
 
     @app.callback(
         Output("sidebar-nav-container", "children"),
@@ -74,36 +78,36 @@ def register_routing_callbacks(app, content_div):
                 html.H6("UNIMATE", className="section-title mb-3"),
                 dbc.Nav(
                     [
-                        dbc.NavLink([html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")], href="/unimate-dashboard", active="exact", className="body-strong mb-2 d-flex align-items-center"),
-                        dbc.NavLink([html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")], href="/unimate-raw-data", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                        dbc.NavLink([html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")], href="/unimate/dashboard", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                        dbc.NavLink([html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")], href="/unimate/raw_data", active="exact", className="body-strong mb-2 d-flex align-items-center"),
                     ], vertical=True, pills=True, className="custom-sidebar-nav mb-4"
                 )
             ]
-            target_url = "/unimate-dashboard"
+            target_url = "/unimate/dashboard"
         elif context == "CDR Data":
             nav_content = [
                 html.H6("CDR", className="section-title mb-3"),
                 dbc.Nav(
                     [
-                        dbc.NavLink([html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")], href="/cdr-dashboard", active="exact", className="body-strong mb-2 d-flex align-items-center"),
-                        dbc.NavLink([html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")], href="/cdr-raw-data", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                        dbc.NavLink([html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")], href="/cdr/dashboard", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                        dbc.NavLink([html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")], href="/cdr/raw_data", active="exact", className="body-strong mb-2 d-flex align-items-center"),
                     ], vertical=True, pills=True, className="custom-sidebar-nav mb-4"
                 )
             ]
-            target_url = "/cdr-dashboard"
+            target_url = "/cdr/dashboard"
         else:
             nav_content = [
                 html.H6("CCF", className="section-title mb-3"),
                 dbc.Nav(
                     [
-                        dbc.NavLink([html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")], href="/", active="exact", className="body-strong mb-2 d-flex align-items-center"),
-                        dbc.NavLink([html.I(className="bi bi-calendar-range me-3"), html.Span("Date Comparison", className="nav-link-text")], href="/date-comparison", active="exact", className="body-strong mb-2 d-flex align-items-center"),
-                        dbc.NavLink([html.I(className="bi bi-clock-history me-3"), html.Span("Hourly Insights", className="nav-link-text")], href="/hourly", active="exact", className="body-strong mb-2 d-flex align-items-center"),
-                        dbc.NavLink([html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")], href="/raw-data", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                        dbc.NavLink([html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")], href="/ccf/dashboard", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                        dbc.NavLink([html.I(className="bi bi-calendar-range me-3"), html.Span("Date Comparison", className="nav-link-text")], href="/ccf/date_comparison", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                        dbc.NavLink([html.I(className="bi bi-clock-history me-3"), html.Span("Hourly Insights", className="nav-link-text")], href="/ccf/hourly", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                        dbc.NavLink([html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")], href="/ccf/raw_data", active="exact", className="body-strong mb-2 d-flex align-items-center"),
                     ], vertical=True, pills=True, className="custom-sidebar-nav mb-4"
                 )
             ]
-            target_url = "/"
+            target_url = "/ccf/dashboard"
             
         # Get History options filtered by data_type (context)
         opts = get_history_options(token, user_role, permissions, data_type=context)
@@ -122,39 +126,41 @@ def register_routing_callbacks(app, content_div):
             data = {"filename": val, "impersonate": None}
             
         # Decide if redirect is needed
-        # We redirect if the user switches contexts (and isn't on a valid page for that context)
-        # For simplicity, let's always redirect to target_url if they trigger the switcher
+        # We redirect if the user switches contexts explicitly
         url_update = dash.no_update
-        if current_path != target_url:
-            url_update = target_url
-            
-        # BUT if it's the initial load, context-switcher triggers. We don't want to redirect them 
-        # from a valid page (e.g., they manually hit /hourly) just because of the initial callback.
-        # Let's check dash.callback_context to see if it was triggered by user click
         ctx = dash.callback_context
-        if not ctx.triggered:
-            url_update = dash.no_update # Initial load, let dash-pages handle routing
-        elif ctx.triggered[0]['prop_id'] == 'context-switcher.value':
-            url_update = target_url # Explicit user switch
+        if ctx.triggered and ctx.triggered[0]['prop_id'] == 'context-switcher.value':
+            if current_path != target_url:
+                url_update = target_url
             
         return nav_content, opts, val, data, url_update
  
     @app.callback(
-        Output("url", "pathname"),
+        Output("url", "pathname", allow_duplicate=True),
         Input("auth-state", "data"),
         Input("url", "pathname"),
-        prevent_initial_call=True
+        prevent_initial_call='initial_duplicate'
     )
     def guard_routes(auth_state, pathname):
-        if not auth_state or not pathname:
+        if not auth_state or not auth_state.get('token'):
+            if pathname != '/login':
+                return '/login'
             return dash.no_update
             
         user_role = auth_state.get('user')
+        if pathname == '/login' or pathname == '/':
+            return '/admin/user_management' if user_role == 'Admin' else '/ccf/dashboard'
+            
+        admin_routes = ['/admin/user_management', '/admin/logs', '/admin/files', '/admin/settings']
+        user_routes = ['/ccf/dashboard', '/ccf/date_comparison', '/ccf/hourly', '/ccf/raw_data', 
+                       '/unimate/dashboard', '/unimate/raw_data', 
+                       '/cdr/dashboard', '/cdr/raw_data']
+                       
         if user_role == 'Admin':
-            if pathname in ['/', '/date-comparison', '/hourly', '/raw-data', '/unimate-dashboard', '/unimate-raw-data', '/cdr-dashboard', '/cdr-raw-data']:
-                return '/admin-manage'
-        elif user_role:
-            if pathname.startswith('/admin'):
-                return '/'
+            if pathname not in admin_routes:
+                return '/admin/user_management'
+        else:
+            if pathname not in user_routes:
+                return '/ccf/dashboard'
                 
         return dash.no_update

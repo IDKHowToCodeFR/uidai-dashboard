@@ -126,6 +126,8 @@ class UniMateData(Base):
     description = Column(String)
     region = Column(String)
     
+    is_fcr = Column(Integer, default=1) # 1 for True, 0 for False (using Int for SQLite compatibility if needed, though Boolean is fine in sqlalchemy)
+    
     file = relationship("FileMetadata", back_populates="unimate_metrics")
 
 
@@ -156,4 +158,33 @@ class CDRData(Base):
     language = Column(String, index=True)
     
     file = relationship("FileMetadata", back_populates="cdr_metrics")
+
+
+class AgentMetadata(Base):
+    __tablename__ = "agent_metadata"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    anslogin = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String)
+    tenure_months = Column(Integer)
+    team = Column(String)
+    location = Column(String)
+
+
+class CustomerMetadata(Base):
+    __tablename__ = "customer_metadata"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    ani = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String)
+    segment = Column(String)
+    last_contact_date = Column(String)
+
+
+class DispositionMetadata(Base):
+    __tablename__ = "disposition_metadata"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    termination_reason = Column(String, unique=True, index=True, nullable=False)
+    disposition_category = Column(String)
 

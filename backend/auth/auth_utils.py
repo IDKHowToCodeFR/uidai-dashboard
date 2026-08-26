@@ -24,8 +24,8 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey_change_me_in_production")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 PASSWORD_HASH_ALGORITHM = os.getenv("PASSWORD_HASH_ALGORITHM", "bcrypt")
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 day
-
+ACCESS_TOKEN_EXPIRE_MINUTES = 60*6 # 6 hours
+REFRESH_TOKEN_EXPIRE_DAYS = 7 # 7 days
 # Initialize passlib context
 pwd_context = CryptContext(schemes=[PASSWORD_HASH_ALGORITHM], deprecated="auto")
 
@@ -112,10 +112,23 @@ def archive_old_logs(db: Session, days=90):
     db.query(AuditLog).filter(AuditLog.timestamp < cutoff_date).delete()
     db.commit()
 
-def load_users(db: Session) -> dict:
+def load_users(db: Session, current_user: dict = None) -> dict:
     users = db.query(User).all()
     result = {}
+    
+    is_superadmin = False
+    admin_companies = []
+    if current_user:
+        is_superadmin = current_user.get("username", "").lower() == "admin"
+        admin_companies = current_user.get("companies", [])
+        
     for user in users:
+        if current_user and not is_superadmin:
+            user_companies = user.companies or []
+            if user.username.lower() != current_user.get("username", "").lower():
+                if not any(c in admin_companies for c in user_companies):
+                    continue
+                    
         permissions = [p.permission_name for p in user.permissions]
         result[user.username] = {
             "password": user.password_hash,
@@ -225,11 +238,17 @@ def verify_and_upgrade_password(db: Session, db_user: User, plain_password: str)
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": "access"})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-async def get_current_user(token: str = Security(oauth2_scheme)):
+def create_refresh_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh"})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+async def get_current_user(token: str = Security(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -238,12 +257,19 @@ async def get_current_user(token: str = Security(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
-        role: str = payload.get("role")
-        permissions: list = payload.get("permissions", [])
-        companies: list = payload.get("companies", [])
-        if username is None or role is None:
+        token_type: str = payload.get("type")
+        
+        if username is None or token_type != "access":
             raise credentials_exception
-        return {"username": username, "role": role, "permissions": permissions, "companies": companies}
+            
+        user = db.query(User).filter(User.username == username).first()
+        if not user:
+            raise credentials_exception
+            
+        role = "Admin" if "Admin" in user.companies else "User"
+        permissions = [p.permission_name for p in user.permissions]
+        
+        return {"username": user.username, "role": role, "permissions": permissions, "companies": user.companies}
     except JWTError:
         raise credentials_exception
 

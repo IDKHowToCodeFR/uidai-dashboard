@@ -158,6 +158,23 @@ FOLDER_TO_DATA_TYPE = {
     "unimate_data": "UniMate Data",
 }
 
+@router.get("/companies")
+def get_all_companies(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    from backend.database.models import CCFData, UniMateData, CDRData
+    c1 = [r[0] for r in db.query(CCFData.company).distinct().all() if r[0]]
+    c2 = [r[0] for r in db.query(UniMateData.company).distinct().all() if r[0]]
+    c3 = [r[0] for r in db.query(CDRData.company).distinct().all() if r[0]]
+    companies = sorted(list(set(c1 + c2 + c3)))
+    if not companies:
+        companies = ["Digitech", "NSB"]
+        
+    user_companies = current_user.get("companies", [])
+    if current_user.get("username", "").lower() != "admin" and user_companies:
+        companies = [c for c in companies if c in user_companies]
+        
+    return companies
+
+
 @router.get("/data_types")
 async def get_data_types(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     if not os.path.exists(UIDAI_DATA_DIR):
@@ -360,3 +377,17 @@ async def download_file(request: Request, filename: str, impersonate: Optional[s
     }
     
     return StreamingResponse(output, headers=headers, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    
+# --- Dedicated Dashboard APIs ---
+
+@router.get("/dashboards/ccf/metrics")
+async def get_ccf_metrics(impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    return await get_aggregated_data(data_type="CCF Data", impersonate=impersonate, current_user=current_user, db=db)
+
+@router.get("/dashboards/unimate/metrics")
+async def get_unimate_metrics(impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    return await get_aggregated_data(data_type="UniMate Data", impersonate=impersonate, current_user=current_user, db=db)
+
+@router.get("/dashboards/cdr/metrics")
+async def get_cdr_metrics(impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    return await get_aggregated_data(data_type="CDR Data", impersonate=impersonate, current_user=current_user, db=db)

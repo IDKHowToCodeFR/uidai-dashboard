@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 import dash_ag_grid as dag
 from frontend.shared.api_client import api_get, api_post, get_history_options, download_file
 
-dash.register_page(__name__, path='/admin-logs', name='System Logs')
+dash.register_page(__name__, path='/admin/logs', name='System Logs')
 
 # Styling for Action Badges
 action_cell_style = {
