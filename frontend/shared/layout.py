@@ -219,10 +219,11 @@ def get_sidebar(user_role, token, permissions):
                 labelClassName="btn btn-outline-primary",
                 labelCheckedClassName="active",
                 options=[
-                    {"label": "CCF", "value": "Ccf Data"},
+                    {"label": "CCF", "value": "CCF Data"},
                     {"label": "UniMate", "value": "UniMate Data"},
+                    {"label": "CDR", "value": "CDR Data"},
                 ],
-                value="Ccf Data",
+                value="CCF Data",
             ),
             className="radio-group",
         ),

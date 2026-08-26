@@ -106,9 +106,9 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
     # Fetch dynamic SLA targets
     sla_targets = [85, 95, 95, 85, 85, 85]
     if auth_state and auth_state.get('token'):
-        from frontend.shared.api_client import api_client
+        from frontend.shared.api_client import api_get, get_dataframe, api_post, get_history_options, download_file
         try:
-            res = api_client.get_settings(auth_state.get('token'))
+            res = api_get("settings", token=auth_state.get('token'))
             if res.status_code == 200:
                 settings = res.json()
                 if "radar_sla_targets" in settings:

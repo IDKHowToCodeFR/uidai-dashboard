@@ -17,6 +17,7 @@ class Token(BaseModel):
     token_type: str
     role: str
     permissions: List[str]
+    companies: List[str]
 
 class UserAddRequest(BaseModel):
     username: str
@@ -63,7 +64,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     record_login(db, form_data.username)
     meta = extract_request_metadata(request)
     add_log(db, "LOGIN_SUCCESS", form_data.username, f"User {form_data.username} logged in successfully", **meta)
-    return {"access_token": access_token, "token_type": "bearer", "role": role, "permissions": permissions}
+    return {"access_token": access_token, "token_type": "bearer", "role": role, "permissions": permissions, "companies": companies}
 
 @router.get("/users")
 async def list_users(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):

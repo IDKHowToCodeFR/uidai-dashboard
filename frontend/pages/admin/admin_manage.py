@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 import requests
 import random
 import string
-from frontend.shared.api_client import api_client
+from frontend.shared.api_client import api_get, api_post, get_history_options, download_file
 
 dash.register_page(__name__, path='/admin-manage', name='Manage Users')
 
@@ -177,7 +177,7 @@ def load_cards(auth_state, status):
     if not token:
         return []
     try:
-        response = api_client.get_users(token)
+        response = api_get("users", token=token)
         if response.status_code == 200:
             users = response.json()
             cards = []
@@ -236,7 +236,7 @@ def open_manage_modal(manage_clicks, close_clicks, auth_state, is_open):
     perms = []
     companies = []
     try:
-        response = api_client.get_users(token)
+        response = api_get("users", token=token)
         if response.status_code == 200:
             users = response.json()
             if username in users:
@@ -266,7 +266,7 @@ def save_perms(n_clicks, username, switches, auth_state):
     token = auth_state.get('token') if auth_state else None
     try:
         req_data = {"username": username, "permissions": switches or []}
-        response = api_client.update_permissions(token, req_data)
+        response = api_post("users/permissions", token=token, json=req_data)
         if response.status_code == 200:
             return html.Span("Permissions saved successfully.", className="text-success"), "reload"
         return html.Span("Error saving permissions.", className="text-danger"), no_update
@@ -314,7 +314,7 @@ def reset_user_password(n_clicks, username, new_password, auth_state):
     token = auth_state.get('token') if auth_state else None
     try:
         req_data = {"username": username, "new_password": new_password.strip()}
-        response = api_client.reset_password(token, req_data)
+        response = api_post("users/reset-password", token=token, json=req_data)
         if response.status_code == 200:
             return html.Span("Password updated successfully.", className="text-success")
         return html.Span("Error updating password.", className="text-danger")
@@ -359,7 +359,7 @@ def deactivate_user(n_clicks, username, auth_state):
     if not n_clicks: return no_update, no_update, no_update
     token = auth_state.get('token') if auth_state else None
     try:
-        response = api_client.remove_user(token, username)
+        response = api_post("users/remove", token=token, json={"username": username})
         if response.status_code == 200:
             return False, False, "reload"
     except:
@@ -407,7 +407,7 @@ def add_company(n_clicks, company_name, username, password, perms, auth_state):
     token = auth_state.get('token') if auth_state else None
     try:
         req_data = {"username": username, "password": password, "companies": companies, "permissions": perms or []}
-        response = api_client.add_user(token, req_data)
+        response = api_post("users/add", token=token, json=req_data)
         if response.status_code == 200:
             return "", "reload"
         return html.Span(response.json().get("detail", "Error"), className="text-danger"), no_update

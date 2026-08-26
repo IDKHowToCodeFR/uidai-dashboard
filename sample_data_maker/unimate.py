@@ -34,10 +34,10 @@ REGIONS = [
     "Puducherry", "Ladakh", "Jammu and Kashmir"
 ]
 
-def generate_sample_unimate_data(num_records):
+def generate_sample_unimate_data(num_records = 1000, days = 30):
     data = []
 
-    start_date = datetime.now() - timedelta(days=30)
+    start_date = datetime.now() - timedelta(days = days)
 
     # Population-based language weights
     # ["bn-in", "en-in", "gu-in", "hi-in", "kn-in", "ml-in", "mr-in", "or-in", "pa-in", "ta-in", "te-in"]
@@ -145,5 +145,10 @@ def generate_sample_unimate_data(num_records):
     print(f"Successfully generated {num_records} sample records at {file_path}")
 
 if __name__ == "__main__":
-    n = int(input("Input rows : "))
-    generate_sample_unimate_data(n)
+    n_input = input("Input rows (default 1000) : ")
+    n = int(n_input) if n_input.strip() else 1000
+    
+    days_input = input("Input days (default 30) : ")
+    days = int(days_input) if days_input.strip() else 30
+    
+    generate_sample_unimate_data(n, days)

@@ -2,7 +2,7 @@ import dash
 from dash import Input, Output, State
 from dash import html
 from frontend.auth import login_page
-from frontend.shared.api_client import api_client, get_history_options
+from frontend.shared.api_client import api_get, api_post, get_history_options, download_file
 from frontend.shared.permissions import has_permission
 from frontend.shared.layout import get_topbar, get_sidebar, filter_drawer
 import dash_bootstrap_components as dbc
@@ -80,6 +80,17 @@ def register_routing_callbacks(app, content_div):
                 )
             ]
             target_url = "/unimate-dashboard"
+        elif context == "CDR Data":
+            nav_content = [
+                html.H6("CDR", className="section-title mb-3"),
+                dbc.Nav(
+                    [
+                        dbc.NavLink([html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")], href="/cdr-dashboard", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                        dbc.NavLink([html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")], href="/cdr-raw-data", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                    ], vertical=True, pills=True, className="custom-sidebar-nav mb-4"
+                )
+            ]
+            target_url = "/cdr-dashboard"
         else:
             nav_content = [
                 html.H6("CCF", className="section-title mb-3"),
@@ -127,7 +138,7 @@ def register_routing_callbacks(app, content_div):
             url_update = target_url # Explicit user switch
             
         return nav_content, opts, val, data, url_update
-
+ 
     @app.callback(
         Output("url", "pathname"),
         Input("auth-state", "data"),
@@ -140,7 +151,7 @@ def register_routing_callbacks(app, content_div):
             
         user_role = auth_state.get('user')
         if user_role == 'Admin':
-            if pathname in ['/', '/date-comparison', '/hourly', '/raw-data']:
+            if pathname in ['/', '/date-comparison', '/hourly', '/raw-data', '/unimate-dashboard', '/unimate-raw-data', '/cdr-dashboard', '/cdr-raw-data']:
                 return '/admin-manage'
         elif user_role:
             if pathname.startswith('/admin'):
