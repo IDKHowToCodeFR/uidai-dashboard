@@ -3,7 +3,7 @@ from dash import html, dcc, callback, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
 from frontend.shared.api_client import api_get, api_post, get_history_options, download_file
 
-dash.register_page(__name__, path='/admin-settings', name='Global Settings')
+dash.register_page(__name__, path='/admin/settings', name='Global Settings')
 
 # Default SLA Categories matching dashboard.py
 SLA_CATEGORIES = [

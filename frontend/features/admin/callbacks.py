@@ -227,11 +227,15 @@ def register_admin_callbacks(app):
     # --- LOGOUT: CONFIRMED ---
     @app.callback(
         Output("auth-state", "data", allow_duplicate=True),
+        Output("auth-state-local", "data", allow_duplicate=True),
+        Output("auth-state-session", "data", allow_duplicate=True),
+        Output("data-store", "data", allow_duplicate=True),
+        Output("url", "pathname", allow_duplicate=True),
         Output("logout-confirm-modal", "is_open", allow_duplicate=True),
         Input("btn-logout-confirm", "n_clicks"),
         prevent_initial_call=True
     )
     def handle_logout(n_clicks):
         if n_clicks:
-            return None, False
-        return dash.no_update, dash.no_update
+            return None, None, None, None, '/', False
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update

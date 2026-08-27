@@ -1,6 +1,34 @@
 $$$$ No matter what happens never remove this file from the code. $$$$
 
-CDR Data :
+APR Report Data (Prepared Daily Wise): 
+    - Agent Name : Name of the agent. Vendor_AgentName.
+    - Login ID : 7 digit unique id assigned to that user. Same as anslogin of the CDR Report. 
+    - ACD Calls : Total Number of ACD Calls by the agent. 
+    - Avg ACD Time : Avg Time for ACD Calls in Seconds.
+    - Avg ACW Time : Avg Time Agent Spent After Call in Seconds.
+    - % Agent Occupancy with ACW : Figure in %.
+    - % Agent Occupancy without ACW : Figure in %. Generally more then with ACW %.
+    - ACD TIme: Total Time Agent Spent on ACD Calls in Seconds.
+    - ACW Time: Total Time Agent Spent on ACW Calls in Seconds.
+    - Agent Ring Time : Total Time the call was in ring for agent. 
+    - Other Time: Total Time agent was idle and not on ACD, ACW or Ring.  
+    - AUX Time : Total Time Agent Spent that day logged in.
+    - Avail Time : (ACD TIme + ACW Time + Agent Ring Time + Other Time + AUX Time).
+    - Avail Time :  
+    - Staffed Time : 
+    - Held Calls : 
+    - Tea Break : 
+    - Lunch / Dinner : 
+    - Quality Feedback : 
+    - Email Support : 
+    - Brefing : 
+    - System Down : 
+    - Meeting : 
+    - Trans Out : 
+    - Split / Skill : 
+    - Conf :  
+
+CDR Data (Prepared Daily Wise) :
     - Call Id : Random Id just for Call Identifcation and primary key making.
     - acwtime (in seconds) : answered call waiting time.
     - ansholdtime (in seconds) : hold time for answered call.
@@ -12,10 +40,10 @@ CDR Data :
     - split1 : 811-822/911-922. All 12 languages in form of codes and 8 meand to digitech and 9 means to NSB. Next two digit is language code 11 : Hindi. Means 811, Hindi in Digitech.
     - transferred : 0/1 (False & True).
     - agt_released : 0/1 (False & True). If transfered = 1 then this is always else if transferred is 0 then it can be 0 or 1.
-    - origlogin : kinda similar ro origlogin just different number but from same organization.
+    - origlogin : kinda similar to anslogin just different number but from same organization.
     - anslogin : agent id. What the agent sees or logs in the record, let's say 7 digit random number based on agency, 56..... for digitech, 57....... for NSB.
 
-Unimate Data :
+Unimate Data (Prepared Daily Wise):
     - UCID : A random unique id for each case, for now anything, just used as primary key no use in dashboard.
     - Session ID : Again a random session ID, genreated for refence case.
     - Day of Week : Integer between 1 & 7. 1 stands for SUNDAY.
@@ -32,7 +60,7 @@ Unimate Data :
     - Description : Keep it any sentence 10-12, describing the reason like API failure and all, you may keep it dynamic so that when real data is uploaded then it works and does not fail.
     - Region : State, Union Teritory.
 
-CCF Data :
+CCF Data (Prepared Monthly Wise):
     "The data reprsented here is only for the company "DIGITECH" and it holds 60% of the total Calls, for NSB assume similar trend with "40%" contribution and overall they make the total 100%. All the code could be such that if we assume to add one more company in future then it should support that too lets say make it resiliant for n-companies"
 
     ## GOT VALUES{For Digitech only simlar for NSB} :
@@ -62,8 +90,3 @@ CCF Data :
     - Service Level -> >85% = good , else =  penalty
     - Avg Handle Time -> <= 240 sec = good, else penalty
     - Avg Hold Time -> <= 20 sec = good, else penalty
-
-
-ok now listen what more we need to add in the data to make it more real and work on it, if somethign can be inferred and and can be processed after preprocessing it must be performed after that only. Keep them as didtinct in sheets as you can adn keep as closed as you can after preprocessing make a plan for it now. Few things extra I would like to add. 
-
- [grill-with-docs](slashCommand;grill-with-docs) 

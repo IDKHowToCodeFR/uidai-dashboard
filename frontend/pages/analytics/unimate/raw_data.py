@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from frontend.shared.api_client import get_dataframe
 
-dash.register_page(__name__, path='/unimate-raw-data', name='UniMate Raw Data Explorer')
+dash.register_page(__name__, path='/unimate/raw_data', name='UniMate Raw Data Explorer')
 
 layout = html.Div([
     html.Div([

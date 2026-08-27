@@ -10,7 +10,7 @@ import dash_bootstrap_components as dbc
 from frontend.components.cards import wrap_chart_card
 from frontend.components.empty_state import render_empty_state
 
-dash.register_page(__name__, path='/hourly', name='Hourly Insights')
+dash.register_page(__name__, path='/ccf/hourly', name='Hourly Insights')
 
 layout = Container([
     Row([

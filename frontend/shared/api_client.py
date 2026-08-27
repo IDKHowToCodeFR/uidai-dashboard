@@ -117,6 +117,15 @@ def upload_file_to_api(contents, filename, token, client_id=None, data_type="CCF
         print(f'Exception during upload: {e}')
         return None
 
+def get_all_companies(token: str = None):
+    try:
+        response = api_get("companies", token=token)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        print(f"Error fetching companies: {e}")
+    return ["Digitech", "NSB"]
+
 @lru_cache(maxsize=16)
 def get_dataframe(token: str, filename: str, impersonate: str = None) -> pd.DataFrame:
     """Fetches data from backend and caches it in Dash server memory as a DataFrame."""

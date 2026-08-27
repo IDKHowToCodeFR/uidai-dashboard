@@ -56,10 +56,7 @@ def process_unprocessed_files():
                             print(f"CRON: Unknown data folder '{data_type_folder}', skipping {filename}")
                             continue
                             
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        loop.run_until_complete(process_file_background(file_path, filename, "CRON", "system_cron", data_type=data_type, meta={}))
-                        loop.close()
+                        asyncio.run(process_file_background(file_path, filename, "CRON", "system_cron", data_type=data_type, meta={}))
                     except Exception as e:
                         print(f"CRON task failed for {filename}: {e}")
     except Exception as e:

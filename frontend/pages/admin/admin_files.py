@@ -7,7 +7,7 @@ import pandas as pd
 import base64
 from datetime import datetime, date, timedelta
 
-dash.register_page(__name__, path='/admin-files', name='File Repository')
+dash.register_page(__name__, path='/admin/files', name='File Repository')
 
 layout = html.Div([
     html.Div([

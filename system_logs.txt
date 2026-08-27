@@ -1,0 +1,71 @@
+[2026-08-27T15:24:42.682622][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-27T15:24:43.839613][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-27T15:24:52.775757][admin][127.0.0.1][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-27T15:24:52.842164][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T15:28:47.247447][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T15:28:52.220318][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T15:29:47.245084][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T15:35:00.666964][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T15:35:10.580718][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T16:00:42.424333][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T16:01:11.281071][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'uidai'
+[2026-08-27T16:01:22.417367][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /reports
+[2026-08-27T16:01:38.114329][uidai][127.0.0.1][/login][System][LOGIN_SUCCESS] User uidai logged in successfully
+[2026-08-27T16:01:38.166413][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-27T16:01:40.337038][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-27T16:01:44.481143][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /reports
+[2026-08-27T16:24:40.248480][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /reports
+[2026-08-27T16:25:01.232573][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /reports
+[2026-08-27T16:27:39.455096][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /reports
+[2026-08-27T16:27:48.204925][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-27T16:28:43.516649][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/date_comparison
+[2026-08-27T16:28:45.399869][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-27T16:28:47.416192][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /cdr/dashboard
+[2026-08-27T16:29:04.098192][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-27T16:29:05.334359][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /unimate/dashboard
+[2026-08-27T16:29:23.543605][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-27T16:29:25.174199][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-27T16:30:40.232340][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-27T16:31:07.232547][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-27T16:31:28.225233][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-27T16:32:03.504922][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-27T16:32:06.191661][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-27T16:32:10.961024][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-27T16:38:41.386928][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-27T16:38:46.435927][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-27T16:38:48.255791][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-27T16:38:51.004542][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /unimate/dashboard
+[2026-08-27T16:39:02.178182][admin][127.0.0.1][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-27T16:39:02.232118][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T16:40:28.234031][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T16:49:28.507270][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T16:49:52.237188][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T16:50:12.665263][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T16:50:49.699589][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'uidai'
+[2026-08-27T16:50:52.779918][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'uidai'
+[2026-08-27T16:50:56.180575][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'uidai'
+[2026-08-27T16:52:05.497135][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'uidai'
+[2026-08-27T16:52:05.677572][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'uidai'
+[2026-08-27T16:52:05.861699][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'uidai'
+[2026-08-27T16:52:26.770183][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'uidai'
+[2026-08-27T16:52:27.879478][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/files
+[2026-08-27T16:52:30.296796][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/logs
+[2026-08-27T16:52:57.220310][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T16:53:32.532387][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T16:57:47.204646][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'uidai'
+[2026-08-27T16:57:49.932840][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'uidai'
+[2026-08-27T16:58:18.649675][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T17:02:05.122693][digitech][127.0.0.1][/login][System][LOGIN_SUCCESS] User digitech logged in successfully
+[2026-08-27T17:02:05.173348][digitech][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-27T17:02:17.783350][admin][127.0.0.1][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-27T17:02:17.845718][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T17:02:55.651476][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T17:05:38.111039][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T17:06:22.858460][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/files
+[2026-08-27T17:06:23.696710][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/logs
+[2026-08-27T17:06:34.039291][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T17:12:42.648459][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-27T17:13:26.425273][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'digitech'
+[2026-08-27T17:13:44.535958][digitech][127.0.0.1][/login][System][LOGIN_SUCCESS] User digitech logged in successfully
+[2026-08-27T17:13:44.584767][digitech][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-27T17:13:54.592787][digitech][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /unimate/dashboard

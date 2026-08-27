@@ -24,8 +24,8 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey_change_me_in_production")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 PASSWORD_HASH_ALGORITHM = os.getenv("PASSWORD_HASH_ALGORITHM", "bcrypt")
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 day
-
+ACCESS_TOKEN_EXPIRE_MINUTES = 60*6 # 6 hours
+REFRESH_TOKEN_EXPIRE_DAYS = 7 # 7 days
 # Initialize passlib context
 pwd_context = CryptContext(schemes=[PASSWORD_HASH_ALGORITHM], deprecated="auto")
 
@@ -93,8 +93,9 @@ def extract_request_metadata(request) -> dict:
     return meta
 
 def add_log(db: Session, action: str, username: str, details: str = "", ip_address: str = None, user_agent: str = None, endpoint: str = None):
+    timestamp_iso = datetime.now().isoformat()
     log_entry = AuditLog(
-        timestamp=datetime.now().isoformat(),
+        timestamp=timestamp_iso,
         action=action,
         username=username,
         details=details,
@@ -104,6 +105,13 @@ def add_log(db: Session, action: str, username: str, details: str = "", ip_addre
     )
     db.add(log_entry)
     db.commit()
+    
+    # Flat-file logging for industry standard
+    try:
+        with open("system_logs.txt", "a") as f:
+            f.write(f"[{timestamp_iso}][{username}][{ip_address or 'Unknown IP'}][{endpoint or 'Unknown Endpoint'}][System][{action}] {details}\n")
+    except Exception:
+        pass
 
 def archive_old_logs(db: Session, days=90):
     cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
@@ -112,10 +120,23 @@ def archive_old_logs(db: Session, days=90):
     db.query(AuditLog).filter(AuditLog.timestamp < cutoff_date).delete()
     db.commit()
 
-def load_users(db: Session) -> dict:
+def load_users(db: Session, current_user: dict = None) -> dict:
     users = db.query(User).all()
     result = {}
+    
+    is_superadmin = False
+    admin_companies = []
+    if current_user:
+        is_superadmin = current_user.get("username", "").lower() == "admin"
+        admin_companies = current_user.get("companies", [])
+        
     for user in users:
+        if current_user and not is_superadmin:
+            user_companies = user.companies or []
+            if user.username.lower() != current_user.get("username", "").lower():
+                if not any(c in admin_companies for c in user_companies):
+                    continue
+                    
         permissions = [p.permission_name for p in user.permissions]
         result[user.username] = {
             "password": user.password_hash,
@@ -151,7 +172,7 @@ def add_user(db: Session, username: str, password: str, companies: list, permiss
     add_log(db, "USER_ADDED", "Admin", f"Added user '{username}' with companies {companies} and perms {permissions}", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
     return True, f"User '{username}' added."
 
-def update_permissions(db: Session, username: str, permissions: list, ip_address: str = None, user_agent: str = None, endpoint: str = None):
+def update_permissions(db: Session, username: str, permissions: list, companies: list = None, ip_address: str = None, user_agent: str = None, endpoint: str = None):
     key = username.lower().strip()
     user = db.query(User).filter(User.username == key).first()
     if not user:
@@ -160,6 +181,9 @@ def update_permissions(db: Session, username: str, permissions: list, ip_address
     if key == "admin":
         return False, "Cannot modify admin permissions."
     
+    if companies is not None:
+        user.companies = companies
+        
     # Delete existing permissions
     db.query(UserPermission).filter(UserPermission.user_id == user.id).delete()
     
@@ -168,8 +192,8 @@ def update_permissions(db: Session, username: str, permissions: list, ip_address
         db.add(UserPermission(user_id=user.id, permission_name=p))
         
     db.commit()
-    add_log(db, "PERMISSIONS_UPDATED", "Admin", f"Updated permissions for '{username}': {permissions}", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
-    return True, f"Permissions updated for '{username}'."
+    add_log(db, "PERMISSIONS_UPDATED", "Admin", f"Updated permissions & companies for '{username}'", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
+    return True, f"Permissions & companies updated for '{username}'."
 
 def reset_password(db: Session, username: str, new_password: str, ip_address: str = None, user_agent: str = None, endpoint: str = None):
     key = username.lower().strip()
@@ -222,14 +246,27 @@ def verify_and_upgrade_password(db: Session, db_user: User, plain_password: str)
     
     return True
 
+def get_admin_permissions():
+    return [
+        "can_upload_files", "can_download_files", 
+        "can_view_ccf", "can_view_unimate", "can_view_cdr", "can_view_apr",
+        "can_manage_users", "can_view_logs", "can_edit_settings"
+    ]
+
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": "access"})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-async def get_current_user(token: str = Security(oauth2_scheme)):
+def create_refresh_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh"})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+async def get_current_user(token: str = Security(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -238,19 +275,32 @@ async def get_current_user(token: str = Security(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
-        role: str = payload.get("role")
-        permissions: list = payload.get("permissions", [])
-        companies: list = payload.get("companies", [])
-        if username is None or role is None:
+        token_type: str = payload.get("type")
+        
+        if username is None or token_type != "access":
             raise credentials_exception
-        return {"username": username, "role": role, "permissions": permissions, "companies": companies}
+            
+        user = db.query(User).filter(User.username == username).first()
+        if not user:
+            raise credentials_exception
+            
+        role = "Admin" if "Admin" in user.companies or username.lower() == "admin" else "User"
+        
+        if role == "Admin":
+            permissions = get_admin_permissions()
+        else:
+            permissions = [p.permission_name for p in user.permissions]
+        
+        return {"username": user.username, "role": role, "permissions": permissions, "companies": user.companies}
     except JWTError:
         raise credentials_exception
 
 def require_permission(required_permission: str):
-    def checker(current_user: dict = Security(get_current_user)):
+    def checker(request: Request, current_user: dict = Security(get_current_user), db: Session = Depends(get_db)):
         permissions = current_user.get("permissions", [])
         if required_permission not in permissions:
+            meta = extract_request_metadata(request)
+            add_log(db, "UNAUTHORIZED_ACCESS", current_user.get("username", "Unknown"), f"Attempted to access endpoint requiring {required_permission}", **meta)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Requires permission: {required_permission}"

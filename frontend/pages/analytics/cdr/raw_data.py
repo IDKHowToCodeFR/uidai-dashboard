@@ -6,15 +6,15 @@ import numpy as np
 import pandas as pd
 from frontend.shared.api_client import get_dataframe
 
-dash.register_page(__name__, path='/raw-data')
+dash.register_page(__name__, path='/cdr/raw_data', name='CDR Raw Data Explorer')
 
 layout = html.Div([
     html.Div([
         html.H3("Raw Data Explorer", className="display-xl mb-0"),
-        html.P("View, sort, and filter the raw IVRS call logs. Use the column headers to further filter data on this page.", className="text-muted mb-4 mt-2"),
+        html.P("View, sort, and filter the raw CDR call logs. Use the column headers to further filter data on this page.", className="text-muted mb-4 mt-2"),
     ]),
     html.Div(
-        id='raw-data-table-container',
+        id='cdr-raw-data-table-container',
         className="custom-card shadow-sm bg-white p-4",
         style={"borderRadius": "16px", "border": "1px solid #e2e8f0"}
     )
@@ -22,7 +22,7 @@ layout = html.Div([
 
 
 @callback(
-    Output('raw-data-table-container', 'children'),
+    Output('cdr-raw-data-table-container', 'children'),
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
@@ -48,15 +48,20 @@ def update_table(data_ref, companies, languages, start_date, end_date, auth_stat
 
     if start_date and end_date:
         date_col = None
-        if 'Timestamp' in df.columns:
+        if 'segstart' in df.columns:
+            date_col = 'segstart'
+        elif 'Timestamp' in df.columns:
             date_col = 'Timestamp'
         elif 'Date' in df.columns:
             date_col = 'Date'
-        elif 'Call Start Time' in df.columns:
-            date_col = 'Call Start Time'
 
         if date_col in df.columns:
-            temp_date = pd.to_datetime(df[date_col], errors='coerce').dt.date
+            # segstart is formatted as dd-mm-YYYY HH:MM:SS
+            temp_date = pd.to_datetime(df[date_col], format='%d-%m-%Y %H:%M:%S', errors='coerce').dt.date
+            # Fallback to general parsing if it fails
+            if temp_date.isna().all():
+                temp_date = pd.to_datetime(df[date_col], errors='coerce').dt.date
+                
             valid_mask = temp_date.notna()
             df = df[valid_mask]
             temp_date = temp_date[valid_mask]
@@ -69,12 +74,6 @@ def update_table(data_ref, companies, languages, start_date, end_date, auth_stat
     # Round numeric columns for cleaner display
     numeric_cols = df.select_dtypes(include=[np.number]).columns
     df[numeric_cols] = df[numeric_cols].round(2)
-
-    # Format Date and Call Timestamp for display
-    if 'Date' in df.columns:
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.strftime('%Y-%m-%d')
-    if 'Call Timestamp' in df.columns:
-        df['Call Timestamp'] = pd.to_datetime(df['Call Timestamp'], errors='coerce').dt.strftime('%H:%M:%S')
 
     return dag.AgGrid(
         rowData=df.to_dict("records"),
