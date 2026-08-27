@@ -44,22 +44,28 @@ filter_drawer = dbc.Offcanvas(
     className="offcanvas border-0 shadow-lg"
 )
 
-def get_topbar(user_role, permissions):
+def get_topbar(user_role, permissions, pathname=None):
     impersonate_div = html.Div(dcc.Dropdown(id="impersonate-dropdown"), style={"display": "none"})
 
-    left_elements = [
-        html.Button(
-            html.I(className="bi bi-list fs-5"),
-            id="btn-sidebar-toggle",
-            n_clicks=0,
-            className="btn btn-light me-3 body-strong rounded-circle",
-            style={
-                "width": "36px", "height": "36px",
-                "display": "flex", "alignItems": "center", "justifyContent": "center",
-                "border": "1px solid var(--color-border)",
-                "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
-            }
-        ),
+    left_elements = []
+    
+    if pathname != '/select':
+        left_elements.append(
+            html.Button(
+                html.I(className="bi bi-list fs-5"),
+                id="btn-sidebar-toggle",
+                n_clicks=0,
+                className="btn btn-light me-3 body-strong rounded-circle",
+                style={
+                    "width": "36px", "height": "36px",
+                    "display": "flex", "alignItems": "center", "justifyContent": "center",
+                    "border": "1px solid var(--color-border)",
+                    "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
+                }
+            )
+        )
+        
+    left_elements.extend([
         html.Img(src="/assets/aadhaar-logo.png", style={"height": "32px", "marginRight": "12px"}),
         html.Div([
             html.H5(
@@ -83,18 +89,33 @@ def get_topbar(user_role, permissions):
                 }
             )
         ], style={"display": "flex", "flexDirection": "column", "justifyContent": "center"})
-    ]
+    ])
 
     right_elements = [
         impersonate_div,
     ]
     
-    if user_role != 'Admin':
+    if user_role != 'Admin' and pathname != '/select':
         right_elements.append(
             html.Button(
                 html.I(className="bi bi-funnel-fill fs-6"),
                 id="btn-filters",
                 n_clicks=0,
+                className="btn btn-light me-3 body-strong rounded-circle",
+                style={
+                    "width": "36px", "height": "36px",
+                    "display": "flex", "alignItems": "center", "justifyContent": "center",
+                    "border": "1px solid var(--color-border)",
+                    "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
+                }
+            )
+        )
+        
+    if pathname != '/select':
+        right_elements.append(
+            dbc.Button(
+                html.I(className="bi bi-house-fill fs-6"),
+                href="/select",
                 className="btn btn-light me-3 body-strong rounded-circle",
                 style={
                     "width": "36px", "height": "36px",
@@ -159,7 +180,7 @@ def get_topbar(user_role, permissions):
         }
     )
 
-def get_sidebar(user_role, token, permissions):
+def get_sidebar(user_role, token, permissions, nav_content=None, history_options=None, history_value=None):
     if user_role == 'Admin':
         sidebar_content = html.Div([
             html.H6("ADMINISTRATOR", className="section-title mb-3"),
@@ -211,24 +232,10 @@ def get_sidebar(user_role, token, permissions):
     can_upload = 'can_upload_files' in permissions
 
     sidebar_content = html.Div([
-        html.Div(
-            dbc.RadioItems(
-                id="context-switcher",
-                className="btn-group w-100 mb-4",
-                inputClassName="btn-check",
-                labelClassName="btn btn-outline-primary",
-                labelCheckedClassName="active",
-                options=[
-                    {"label": "CCF", "value": "CCF Data"},
-                    {"label": "UniMate", "value": "UniMate Data"},
-                    {"label": "CDR", "value": "CDR Data"},
-                ],
-                value="CCF Data",
-            ),
-            className="radio-group",
-        ),
+        # Context switcher removed per requirements. Context is selected via the /select landing page.
+        html.Div(id="context-switcher", style={"display": "none"}),
         
-        html.Div(id="sidebar-nav-container"),
+        html.Div(nav_content, id="sidebar-nav-container"),
 
         html.Hr(style={"borderColor": "#e2e8f0"}),
         html.H6("HISTORY", className="section-title mb-3"),
@@ -236,8 +243,8 @@ def get_sidebar(user_role, token, permissions):
         html.Div(
             dbc.RadioItems(
                 id="file-history",
-                options=[],
-                value=None,
+                options=history_options or [],
+                value=history_value,
                 className="mb-4 history-radio-group"
             )
         )

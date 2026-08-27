@@ -93,8 +93,9 @@ def extract_request_metadata(request) -> dict:
     return meta
 
 def add_log(db: Session, action: str, username: str, details: str = "", ip_address: str = None, user_agent: str = None, endpoint: str = None):
+    timestamp_iso = datetime.now().isoformat()
     log_entry = AuditLog(
-        timestamp=datetime.now().isoformat(),
+        timestamp=timestamp_iso,
         action=action,
         username=username,
         details=details,
@@ -104,6 +105,13 @@ def add_log(db: Session, action: str, username: str, details: str = "", ip_addre
     )
     db.add(log_entry)
     db.commit()
+    
+    # Flat-file logging for industry standard
+    try:
+        with open("system_logs.txt", "a") as f:
+            f.write(f"[{timestamp_iso}][{username}][{ip_address or 'Unknown IP'}][{endpoint or 'Unknown Endpoint'}][System][{action}] {details}\n")
+    except Exception:
+        pass
 
 def archive_old_logs(db: Session, days=90):
     cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
@@ -164,7 +172,7 @@ def add_user(db: Session, username: str, password: str, companies: list, permiss
     add_log(db, "USER_ADDED", "Admin", f"Added user '{username}' with companies {companies} and perms {permissions}", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
     return True, f"User '{username}' added."
 
-def update_permissions(db: Session, username: str, permissions: list, ip_address: str = None, user_agent: str = None, endpoint: str = None):
+def update_permissions(db: Session, username: str, permissions: list, companies: list = None, ip_address: str = None, user_agent: str = None, endpoint: str = None):
     key = username.lower().strip()
     user = db.query(User).filter(User.username == key).first()
     if not user:
@@ -173,6 +181,9 @@ def update_permissions(db: Session, username: str, permissions: list, ip_address
     if key == "admin":
         return False, "Cannot modify admin permissions."
     
+    if companies is not None:
+        user.companies = companies
+        
     # Delete existing permissions
     db.query(UserPermission).filter(UserPermission.user_id == user.id).delete()
     
@@ -181,8 +192,8 @@ def update_permissions(db: Session, username: str, permissions: list, ip_address
         db.add(UserPermission(user_id=user.id, permission_name=p))
         
     db.commit()
-    add_log(db, "PERMISSIONS_UPDATED", "Admin", f"Updated permissions for '{username}': {permissions}", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
-    return True, f"Permissions updated for '{username}'."
+    add_log(db, "PERMISSIONS_UPDATED", "Admin", f"Updated permissions & companies for '{username}'", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
+    return True, f"Permissions & companies updated for '{username}'."
 
 def reset_password(db: Session, username: str, new_password: str, ip_address: str = None, user_agent: str = None, endpoint: str = None):
     key = username.lower().strip()
@@ -235,6 +246,13 @@ def verify_and_upgrade_password(db: Session, db_user: User, plain_password: str)
     
     return True
 
+def get_admin_permissions():
+    return [
+        "can_upload_files", "can_download_files", 
+        "can_view_ccf", "can_view_unimate", "can_view_cdr", "can_view_apr",
+        "can_manage_users", "can_view_logs", "can_edit_settings"
+    ]
+
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -266,17 +284,23 @@ async def get_current_user(token: str = Security(oauth2_scheme), db: Session = D
         if not user:
             raise credentials_exception
             
-        role = "Admin" if "Admin" in user.companies else "User"
-        permissions = [p.permission_name for p in user.permissions]
+        role = "Admin" if "Admin" in user.companies or username.lower() == "admin" else "User"
+        
+        if role == "Admin":
+            permissions = get_admin_permissions()
+        else:
+            permissions = [p.permission_name for p in user.permissions]
         
         return {"username": user.username, "role": role, "permissions": permissions, "companies": user.companies}
     except JWTError:
         raise credentials_exception
 
 def require_permission(required_permission: str):
-    def checker(current_user: dict = Security(get_current_user)):
+    def checker(request: Request, current_user: dict = Security(get_current_user), db: Session = Depends(get_db)):
         permissions = current_user.get("permissions", [])
         if required_permission not in permissions:
+            meta = extract_request_metadata(request)
+            add_log(db, "UNAUTHORIZED_ACCESS", current_user.get("username", "Unknown"), f"Attempted to access endpoint requiring {required_permission}", **meta)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Requires permission: {required_permission}"

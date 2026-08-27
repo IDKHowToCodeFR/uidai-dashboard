@@ -262,7 +262,7 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             ui_hold = e_ui('hold-hist')
     
         # Chart 6: Intraday
-        if 'Date' in df_current.columns and not df_current['Date'].isna().all():
+        if 'Date' in df_current.columns and not df_current['Date'].isna().all() and all(c in df_current.columns for c in ['Call Offered', 'ABAN Calls in 10 Sec', 'ACD Calls in 20 Sec']):
             df_current['Time'] = df_current['Date'].dt.floor('30min').dt.time
             df_current['True_Day'] = df_current['Date'].dt.floor('D')
             intraday_grp = df_current.groupby(['True_Day', 'Time']).sum(numeric_only=True).reset_index()

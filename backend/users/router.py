@@ -35,10 +35,14 @@ class UserRemoveRequest(BaseModel):
 class PermissionsRequest(BaseModel):
     username: str
     permissions: List[str]
+    companies: Optional[List[str]] = None
 
 class ResetPasswordRequest(BaseModel):
     username: str
     new_password: str
+
+class PageViewRequest(BaseModel):
+    pathname: str
 
 @router.post("/login", response_model=Token)
 async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -55,8 +59,11 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     companies = db_user.companies or []
     role = "Admin" if "Admin" in companies or key == "admin" else "User"
     
-    # We still need permissions to generate the token, we can get them from db_user.permissions
-    permissions = [p.permission_name for p in db_user.permissions] if db_user.permissions else []
+    if role == "Admin":
+        from backend.auth.auth_utils import get_admin_permissions
+        permissions = get_admin_permissions()
+    else:
+        permissions = [p.permission_name for p in db_user.permissions] if db_user.permissions else []
     
     # We only need the 'sub' claim now as get_current_user checks the DB dynamically.
     access_token = create_access_token(data={"sub": form_data.username})
@@ -97,8 +104,13 @@ async def refresh_token(req: RefreshRequest, db: Session = Depends(get_db)):
             raise credentials_exception
             
         companies = db_user.companies or []
-        role = "Admin" if "Admin" in companies or username == "admin" else "User"
-        permissions = [p.permission_name for p in db_user.permissions] if db_user.permissions else []
+        role = "Admin" if "Admin" in companies or username.lower() == "admin" else "User"
+        
+        if role == "Admin":
+            from backend.auth.auth_utils import get_admin_permissions
+            permissions = get_admin_permissions()
+        else:
+            permissions = [p.permission_name for p in db_user.permissions] if db_user.permissions else []
         
         access_token = create_access_token(data={"sub": username})
         new_refresh_token = create_refresh_token(data={"sub": username})
@@ -149,7 +161,7 @@ async def api_update_permissions(request: Request, req: PermissionsRequest, curr
     if current_user["role"] != "Admin":
         raise HTTPException(status_code=403, detail="Admin only")
     meta = extract_request_metadata(request)
-    ok, msg = update_permissions(db, req.username, req.permissions, **meta)
+    ok, msg = update_permissions(db, req.username, req.permissions, req.companies, **meta)
     if not ok:
         raise HTTPException(status_code=400, detail=msg)
     return {"message": msg}
@@ -163,3 +175,9 @@ async def api_reset_password(request: Request, req: ResetPasswordRequest, curren
     if not ok:
         raise HTTPException(status_code=400, detail=msg)
     return {"message": msg}
+
+@router.post("/logs/page_view")
+async def api_log_page_view(request: Request, req: PageViewRequest, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    meta = extract_request_metadata(request)
+    add_log(db, "PAGE_VIEW", current_user.get("username", "Unknown"), f"Viewed {req.pathname}", **meta)
+    return {"message": "Logged"}
