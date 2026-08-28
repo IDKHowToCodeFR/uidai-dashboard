@@ -4,6 +4,18 @@ import numpy as np
 """
 Pure domain module for parsing UniMate Excel/CSV data.
 """
+from backend.database.models import UniMateData
+
+MAPPING = {
+    'UCID': 'ucid', 'Session ID': 'session_id', 'Company': 'company', 'Day of Week': 'day_of_week',
+    'Call Start Time': 'call_start_time', 'Call End Time': 'call_end_time', 'Call Duration': 'call_duration',
+    'ANI': 'ani', 'DNIS': 'dnis', 'Language': 'language', 'Authentication': 'authentication',
+    'Authentication Mechanism': 'auth_mechanism', 'Termination Type': 'termination_type',
+    'Termination Reason': 'termination_reason', 'Description': 'description', 'Region': 'region'
+}
+MODEL = UniMateData
+INDEX_ELEMENTS = ['ucid']
+
 async def parse_unimate(save_path: str, progress_callback=None) -> pd.DataFrame:
     if progress_callback:
         await progress_callback(10, 'Parsing file...')

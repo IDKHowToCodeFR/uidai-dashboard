@@ -10,7 +10,7 @@ from frontend.shared.theme import get_plotly_template, make_header_with_download
 from frontend.shared.api_client import get_dataframe
 import dash_bootstrap_components as dbc
 from frontend.components.cards import make_kpi_card, wrap_chart_card
-from frontend.components.empty_state import render_empty_state
+from frontend.components.empty_state import render_empty_state, e_ui
 
 dash.register_page(__name__, path='/ccf/dashboard', name='Dashboard')
 
@@ -30,7 +30,7 @@ layout = Container([
         ], width=4, className="d-flex align-items-center justify-content-end mb-4")
     ]),
 
-    Row(id='kpi-row'),
+    dcc.Loading(type="dot", color="var(--color-primary)", children=Row(id='kpi-row')),
 
     Row([
         Col([wrap_chart_card("sl-trend", "Service Level Trend (%)")], width=12, lg=7, className="mb-4"),
@@ -78,9 +78,11 @@ layout = Container([
     Input('language-filter', 'value'),
     Input('date-picker-range', 'start_date'),
     Input('date-picker-range', 'end_date'),
+    Input('sl-granularity', 'value'),
+    Input('sl-scale-toggle', 'value'),
     State('auth-state', 'data')
 )
-def update_dashboard(data_ref, company_filter, language_filter, start_date, end_date, auth_state):
+def update_dashboard(data_ref, company_filter, language_filter, start_date, end_date, sl_granularity, sl_scale_toggle, auth_state):
     try:
         def e_ui(gid):
             return render_empty_state(graph_id=gid)
@@ -136,16 +138,19 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
     
         # Dynamic Time Bucketing
         if 'Date' in df_current.columns and not df_current['Date'].isna().all():
-            min_dt, max_dt = df_current['Date'].min(), df_current['Date'].max()
-            days_diff = (max_dt - min_dt).days if pd.notnull(min_dt) and pd.notnull(max_dt) else 0
-            
-            if days_diff > 90:
-                freq = 'M'
-            elif days_diff > 31:
-                freq = 'W-MON'
+            if sl_granularity and sl_granularity != 'Auto':
+                freq = sl_granularity
             else:
-                freq = 'D'
+                min_dt, max_dt = df_current['Date'].min(), df_current['Date'].max()
+                days_diff = (max_dt - min_dt).days if pd.notnull(min_dt) and pd.notnull(max_dt) else 0
                 
+                if days_diff > 90:
+                    freq = 'M'
+                elif days_diff > 31:
+                    freq = 'W-MON'
+                else:
+                    freq = 'D'
+                    
             if freq == 'D':
                 df_current['Date_Bucket'] = df_current['Date'].dt.floor('D')
             else:
@@ -219,8 +224,14 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             fig_sl.update_layout(xaxis_title="Date")
             fig_sl.add_hline(y=85, line_dash="dash", line_color=COLOR_SUCCESS, annotation_text="85% Target")
             
-            y_min = max(0, min(daily_grp['SL %'].min() - 10, 70))
-            fig_sl.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), yaxis=dict(range=[y_min, 100]))
+            if sl_scale_toggle and 1 in sl_scale_toggle:
+                y_min = max(0, min(daily_grp['SL %'].min() - 2, 80))
+                y_max = min(100, daily_grp['SL %'].max() + 2)
+                fig_sl.update_yaxes(range=[y_min, y_max])
+            else:
+                fig_sl.update_yaxes(range=[0, 100])
+            
+            fig_sl.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10))
             ui_sl = dcc.Graph(id='sl-trend', figure=fig_sl, config={'displayModeBar': False})
         else:
             ui_sl = e_ui('sl-trend')

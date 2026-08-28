@@ -27,3 +27,12 @@ def render_empty_state(message="No Data Available", subtext="Adjust your filters
         children.append(dcc.Graph(id=graph_id, figure=empty_fig, style={'display': 'none'}))
         
     return html.Div(children, className="w-100 h-100")
+
+def e_ui(id_val):
+    from dash import dcc
+    import plotly.graph_objects as go
+    return dcc.Graph(
+        id=id_val, 
+        figure=go.Figure().update_layout(template='plotly_white', margin=dict(l=0, r=0, t=20, b=0)), 
+        config={'displayModeBar': False}
+    )

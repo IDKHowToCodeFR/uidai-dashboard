@@ -8,7 +8,7 @@ from frontend.shared.theme import get_plotly_template, make_header_with_download
 from frontend.shared.api_client import get_dataframe
 import dash_bootstrap_components as dbc
 from frontend.components.cards import wrap_chart_card
-from frontend.components.empty_state import render_empty_state
+from frontend.components.empty_state import render_empty_state, e_ui
 
 dash.register_page(__name__, path='/ccf/hourly', name='Hourly Insights')
 
@@ -38,6 +38,7 @@ layout = Container([
                             dcc.DatePickerRange(
                                 id='hourly-date-picker-range',
                                 display_format='YYYY-MM-DD',
+                                minimum_nights=0,
                             )
                         ], width=12, md=6, className="mb-3 mb-md-0"),
                         Col([
@@ -131,8 +132,6 @@ def set_date_picker(data_ref, auth_state):
     State('auth-state', 'data')
 )
 def update_hourly_insights(data_ref, company_filter, language_filter, start_date, end_date, time_start, time_end, auth_state):
-    def e_ui(gid):
-        return render_empty_state(graph_id=gid)
 
     if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or not start_date or not end_date:
         return e_ui('intraday-chart'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
@@ -234,7 +233,7 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
         )
         ui_heat = dcc.Graph(id='hourly-heatmap', figure=fig_heat, config={'displayModeBar': False}, style={'height': '400px'})
     else:
-        ui_heat = e_ui('hourly-heatmap')
+        ui_heat = render_empty_state('hourly-heatmap')
 
     # Chart 3: AHT by Time of Day (Stacked Bar Chart)
     if all(c in df_current.columns for c in ['ACD Calls', 'ACD Time', 'ACW Time', 'Hold Time']):

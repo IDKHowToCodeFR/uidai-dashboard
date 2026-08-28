@@ -69,16 +69,10 @@ def serialize_data(metrics, data_type):
                 "ACD Calls in 20 Sec": m.acd_calls_20_sec,
                 "ABAN Calls": m.aban_calls,
                 "Held Calls": m.held_calls,
-                "Service Level %": m.service_level_pct,
-                "Service Level Status": m.service_level_status,
                 "ACD Calls": m.acd_calls,
                 "Hold Time": m.hold_time,
-                "Avg Hold Time": m.avg_hold_time,
-                "Hold Time Status": m.hold_time_status,
                 "ACD Time": m.acd_time,
-                "ACW Time": m.acw_time,
-                "Avg Handle Time": m.avg_handle_time,
-                "AHT Status": m.aht_status
+                "ACW Time": m.acw_time
             } for m in metrics
         ]
 

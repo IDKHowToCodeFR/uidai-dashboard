@@ -19,7 +19,7 @@ layout = html.Div([
         html.P("Executive summary of CDR call performance.", className="text-muted mb-4 mt-2"),
     ]),
 
-    dbc.Row(id='cdr-kpi-row', className="mb-4 g-3"),
+    dcc.Loading(type="dot", color=COLOR_PRIMARY, children=dbc.Row(id='cdr-kpi-row', className="mb-4 g-3")),
 
     dbc.Row([
         wrap_chart_card('cdr-volume', "Call Volume Over Time", "cdr")
