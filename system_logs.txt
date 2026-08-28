@@ -222,3 +222,18 @@
 [2026-08-28T15:46:43.375437][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
 [2026-08-28T15:47:17.037672][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
 [2026-08-28T16:21:47.857276][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T16:28:42.851202][Admin][Unknown IP][Unknown Endpoint][System][USER_ADDED] Added user 'admin' with companies ['Admin'] and perms ['can_download_files', 'can_view_ccf', 'can_view_unimate', 'can_view_cdr', 'can_view_apr', 'can_manage_users', 'can_view_logs', 'can_edit_settings']
+[2026-08-28T16:28:43.095274][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T16:28:43.555709][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T16:28:43.791664][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T16:28:44.018775][Admin][testclient][/users/add][System][USER_ADDED] Added user 'testuser' with companies ['Digitech'] and perms []
+[2026-08-28T16:33:14.515414][Admin][Unknown IP][Unknown Endpoint][System][USER_ADDED] Added user 'admin' with companies ['Admin'] and perms ['can_download_files', 'can_view_ccf', 'can_view_unimate', 'can_view_cdr', 'can_view_apr', 'can_manage_users', 'can_view_logs', 'can_edit_settings']
+[2026-08-28T16:33:14.781744][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T16:33:15.249977][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T16:33:15.487709][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T16:33:15.715144][Admin][testclient][/users/add][System][USER_ADDED] Added user 'testuser' with companies ['Digitech'] and perms []
+[2026-08-28T16:35:47.742382][Admin][Unknown IP][Unknown Endpoint][System][USER_ADDED] Added user 'admin' with companies ['Admin'] and perms ['can_download_files', 'can_view_ccf', 'can_view_unimate', 'can_view_cdr', 'can_view_apr', 'can_manage_users', 'can_view_logs', 'can_edit_settings']
+[2026-08-28T16:35:47.991440][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T16:35:48.453545][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T16:35:48.688158][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T16:35:48.913223][Admin][testclient][/users/add][System][USER_ADDED] Added user 'testuser' with companies ['Digitech'] and perms []

@@ -4,6 +4,9 @@ stages:
 test_modules:
   stage: test
   image: python:3.10
+  before_script:
+    - apt-get update
+    - apt-get install -y libnss3 libxss1 libasound2 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1
   script:
     - pip install -r requirements.txt
     - pip install pytest httpx pytest-asyncio
