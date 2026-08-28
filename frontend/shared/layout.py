@@ -97,6 +97,32 @@ def get_topbar(user_role, permissions, pathname=None):
     
     if user_role != 'Admin' and pathname != '/select':
         right_elements.append(
+            html.Div([
+                dcc.Dropdown(
+                    id='sl-granularity',
+                    options=[
+                        {'label': 'Auto', 'value': 'Auto'},
+                        {'label': 'Daily', 'value': 'D'},
+                        {'label': 'Weekly', 'value': 'W-MON'},
+                        {'label': 'Monthly', 'value': 'M'},
+                        {'label': 'Yearly', 'value': 'Y'}
+                    ],
+                    value='Auto',
+                    clearable=False,
+                    className="me-3",
+                    style={'width': '100px', 'marginRight': '24px'}
+                ),
+                dbc.Checklist(
+                    options=[{"label": "Dynamic Scale", "value": 1}],
+                    value=[1],
+                    id="sl-scale-toggle",
+                    switch=True,
+                    className="me-4 mb-0"
+                )
+            ], className="d-flex align-items-center" if pathname != '/select' and pathname != '/admin/user_management' else "d-none")
+        )
+        
+        right_elements.append(
             html.Button(
                 html.I(className="bi bi-funnel-fill fs-6"),
                 id="btn-filters",
@@ -111,7 +137,7 @@ def get_topbar(user_role, permissions, pathname=None):
             )
         )
         
-    if pathname != '/select':
+    if pathname != '/select' and user_role != 'Admin':
         right_elements.append(
             dbc.Button(
                 html.I(className="bi bi-house-fill fs-6"),
@@ -229,7 +255,7 @@ def get_sidebar(user_role, token, permissions, nav_content=None, history_options
             className="premium-offcanvas sidebar-container border-0 shadow-lg"
         )
         
-    can_upload = 'can_upload_files' in permissions
+    
 
     sidebar_content = html.Div([
         # Context switcher removed per requirements. Context is selected via the /select landing page.

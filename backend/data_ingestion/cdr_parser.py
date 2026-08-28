@@ -4,6 +4,17 @@ import numpy as np
 """
 Pure domain module for parsing CDR Excel/CSV data.
 """
+from backend.database.models import CDRData
+
+MAPPING = {
+    'Call Id': 'call_id', 'acwtime': 'acwtime', 'ansholdtime': 'ansholdtime', 'duration': 'duration',
+    'segstart': 'segstart', 'segstartutc': 'segstartutc', 'segstop': 'segstop', 'segstoputc': 'segstoputc',
+    'talktime': 'talktime', 'split1': 'split1', 'transferred': 'transferred', 'agt_released': 'agt_released',
+    'origlogin': 'origlogin', 'anslogin': 'anslogin', 'Company': 'company', 'Language': 'language'
+}
+MODEL = CDRData
+INDEX_ELEMENTS = ['call_id']
+
 async def parse_cdr(save_path: str, progress_callback=None) -> pd.DataFrame:
     if progress_callback:
         await progress_callback(10, 'Parsing file...')
@@ -12,7 +23,7 @@ async def parse_cdr(save_path: str, progress_callback=None) -> pd.DataFrame:
         df = pd.read_csv(save_path)
         df.columns = df.columns.str.strip()
     elif save_path.endswith('.xls') or save_path.endswith('.xlsx'):
-        excel_file = pd.ExcelFile(save_path, engine='openpyxl')
+        excel_file = pd.ExcelFile(save_path)
         dfs = []
         for i, sheet_name in enumerate(excel_file.sheet_names):
             if progress_callback:
@@ -21,8 +32,9 @@ async def parse_cdr(save_path: str, progress_callback=None) -> pd.DataFrame:
             sheet_df.columns = sheet_df.columns.str.strip()
             dfs.append(sheet_df)
         df = pd.concat(dfs, ignore_index=True)
-        if 'Call Id' in df.columns:
-            df.drop_duplicates(subset=['Call Id'], keep='last', inplace=True)
+        
+    if 'Call Id' in df.columns:
+        df.drop_duplicates(subset=['Call Id'], keep='last', inplace=True)
             
     if progress_callback:
         await progress_callback(60, 'Cleaning data...')

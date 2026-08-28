@@ -41,23 +41,26 @@ async def process_file_background(save_path: str, out_filename: str, client_id: 
             await ws_send_message({'status': 'processing', 'progress': progress, 'message': message}, client_id)
 
         DATA_TYPE_MAP = {
-            "UniMate Data": ("backend.data_ingestion.unimate_parser", "parse_unimate", "save_unimate_data"),
-            "CDR Data": ("backend.data_ingestion.cdr_parser", "parse_cdr", "save_cdr_data"),
-            "APR Data": ("backend.data_ingestion.apr_parser", "parse_apr", "save_apr_data"),
+            "UniMate Data": ("backend.data_ingestion.unimate_parser", "parse_unimate"),
+            "CDR Data": ("backend.data_ingestion.cdr_parser", "parse_cdr"),
+            "APR Data": ("backend.data_ingestion.apr_parser", "parse_apr"),
+            "CCF Data": ("backend.data_ingestion.ccf_parser", "parse_ccf")
         }
-        mod_name, parse_name, save_name = DATA_TYPE_MAP.get(data_type, ("backend.data_ingestion.ccf_parser", "parse_ccf", "save_ccf_data"))
+        mod_name, parse_name = DATA_TYPE_MAP.get(data_type, ("backend.data_ingestion.ccf_parser", "parse_ccf"))
         
         import importlib
         parse_mod = importlib.import_module(mod_name)
-        save_mod = importlib.import_module("backend.database.repo")
+        from backend.database.repo import save_data
         parse_fn = getattr(parse_mod, parse_name)
-        save_fn = getattr(save_mod, save_name)
             
         df = await parse_fn(save_path, progress_callback=progress_callback)
         
         await ws_send_message({'status': 'processing', 'progress': 90, 'message': 'Inserting into database...'}, client_id)
         with SessionLocal() as db:
-            save_fn(db=db, df=df, save_path=save_path, out_filename=out_filename, username=username, data_type=data_type, meta=meta)
+            save_data(
+                db=db, df=df, save_path=save_path, out_filename=out_filename, username=username, data_type=data_type,
+                mapping=parse_mod.MAPPING, model=parse_mod.MODEL, index_elements=parse_mod.INDEX_ELEMENTS, meta=meta
+            )
             
         await ws_send_message({'status': 'complete', 'progress': 100, 'message': 'Upload complete!'}, client_id)
     except Exception as e:

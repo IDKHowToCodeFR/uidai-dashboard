@@ -69,16 +69,10 @@ def serialize_data(metrics, data_type):
                 "ACD Calls in 20 Sec": m.acd_calls_20_sec,
                 "ABAN Calls": m.aban_calls,
                 "Held Calls": m.held_calls,
-                "Service Level %": m.service_level_pct,
-                "Service Level Status": m.service_level_status,
                 "ACD Calls": m.acd_calls,
                 "Hold Time": m.hold_time,
-                "Avg Hold Time": m.avg_hold_time,
-                "Hold Time Status": m.hold_time_status,
                 "ACD Time": m.acd_time,
-                "ACW Time": m.acw_time,
-                "Avg Handle Time": m.avg_handle_time,
-                "AHT Status": m.aht_status
+                "ACW Time": m.acw_time
             } for m in metrics
         ]
 
@@ -86,72 +80,6 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 UIDAI_DATA_DIR = os.path.join(BASE_DIR, "uidai_data")
 
 router = APIRouter()
-
-@router.post("/upload")
-async def upload_file(
-    request: Request,
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    client_id: str = Form(None),
-    data_type: str = Form("CCF Data"),
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    user_role = current_user["role"]
-    permissions = current_user.get("permissions", [])
-    
-    if "can_upload_files" not in permissions:
-        raise HTTPException(status_code=403, detail="You do not have permission to upload files.")
-        
-    contents = await file.read()
-    
-    if len(contents) > 2000 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="File too large")
-        
-    # Auto-detect data_type from file headers
-    detected_type = data_type
-    try:
-        if file.filename.lower().endswith(".csv"):
-            df_sniff = pd.read_csv(io.BytesIO(contents), nrows=0)
-        else:
-            df_sniff = pd.read_excel(io.BytesIO(contents), nrows=0, engine='openpyxl')
-        columns = df_sniff.columns.str.strip().tolist()
-        if 'Call Id' in columns or 'split1' in columns:
-            detected_type = "CDR Data"
-        elif 'UCID' in columns:
-            detected_type = "UniMate Data"
-        elif 'Agent Name' in columns or 'Login ID' in columns:
-            detected_type = "APR Data"
-        else:
-            detected_type = "CCF Data"
-    except Exception:
-        # Fallback to the one provided by form if sniffing fails
-        pass
-
-    prefix = f"{user_role}_" if user_role and user_role != 'Admin' else "Admin_"
-    safe_filename = os.path.basename(file.filename)
-    out_filename = prefix + safe_filename
-    
-    safe_data_type = "".join([c if c.isalnum() else "_" for c in detected_type.lower()])
-    unprocessed_dir = os.path.join(UIDAI_DATA_DIR, safe_data_type)
-    os.makedirs(unprocessed_dir, exist_ok=True)
-    
-    save_path = os.path.abspath(os.path.join(unprocessed_dir, out_filename))
-    
-    if not save_path.startswith(os.path.abspath(unprocessed_dir)):
-        raise HTTPException(status_code=400, detail="Invalid filename")
-        
-    # Standard practice: Store raw file in codebase first
-    with open(save_path, "wb") as f:
-        f.write(contents)
-        
-    if client_id:
-        meta = extract_request_metadata(request)
-        background_tasks.add_task(process_file_background, save_path, out_filename, client_id, current_user["username"], detected_type, meta)
-        return {"message": "Processing started", "status": "processing"}
-    else:
-        # We don't support synchronous upload without client_id anymore because it's an ETL pipeline
-        raise HTTPException(status_code=400, detail="client_id is required for ETL processing")
 
 
 FOLDER_TO_DATA_TYPE = {

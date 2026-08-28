@@ -5,6 +5,17 @@ import numpy as np
 Pure domain module for parsing CCF Excel/CSV data.
 Calculates derived Service Level (SL) and Average Handle Time (AHT) metrics.
 """
+from backend.database.models import CCFData
+
+MAPPING = {
+    'Company': 'company', 'Language': 'language', 'Date': 'date_logged', 'Call Timestamp': 'call_timestamp',
+    'Day': 'day', 'Call Offered': 'call_offered', 'ABAN Calls in 10 Sec': 'aban_calls_10_sec', 'ACD Calls in 10 Sec': 'acd_calls_10_sec',
+    'ACD Calls in 20 Sec': 'acd_calls_20_sec', 'ABAN Calls': 'aban_calls', 'Held Calls': 'held_calls',
+    'ACD Calls': 'acd_calls', 'Hold Time': 'hold_time', 'ACD Time': 'acd_time', 'ACW Time': 'acw_time'
+}
+MODEL = CCFData
+INDEX_ELEMENTS = ['company', 'language', 'call_timestamp']
+
 async def parse_ccf(save_path: str, progress_callback=None) -> pd.DataFrame:
     if progress_callback:
         await progress_callback(10, 'Parsing file...')
@@ -13,7 +24,7 @@ async def parse_ccf(save_path: str, progress_callback=None) -> pd.DataFrame:
         df = pd.read_csv(save_path)
         df.columns = df.columns.str.strip()
     elif save_path.endswith('.xls') or save_path.endswith('.xlsx'):
-        excel_file = pd.ExcelFile(save_path, engine='openpyxl')
+        excel_file = pd.ExcelFile(save_path)
         dfs = []
         for i, sheet_name in enumerate(excel_file.sheet_names):
             if progress_callback:
@@ -24,8 +35,9 @@ async def parse_ccf(save_path: str, progress_callback=None) -> pd.DataFrame:
                 sheet_df['Company'] = sheet_name
             dfs.append(sheet_df)
         df = pd.concat(dfs, ignore_index=True)
-        if 'Company' in df.columns and 'Language' in df.columns and 'Call Timestamp' in df.columns:
-            df.drop_duplicates(subset=['Company', 'Language', 'Call Timestamp'], keep='last', inplace=True)
+        
+    if 'Company' in df.columns and 'Language' in df.columns and 'Call Timestamp' in df.columns:
+        df.drop_duplicates(subset=['Company', 'Language', 'Call Timestamp'], keep='last', inplace=True)
             
     if progress_callback:
         await progress_callback(60, 'Cleaning data...')
@@ -44,18 +56,6 @@ async def parse_ccf(save_path: str, progress_callback=None) -> pd.DataFrame:
     for col in object_cols:
         df[col] = df[col].astype(str).str.strip()
         
-    # Derived Quantities
-    if 'ACD Calls in 20 Sec' in df.columns and 'Call Offered' in df.columns and 'ABAN Calls in 10 Sec' in df.columns:
-        denom = (df['Call Offered'] - df['ABAN Calls in 10 Sec'])
-        df['Service Level %'] = pd.Series(np.where(denom > 0, (df['ACD Calls in 20 Sec'] / denom) * 100, 0), index=df.index)
-        df['Service Level Status'] = np.where(df['Service Level %'] > 85, 'Good', 'Penalty')
-        
-    if 'Hold Time' in df.columns and 'ACD Calls' in df.columns:
-        df['Avg Hold Time'] = pd.Series(np.where(df['ACD Calls'] > 0, df['Hold Time'] / df['ACD Calls'], 0), index=df.index)
-        df['Hold Time Status'] = np.where(df['Avg Hold Time'] <= 20, 'Good', 'Penalty')
-        
-    if 'ACD Time' in df.columns and 'ACW Time' in df.columns and 'Hold Time' in df.columns and 'ACD Calls' in df.columns:
-        df['Avg Handle Time'] = pd.Series(np.where(df['ACD Calls'] > 0, (df['ACD Time'] + df['ACW Time'] + df['Hold Time']) / df['ACD Calls'], 0), index=df.index)
-        df['AHT Status'] = np.where(df['Avg Handle Time'] <= 240, 'Good', 'Penalty')
+
 
     return df

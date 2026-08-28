@@ -4,6 +4,23 @@ import numpy as np
 """
 Pure domain module for parsing APR Excel/CSV data.
 """
+from backend.database.models import APRData
+
+MAPPING = {
+    'Date': 'date_logged', 'Agent Name': 'agent_name', 'Login ID': 'login_id', 
+    'ACD Calls': 'acd_calls', 'Avg ACD Time': 'avg_acd_time', 'Avg ACW Time': 'avg_acw_time', 
+    '% Agent Occupancy with ACW': 'occupancy_with_acw', '% Agent Occupancy without ACW': 'occupancy_without_acw',
+    'ACD Time': 'acd_time', 'ACW Time': 'acw_time', 'Agent Ring Time': 'agent_ring_time',
+    'Other Time': 'other_time', 'AUX Time': 'aux_time', 'Avail Time': 'avail_time',
+    'Staffed Time': 'staffed_time', 'Held Calls': 'held_calls', 'Tea Break': 'tea_break',
+    'Lunch / Dinner': 'lunch_dinner', 'Quality Feedback': 'quality_feedback', 'Email Support': 'email_support',
+    'Briefing': 'briefing', 'System Down': 'system_down', 'Meeting': 'meeting',
+    'Trans Out': 'trans_out', 'Split / Skill': 'split_skill', 'Conf': 'conf',
+    'Company': 'company', 'Language': 'language'
+}
+MODEL = APRData
+INDEX_ELEMENTS = ['date_logged', 'login_id']
+
 async def parse_apr(save_path: str, progress_callback=None) -> pd.DataFrame:
     if progress_callback:
         await progress_callback(10, 'Parsing file...')
@@ -11,7 +28,7 @@ async def parse_apr(save_path: str, progress_callback=None) -> pd.DataFrame:
     if save_path.endswith('.csv'):
         df = pd.read_csv(save_path)
     else:
-        df = pd.read_excel(save_path, engine='openpyxl')
+        df = pd.read_excel(save_path)
         
     df.columns = df.columns.str.strip()
     

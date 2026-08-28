@@ -11,5 +11,6 @@ pyproject.toml
 uidai.db
 uidai.db-shm
 uidai.db-wal
-system_logs.txt
 uidai_data
+.pytest_cache
+system_logs.txt

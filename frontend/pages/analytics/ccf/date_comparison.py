@@ -10,7 +10,7 @@ from frontend.shared.theme import get_plotly_template, make_header_with_download
 from frontend.shared.api_client import get_dataframe
 import dash_bootstrap_components as dbc
 from frontend.components.cards import make_kpi_card, wrap_chart_card
-from frontend.components.empty_state import render_empty_state
+from frontend.components.empty_state import render_empty_state, e_ui
 
 dash.register_page(__name__, path='/ccf/date_comparison', name='Date Comparison')
 
@@ -70,7 +70,7 @@ layout = Container([
     ]),
 
     # KPI Row
-    Row(id='comparison-kpi-row', className="mb-4"),
+    dcc.Loading(type="dot", color="var(--color-primary)", children=Row(id='comparison-kpi-row', className="mb-4")),
 
     # Charts Row 1: Company Performance
     Row([
@@ -158,8 +158,6 @@ def populate_date_selector(data_ref, auth_state):
     State('auth-state', 'data')
 )
 def update_comparison_charts(data_ref, selected_dates, selected_days, companies, languages, auth_state):
-    def e_ui(gid):
-        return render_empty_state(graph_id=gid)
 
     template = get_plotly_template()
     no_data_table = html.P("No data available.")

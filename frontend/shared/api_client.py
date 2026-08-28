@@ -103,6 +103,7 @@ def get_history_options(token, user_role=None, permissions=None, impersonate=Non
     return options
 
 def upload_file_to_api(contents, filename, token, client_id=None, data_type="CCF Data"):
+    import base64
     try:
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)

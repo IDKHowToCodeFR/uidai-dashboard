@@ -129,6 +129,9 @@ def register_routing_callbacks(app, content_div):
                 return '/admin/user_management'
             return '/select'
             
+        if pathname == '/select' and auth_state.get('user') == 'Admin':
+            return '/admin/user_management'
+            
         if pathname.startswith('/admin/user_management') and 'can_manage_users' not in permissions:
             return '/select'
         if pathname.startswith('/admin/logs') and 'can_view_logs' not in permissions:

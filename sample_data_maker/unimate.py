@@ -77,14 +77,13 @@ def generate_sample_unimate_data(daily_calls: int = 50000, days: int = 180):
     start_date = datetime.now() - timedelta(days=days)
 
     current_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    file_name = f"unimate_data_{current_time_str}.csv"
+    file_name = f"unimate_data_{current_time_str}.xlsx"
     file_path = os.path.join(output_dir, file_name)
 
-    header_written = False
     total_rows = 0
+    all_chunks = []
 
-    with open(file_path, 'w', newline='', encoding='utf-8') as f:
-        for day_offset in range(days):
+    for day_offset in range(days):
             current = start_date + timedelta(days=day_offset)
             dow = current.weekday()
             is_holiday = current.date() in GOVT_HOLIDAYS_2026
@@ -182,16 +181,17 @@ def generate_sample_unimate_data(daily_calls: int = 50000, days: int = 180):
                 "Region": regions
             })
 
-            chunk_df.to_csv(f, index=False, header=not header_written)
-            header_written = True
+            all_chunks.append(chunk_df)
             total_rows += n
 
+    final_df = pd.concat(all_chunks, ignore_index=True)
+    final_df.to_excel(file_path, index=False)
     print(f"Generated {total_rows:,} Unimate records -> {file_path}")
     print(f"  File size: {os.path.getsize(file_path) / (1024**2):.1f} MB")
 
 if __name__ == "__main__":
-    n_input = input("Daily calls (default 50000): ")
-    n = int(n_input) if n_input.strip() else 50000
+    n_input = input("Daily calls (default 1000): ")
+    n = int(n_input) if n_input.strip() else 1000
     days_input = input("Days (default 180): ")
     d = int(days_input) if days_input.strip() else 180
     generate_sample_unimate_data(n, d)

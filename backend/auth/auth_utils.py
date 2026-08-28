@@ -4,12 +4,6 @@ from jose import jwt, JWTError
 from fastapi import HTTPException, status, Security, Depends, Request, WebSocket
 from fastapi.security import OAuth2PasswordBearer
 import bcrypt
-# Monkey-patch bcrypt for passlib bug
-if not hasattr(bcrypt, "__about__"):
-    class About:
-        __version__ = bcrypt.__version__
-    bcrypt.__about__ = About
-from passlib.context import CryptContext
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from sqlalchemy import delete
@@ -23,13 +17,19 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey_change_me_in_production")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
-PASSWORD_HASH_ALGORITHM = os.getenv("PASSWORD_HASH_ALGORITHM", "bcrypt")
-ACCESS_TOKEN_EXPIRE_MINUTES = 60*6 # 6 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7 # 7 days
-# Initialize passlib context
-pwd_context = CryptContext(schemes=[PASSWORD_HASH_ALGORITHM], deprecated="auto")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except ValueError:
+        return False
+
+def get_password_hash(password: str) -> str:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 DEFAULT_SETTINGS = {
     "radar_sla_targets": [85, 95, 95, 85, 85, 85]
@@ -106,12 +106,6 @@ def add_log(db: Session, action: str, username: str, details: str = "", ip_addre
     db.add(log_entry)
     db.commit()
     
-    # Flat-file logging for industry standard
-    try:
-        with open("system_logs.txt", "a") as f:
-            f.write(f"[{timestamp_iso}][{username}][{ip_address or 'Unknown IP'}][{endpoint or 'Unknown Endpoint'}][System][{action}] {details}\n")
-    except Exception:
-        pass
 
 def archive_old_logs(db: Session, days=90):
     cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
@@ -156,7 +150,7 @@ def add_user(db: Session, username: str, password: str, companies: list, permiss
     if existing:
         return False, "Username already exists."
     
-    hashed_password = pwd_context.hash(password)
+    hashed_password = get_password_hash(password)
     new_user = User(
         username=key,
         password_hash=hashed_password,
@@ -201,7 +195,7 @@ def reset_password(db: Session, username: str, new_password: str, ip_address: st
     if not user:
         return False, "User not found."
     
-    hashed_password = pwd_context.hash(new_password)
+    hashed_password = get_password_hash(new_password)
     user.password_hash = hashed_password
     db.commit()
     add_log(db, "PASSWORD_RESET", "Admin", f"Reset password for '{username}'", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
@@ -220,36 +214,14 @@ def remove_user(db: Session, username: str, ip_address: str = None, user_agent: 
     add_log(db, "USER_DEACTIVATED", "Admin", f"Deactivated account for ({username})", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
     return True, f"Account for '{username}' deactivated."
 
-def verify_password(plain_password: str, stored_password: str) -> bool:
-    try:
-        return pwd_context.verify(plain_password, stored_password)
-    except Exception:
-        # Fallback for raw bcrypt hashes if passlib fails
-        return bcrypt.checkpw(plain_password.encode('utf-8'), stored_password.encode('utf-8'))
-
 def verify_and_upgrade_password(db: Session, db_user: User, plain_password: str) -> bool:
-    if not verify_password(plain_password, db_user.password_hash):
-        return False
-    
-    # Lazy upgrading
-    needs_upgrade = False
-    try:
-        if pwd_context.needs_update(db_user.password_hash):
-            needs_upgrade = True
-    except Exception:
-        # If passlib can't identify the hash (e.g., an old raw bcrypt format), force an upgrade
-        needs_upgrade = True
-        
-    if needs_upgrade:
-        db_user.password_hash = pwd_context.hash(plain_password)
-        db.commit()
-    
-    return True
+    return verify_password(plain_password, db_user.password_hash)
 
 def get_admin_permissions():
     return [
-        "can_upload_files", "can_download_files", 
-        "can_view_ccf", "can_view_unimate", "can_view_cdr", "can_view_apr",
+        "can_download_files", 
+        "can_view_ccf", 
+        "can_view_unimate", "can_view_cdr", "can_view_apr",
         "can_manage_users", "can_view_logs", "can_edit_settings"
     ]
 

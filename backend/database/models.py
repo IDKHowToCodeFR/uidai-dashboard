@@ -86,18 +86,11 @@ class CCFData(Base):
     aban_calls = Column(Float)
     held_calls = Column(Float)
     
-    service_level_pct = Column(Float)
-    service_level_status = Column(String)
-    
     acd_calls = Column(Float)
     hold_time = Column(Float)
-    avg_hold_time = Column(Float)
-    hold_time_status = Column(String)
     
     acd_time = Column(Float)
     acw_time = Column(Float)
-    avg_handle_time = Column(Float)
-    aht_status = Column(String)
     
     file = relationship("FileMetadata", back_populates="metrics")
 
@@ -211,21 +204,4 @@ class AgentMetadata(Base):
     team = Column(String)
     location = Column(String)
 
-
-class CustomerMetadata(Base):
-    __tablename__ = "customer_metadata"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    ani = Column(String, unique=True, index=True, nullable=False)
-    name = Column(String)
-    segment = Column(String)
-    last_contact_date = Column(String)
-
-
-class DispositionMetadata(Base):
-    __tablename__ = "disposition_metadata"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    termination_reason = Column(String, unique=True, index=True, nullable=False)
-    disposition_category = Column(String)
 
