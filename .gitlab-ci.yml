@@ -10,5 +10,5 @@ test_modules:
   script:
     - pip install -r requirements.txt
     - pip install pytest httpx pytest-asyncio kaleido
-    - yes | plotly_get_chrome
+    - yes | plotly_get_chrome || true
     - pytest tests/
