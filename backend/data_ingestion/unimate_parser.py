@@ -44,7 +44,7 @@ async def parse_unimate(save_path: str, progress_callback=None) -> pd.DataFrame:
             'gu-in': 'Gujarati', 'te-in': 'Telugu', 'mr-in': 'Marathi', 
             'en-in': 'English', 'ml-in': 'Malayalam', 'hi-in': 'Hindi', 
             'pa-in': 'Punjabi', 'bn-in': 'Bengali', 'or-in': 'Odia', 
-            'kn-in': 'Kannada', 'ta-in': 'Tamil'
+            'kn-in': 'Kannada', 'ta-in': 'Tamil', 'as-in': 'Assamese'
         }
         df['Language'] = df['Language'].astype(str).str.strip().str.lower().map(lang_map).fillna(df['Language'])
 

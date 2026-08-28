@@ -1,111 +1,167 @@
 import pandas as pd
+import numpy as np
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import os
+import itertools
 
 # Ensure the uidai_data/ccf_data directory exists
 output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'uidai_data', 'ccf_data')
 os.makedirs(output_dir, exist_ok=True)
 
 # Define constants
-VENDORS = ["Digitech", "NSB"]
+VENDORS = {"Digitech": 0.6, "NSB": 0.4}
 LANGUAGES = [
     "Hindi", "English", "Kannada", "Assamese", "Bengali", "Punjabi", 
     "Marathi", "Gujarati", "Odia", "Tamil", "Telugu", "Malayalam"
 ]
 
-def generate_sample_ccf_data(num_records = 1000, days = 30):
-    data = []
-    
+LANG_WEIGHTS_DICT = {
+    "Hindi": 0.44, "English": 0.18, "Bengali": 0.07, "Telugu": 0.05, 
+    "Marathi": 0.05, "Tamil": 0.05, "Gujarati": 0.04, "Kannada": 0.03, 
+    "Odia": 0.02, "Malayalam": 0.02, "Punjabi": 0.03, "Assamese": 0.02
+}
+
+HOUR_WEIGHTS = np.array([
+    0.005, 0.003, 0.002, 0.002, 0.003, 0.005,   # 00-05
+    0.015, 0.025, 0.045, 0.075,                   # 06-09
+    0.110, 0.120, 0.120, 0.110,                   # 10-13
+    0.090, 0.080, 0.065, 0.045,                   # 14-17
+    0.030, 0.020, 0.012, 0.008,                   # 18-21
+    0.005, 0.005,                                  # 22-23
+])
+HOUR_WEIGHTS /= HOUR_WEIGHTS.sum()
+
+GOVT_HOLIDAYS_2026 = {
+    date(2026, 1, 26), date(2026, 3, 10), date(2026, 3, 17), date(2026, 3, 31),
+    date(2026, 4, 3), date(2026, 4, 14), date(2026, 5, 1), date(2026, 6, 7),
+    date(2026, 7, 6), date(2026, 8, 15), date(2026, 8, 21), date(2026, 10, 2),
+    date(2026, 10, 20), date(2026, 11, 9), date(2026, 11, 11), date(2026, 12, 25),
+}
+
+def generate_sample_ccf_data(daily_calls: int = 50000, days: int = 180):
+    rng = np.random.default_rng()
     start_date = datetime.now() - timedelta(days=days)
     
-    # Population-based language weights (approx)
-    lang_weights = [0.45, 0.20, 0.03, 0.01, 0.06, 0.02, 0.05, 0.04, 0.02, 0.05, 0.05, 0.02]
+    # We will generate a complete grid of 15-minute intervals for all vendors and languages
+    # 96 intervals/day
+    intervals_per_day = 96
     
-    for _ in range(num_records):
-        # Generate random 15-minute interval timestamp
-        random_seconds = random.randint(0, 30 * 24 * 60 * 60)
-        # Round to nearest 15 minutes (900 seconds)
-        random_seconds = (random_seconds // 900) * 900
-        call_timestamp = start_date + timedelta(seconds=random_seconds)
+    # Pre-calculate hour of day for each interval (0 to 95) -> 0 to 23
+    interval_hours = np.repeat(np.arange(24), 4)
+    # The weight for each interval is simply the hour weight / 4
+    interval_weights = HOUR_WEIGHTS[interval_hours] / 4.0
+    
+    all_data = []
+
+    for day_offset in range(days):
+        current_date = start_date + timedelta(days=day_offset)
+        dow = current_date.weekday()
+        is_holiday = current_date.date() in GOVT_HOLIDAYS_2026
         
-        date_str = call_timestamp.strftime("%Y-%m-%d")
-        day_name = call_timestamp.strftime("%A")
-        vendor = random.choices(VENDORS, weights=[0.6, 0.4], k=1)[0]
-        
-        lang = random.choices(LANGUAGES, weights=lang_weights, k=1)[0]
-        
-        # Add time-of-day noise (fewer calls at night, more during day)
-        hour = call_timestamp.hour
-        if 9 <= hour <= 18:
-            tod_multiplier = random.uniform(0.8, 1.5)
-        elif 6 <= hour < 9 or 18 < hour <= 21:
-            tod_multiplier = random.uniform(0.4, 0.8)
+        if is_holiday:
+            daily_total = int(daily_calls * random.uniform(0.12, 0.18))
+        elif dow == 6:
+            daily_total = int(daily_calls * random.uniform(0.20, 0.30))
+        elif dow == 5:
+            daily_total = int(daily_calls * random.uniform(0.50, 0.60))
         else:
-            tod_multiplier = random.uniform(0.05, 0.2)
-            
-        # Add day-of-week noise (fewer calls on weekends)
-        if day_name in ["Saturday", "Sunday"]:
-            tod_multiplier *= random.uniform(0.5, 0.7)
-            
-        base_calls = random.randint(10, 50)
-        acd_calls = int(base_calls * tod_multiplier)
-        aban_calls = int(random.randint(0, 15) * tod_multiplier)
+            daily_total = max(1, daily_calls + rng.integers(min(-3000, -daily_calls//2), max(3000, daily_calls//2)))
+
+        if day_offset % 30 == 0:
+            print(f"  CCF: generating day {day_offset + 1}/{days} ({daily_total:,} calls)...")
+
+        base_ts = pd.Timestamp(current_date.date())
+        date_str = current_date.strftime("%Y-%m-%d")
+        day_name = current_date.strftime("%A")
+
+        # For each interval, vendor, and language, distribute the daily_total
+        # This is a multinomial distribution.
         
-        acd_10 = random.randint(0, int(acd_calls * 0.5)) if acd_calls > 0 else 0
-        acd_20 = random.randint(acd_10, int(acd_calls * 0.8)) if acd_calls > 0 else 0
-        aban_10 = random.randint(0, aban_calls) if aban_calls > 0 else 0
+        # Grid dimensions: 96 intervals x 2 vendors x 12 languages = 2304 combinations
+        # We need the probability of each combination.
+        # Prob = interval_weight * vendor_weight * lang_weight
         
-        call_offered = acd_calls + aban_calls
+        flat_probs = []
+        combos = []
         
-        # Time values per interval per language (cumulative seconds)
-        # Naturality observation: ACD Time ~1389 mean, ACW ~341 mean, Hold ~207 mean
-        acd_time = random.randint(0, acd_calls * 300) # up to 5 mins per call
-        acw_time = random.randint(0, acd_calls * 60)  # up to 1 min per call
-        hold_time = random.randint(0, acd_calls * 45) # up to 45 seconds per call
-        held_calls = random.randint(0, acd_calls) if acd_calls > 0 else 0
+        for i in range(96):
+            i_weight = interval_weights[i]
+            ts = base_ts + pd.to_timedelta(i * 15, unit='min')
+            ts_str = ts.strftime("%Y-%m-%d %H:%M:%S")
+            for vendor, v_weight in VENDORS.items():
+                for lang in LANGUAGES:
+                    l_weight = LANG_WEIGHTS_DICT[lang]
+                    p = i_weight * v_weight * l_weight
+                    flat_probs.append(p)
+                    combos.append({
+                        "Call Timestamp": ts_str,
+                        "Date": date_str,
+                        "Day": day_name,
+                        "Vendor": vendor,
+                        "Language": lang
+                    })
+                    
+        flat_probs = np.array(flat_probs)
+        flat_probs /= flat_probs.sum()
         
-        data.append({
-            "Call Timestamp": call_timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-            "Date": date_str,
-            "Day": day_name,
-            "Vendor": vendor,
-            "Language": lang,
-            "ACD Calls in 10 Sec": acd_10,
-            "ACD Calls in 20 Sec": acd_20,
-            "ABAN Calls in 10 Sec": aban_10,
-            "Call Offered": call_offered,
-            "ACD Calls": acd_calls,
-            "ABAN Calls": aban_calls,
-            "ACD Time": acd_time,
-            "ACW Time": acw_time,
-            "Hold Time": hold_time,
-            "Held Calls": held_calls
-        })
+        # Generate exact call counts for each combination
+        call_counts = rng.multinomial(daily_total, flat_probs)
+        
+        # Process the combinations
+        for idx, count in enumerate(call_counts):
+            if count == 0:
+                continue
                 
-    df = pd.DataFrame(data)
+            combo = combos[idx]
+            call_offered = count
+            
+            # Typical abandonment rate ~5-8%
+            aban_calls = int(call_offered * rng.uniform(0.02, 0.10))
+            acd_calls = call_offered - aban_calls
+            
+            # Sub-metrics
+            acd_10 = int(acd_calls * rng.uniform(0.4, 0.7)) if acd_calls > 0 else 0
+            acd_20 = int(acd_10 + (acd_calls - acd_10) * rng.uniform(0.5, 0.9)) if acd_calls > 0 else 0
+            aban_10 = int(aban_calls * rng.uniform(0.1, 0.4)) if aban_calls > 0 else 0
+            
+            # Times (in seconds, matches raw data structure logic)
+            acd_time = int(acd_calls * rng.uniform(120, 240))
+            acw_time = int(acd_calls * rng.uniform(15, 60))
+            hold_time = int(acd_calls * rng.uniform(10, 45) * 0.35) # 35% have hold time
+            held_calls = int(acd_calls * rng.uniform(0.2, 0.5)) if acd_calls > 0 else 0
+            
+            combo.update({
+                "ACD Calls in 10 Sec": acd_10,
+                "ACD Calls in 20 Sec": acd_20,
+                "ABAN Calls in 10 Sec": aban_10,
+                "Call Offered": call_offered,
+                "ACD Calls": acd_calls,
+                "ABAN Calls": aban_calls,
+                "ACD Time": acd_time,
+                "ACW Time": acw_time,
+                "Hold Time": hold_time,
+                "Held Calls": held_calls
+            })
+            all_data.append(combo)
+
+    df = pd.DataFrame(all_data)
     
-    # Sort by timestamp
-    df = df.sort_values(by=["Call Timestamp", "Language"])
-    
-    # Save to Excel
     current_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_name = f"ccf_skill_data_{current_time_str}.xlsx"
     file_path = os.path.join(output_dir, file_name)
     
     with pd.ExcelWriter(file_path) as writer:
-        for vendor_name in VENDORS:
+        for vendor_name in VENDORS.keys():
             vendor_df = df[df["Vendor"] == vendor_name].copy()
             vendor_df = vendor_df.drop(columns=["Vendor"])
             vendor_df.to_excel(writer, sheet_name=vendor_name, index=False)
             
-    print(f"Successfully generated {num_records} CCF sample records at {file_path}")
+    print(f"Successfully generated CCF sample records (180 days grid) at {file_path}")
 
 if __name__ == "__main__":
-    n_input = input("Input rows (default 1000) : ")
-    n = int(n_input) if n_input.strip() else 1000
-    
-    days_input = input("Input days (default 30) : ")
-    days = int(days_input) if days_input.strip() else 30
-    
-    generate_sample_ccf_data(n, days)
+    n_input = input("Daily calls (default 50000): ")
+    n = int(n_input) if n_input.strip() else 50000
+    days_input = input("Days (default 180): ")
+    d = int(days_input) if days_input.strip() else 180
+    generate_sample_ccf_data(n, d)

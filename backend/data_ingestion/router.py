@@ -103,23 +103,25 @@ async def upload_file(
     if "can_upload_files" not in permissions:
         raise HTTPException(status_code=403, detail="You do not have permission to upload files.")
         
-    if file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=400, detail="CSV files are not allowed. Please upload an Excel file (.xlsx, .xls)")
-    
     contents = await file.read()
     
-    if len(contents) > 50 * 1024 * 1024:
+    if len(contents) > 2000 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="File too large")
         
     # Auto-detect data_type from file headers
     detected_type = data_type
     try:
-        df_sniff = pd.read_excel(io.BytesIO(contents), nrows=0, engine='openpyxl')
+        if file.filename.lower().endswith(".csv"):
+            df_sniff = pd.read_csv(io.BytesIO(contents), nrows=0)
+        else:
+            df_sniff = pd.read_excel(io.BytesIO(contents), nrows=0, engine='openpyxl')
         columns = df_sniff.columns.str.strip().tolist()
         if 'Call Id' in columns or 'split1' in columns:
             detected_type = "CDR Data"
         elif 'UCID' in columns:
             detected_type = "UniMate Data"
+        elif 'Agent Name' in columns or 'Login ID' in columns:
+            detected_type = "APR Data"
         else:
             detected_type = "CCF Data"
     except Exception:
@@ -156,15 +158,17 @@ FOLDER_TO_DATA_TYPE = {
     "ccf_data": "CCF Data",
     "cdr_data": "CDR Data",
     "unimate_data": "UniMate Data",
+    "apr_data": "APR Data",
 }
 
 @router.get("/companies")
 def get_all_companies(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-    from backend.database.models import CCFData, UniMateData, CDRData
+    from backend.database.models import CCFData, UniMateData, CDRData, APRData
     c1 = [r[0] for r in db.query(CCFData.company).distinct().all() if r[0]]
     c2 = [r[0] for r in db.query(UniMateData.company).distinct().all() if r[0]]
     c3 = [r[0] for r in db.query(CDRData.company).distinct().all() if r[0]]
-    companies = sorted(list(set(c1 + c2 + c3)))
+    c4 = [r[0] for r in db.query(APRData.company).distinct().all() if r[0]]
+    companies = sorted(list(set(c1 + c2 + c3 + c4)))
     if not companies:
         companies = ["Digitech", "NSB"]
         
@@ -212,6 +216,9 @@ async def get_history(data_type: Optional[str] = None, impersonate: Optional[str
                 query = query.filter(FileMetadata.unimate_metrics.any(UniMateData.company.in_(user_companies)))
             elif data_type == "CDR Data":
                 query = query.filter(FileMetadata.cdr_metrics.any(CDRData.company.in_(user_companies)))
+            elif data_type == "APR Data":
+                from backend.database.models import APRData
+                query = query.filter(FileMetadata.apr_metrics.any(APRData.company.in_(user_companies)))
             else:
                 query = query.filter(FileMetadata.metrics.any(CCFData.company.in_(user_companies)))
                 
@@ -220,6 +227,9 @@ async def get_history(data_type: Optional[str] = None, impersonate: Optional[str
             query = query.filter(FileMetadata.unimate_metrics.any(UniMateData.company == target_company))
         elif data_type == "CDR Data":
             query = query.filter(FileMetadata.cdr_metrics.any(CDRData.company == target_company))
+        elif data_type == "APR Data":
+            from backend.database.models import APRData
+            query = query.filter(FileMetadata.apr_metrics.any(APRData.company == target_company))
         else:
             query = query.filter(FileMetadata.metrics.any(CCFData.company == target_company))
             
@@ -244,6 +254,9 @@ async def get_aggregated_data(data_type: str = "CCF Data", impersonate: Optional
         model_class = UniMateData
     elif data_type == "CDR Data":
         model_class = CDRData
+    elif data_type == "APR Data":
+        from backend.database.models import APRData
+        model_class = APRData
     else:
         model_class = CCFData
         

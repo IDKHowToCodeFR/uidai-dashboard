@@ -8,3 +8,8 @@ wheels/
 .idea
 uv.lock
 pyproject.toml
+uidai.db
+uidai.db-shm
+uidai.db-wal
+system_logs.txt
+uidai_data

@@ -69,3 +69,19 @@ def save_cdr_data(db: Session, df: pd.DataFrame, save_path: str, out_filename: s
     }
     _save_data(db, df, save_path, out_filename, username, data_type, mapping, CDRData, ['call_id'], meta)
 
+
+def save_apr_data(db: Session, df: pd.DataFrame, save_path: str, out_filename: str, username: str, data_type: str, meta: dict = None):
+    from backend.database.models import APRData
+    mapping = {
+        'Date': 'date_logged', 'Agent Name': 'agent_name', 'Login ID': 'login_id', 
+        'ACD Calls': 'acd_calls', 'Avg ACD Time': 'avg_acd_time', 'Avg ACW Time': 'avg_acw_time', 
+        '% Agent Occupancy with ACW': 'occupancy_with_acw', '% Agent Occupancy without ACW': 'occupancy_without_acw',
+        'ACD Time': 'acd_time', 'ACW Time': 'acw_time', 'Agent Ring Time': 'agent_ring_time',
+        'Other Time': 'other_time', 'AUX Time': 'aux_time', 'Avail Time': 'avail_time',
+        'Staffed Time': 'staffed_time', 'Held Calls': 'held_calls', 'Tea Break': 'tea_break',
+        'Lunch / Dinner': 'lunch_dinner', 'Quality Feedback': 'quality_feedback', 'Email Support': 'email_support',
+        'Briefing': 'briefing', 'System Down': 'system_down', 'Meeting': 'meeting',
+        'Trans Out': 'trans_out', 'Split / Skill': 'split_skill', 'Conf': 'conf',
+        'Company': 'company', 'Language': 'language'
+    }
+    _save_data(db, df, save_path, out_filename, username, data_type, mapping, APRData, ['date_logged', 'login_id'], meta)

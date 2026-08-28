@@ -69,3 +69,32 @@
 [2026-08-27T17:13:44.535958][digitech][127.0.0.1][/login][System][LOGIN_SUCCESS] User digitech logged in successfully
 [2026-08-27T17:13:44.584767][digitech][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
 [2026-08-27T17:13:54.592787][digitech][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /unimate/dashboard
+[2026-08-27T17:17:47.002949][uidai][127.0.0.1][/login][System][LOGIN_SUCCESS] User uidai logged in successfully
+[2026-08-27T17:17:47.104798][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-27T17:17:51.450262][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T00:16:48.636139][admin][127.0.0.1][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T00:16:48.795725][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-28T00:17:13.998748][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/files
+[2026-08-28T00:19:24.519130][system_cron][Unknown IP][Unknown Endpoint][System][FILE_UPLOADED] Uploaded and ingested CCF Data file: ccf_skill_data_20260827_234453.xlsx
+[2026-08-28T00:20:11.660206][uidai][127.0.0.1][/login][System][LOGIN_SUCCESS] User uidai logged in successfully
+[2026-08-28T00:20:11.726694][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-28T00:20:12.930438][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T00:21:10.105958][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/raw_data
+[2026-08-28T00:23:14.294987][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T00:23:56.435335][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T00:24:16.984347][admin][Unknown IP][Unknown Endpoint][System][FILE_UPLOADED] Uploaded and ingested APR Data file: apr_test_2.xlsx
+[2026-08-28T00:27:46.552538][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T00:28:13.902323][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/date_comparison
+[2026-08-28T00:28:43.270278][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/raw_data
+[2026-08-28T00:28:43.273097][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T00:28:43.276472][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T00:31:04.260787][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T00:31:33.816865][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-28T00:31:35.507947][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /unimate/dashboard
+[2026-08-28T00:31:56.436327][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-28T00:31:57.393524][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T00:32:45.516437][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T00:33:30.525848][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-28T00:33:32.245590][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /cdr/dashboard
+[2026-08-28T00:33:34.421860][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /cdr/raw_data
+[2026-08-28T00:33:36.799286][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /cdr/dashboard
