@@ -248,8 +248,9 @@ def verify_and_upgrade_password(db: Session, db_user: User, plain_password: str)
 
 def get_admin_permissions():
     return [
-        "can_upload_files", "can_download_files", 
-        "can_view_ccf", "can_view_unimate", "can_view_cdr", "can_view_apr",
+        "can_download_files", 
+        "can_view_ccf", 
+        "can_view_unimate", "can_view_cdr", "can_view_apr",
         "can_manage_users", "can_view_logs", "can_edit_settings"
     ]
 

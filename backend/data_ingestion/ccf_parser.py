@@ -13,7 +13,7 @@ async def parse_ccf(save_path: str, progress_callback=None) -> pd.DataFrame:
         df = pd.read_csv(save_path)
         df.columns = df.columns.str.strip()
     elif save_path.endswith('.xls') or save_path.endswith('.xlsx'):
-        excel_file = pd.ExcelFile(save_path, engine='openpyxl')
+        excel_file = pd.ExcelFile(save_path)
         dfs = []
         for i, sheet_name in enumerate(excel_file.sheet_names):
             if progress_callback:
@@ -24,8 +24,9 @@ async def parse_ccf(save_path: str, progress_callback=None) -> pd.DataFrame:
                 sheet_df['Company'] = sheet_name
             dfs.append(sheet_df)
         df = pd.concat(dfs, ignore_index=True)
-        if 'Company' in df.columns and 'Language' in df.columns and 'Call Timestamp' in df.columns:
-            df.drop_duplicates(subset=['Company', 'Language', 'Call Timestamp'], keep='last', inplace=True)
+        
+    if 'Company' in df.columns and 'Language' in df.columns and 'Call Timestamp' in df.columns:
+        df.drop_duplicates(subset=['Company', 'Language', 'Call Timestamp'], keep='last', inplace=True)
             
     if progress_callback:
         await progress_callback(60, 'Cleaning data...')

@@ -98,3 +98,92 @@
 [2026-08-28T00:33:32.245590][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /cdr/dashboard
 [2026-08-28T00:33:34.421860][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /cdr/raw_data
 [2026-08-28T00:33:36.799286][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /cdr/dashboard
+[2026-08-28T11:17:15.687838][system_cron][Unknown IP][Unknown Endpoint][System][FILE_UPLOADED] Uploaded and ingested CCF Data file: ccf_skill_data_20260828_004807.xlsx
+[2026-08-28T11:26:16.855782][Admin][Unknown IP][Unknown Endpoint][System][USER_ADDED] Added user 'admin' with companies ['Admin'] and perms ['can_upload_files', 'can_download_files', 'can_view_ccf', 'can_view_unimate', 'can_view_cdr', 'can_view_apr', 'can_manage_users', 'can_view_logs', 'can_edit_settings']
+[2026-08-28T11:36:05.706471][Admin][Unknown IP][Unknown Endpoint][System][USER_ADDED] Added user 'admin' with companies ['Admin'] and perms ['can_upload_files', 'can_download_files', 'can_view_ccf', 'can_view_unimate', 'can_view_cdr', 'can_view_apr', 'can_manage_users', 'can_view_logs', 'can_edit_settings']
+[2026-08-28T11:38:33.892756][Admin][Unknown IP][Unknown Endpoint][System][USER_ADDED] Added user 'admin' with companies ['Admin'] and perms ['can_upload_files', 'can_download_files', 'can_view_ccf', 'can_view_unimate', 'can_view_cdr', 'can_view_apr', 'can_manage_users', 'can_view_logs', 'can_edit_settings']
+[2026-08-28T11:38:34.152884][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:38:34.618365][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:38:35.164385][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:38:35.390085][Admin][testclient][/users/add][System][USER_ADDED] Added user 'testuser' with companies ['Digitech'] and perms []
+[2026-08-28T11:38:59.958134][Admin][Unknown IP][Unknown Endpoint][System][USER_ADDED] Added user 'admin' with companies ['Admin'] and perms ['can_upload_files', 'can_download_files', 'can_view_ccf', 'can_view_unimate', 'can_view_cdr', 'can_view_apr', 'can_manage_users', 'can_view_logs', 'can_edit_settings']
+[2026-08-28T11:39:19.745442][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:39:19.990668][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:39:20.225201][Admin][testclient][/users/add][System][USER_ADDED] Added user 'testuser' with companies ['Digitech'] and perms []
+[2026-08-28T11:39:59.830957][Admin][Unknown IP][Unknown Endpoint][System][USER_ADDED] Added user 'admin' with companies ['Admin'] and perms ['can_upload_files', 'can_download_files', 'can_view_ccf', 'can_view_unimate', 'can_view_cdr', 'can_view_apr', 'can_manage_users', 'can_view_logs', 'can_edit_settings']
+[2026-08-28T11:40:00.074329][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:40:00.557808][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:40:00.802135][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:40:01.030206][Admin][testclient][/users/add][System][USER_ADDED] Added user 'testuser' with companies ['Digitech'] and perms []
+[2026-08-28T11:41:10.083468][admin][127.0.0.1][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:41:10.167068][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-28T11:41:22.049278][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'uidai'
+[2026-08-28T11:41:26.849541][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/files
+[2026-08-28T11:41:30.624079][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/logs
+[2026-08-28T11:41:43.564371][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-28T11:41:56.950397][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'digitech'
+[2026-08-28T11:41:58.693996][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'digitech'
+[2026-08-28T11:41:59.245875][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'digitech'
+[2026-08-28T11:42:00.579857][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'digitech'
+[2026-08-28T11:42:00.746087][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'digitech'
+[2026-08-28T11:42:00.960884][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'digitech'
+[2026-08-28T11:42:01.131686][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'digitech'
+[2026-08-28T11:42:11.550235][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'nsb'
+[2026-08-28T11:42:12.593961][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'nsb'
+[2026-08-28T11:42:13.448358][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'nsb'
+[2026-08-28T11:44:05.348426][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-28T11:44:14.005273][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T11:44:25.628851][uidai][127.0.0.1][/login][System][LOGIN_SUCCESS] User uidai logged in successfully
+[2026-08-28T11:44:26.160780][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-28T11:49:22.372578][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T11:49:32.033883][admin][127.0.0.1][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:49:32.092331][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-28T11:49:47.436037][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/logs
+[2026-08-28T11:49:58.206289][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /admin/user_management
+[2026-08-28T11:50:00.025539][admin][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-28T11:53:28.456168][Admin][Unknown IP][Unknown Endpoint][System][USER_ADDED] Added user 'admin' with companies ['Admin'] and perms ['can_download_files', 'can_view_ccf', 'can_view_unimate', 'can_view_cdr', 'can_view_apr', 'can_manage_users', 'can_view_logs', 'can_edit_settings']
+[2026-08-28T11:53:28.707515][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:53:29.187253][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:53:29.432295][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:53:29.664817][Admin][testclient][/users/add][System][USER_ADDED] Added user 'testuser' with companies ['Digitech'] and perms []
+[2026-08-28T11:53:38.064140][system_cron][Unknown IP][Unknown Endpoint][System][FILE_UPLOADED] Uploaded and ingested CDR Data file: cdr_data_20260828_113354.xlsx
+[2026-08-28T11:55:06.606592][system_cron][Unknown IP][Unknown Endpoint][System][FILE_UPLOADED] Uploaded and ingested UniMate Data file: unimate_data_20260828_113442.xlsx
+[2026-08-28T11:56:56.496268][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'nsb'
+[2026-08-28T11:56:56.788570][Admin][127.0.0.1][/users/permissions][System][PERMISSIONS_UPDATED] Updated permissions & companies for 'nsb'
+[2026-08-28T11:57:07.605077][uidai][127.0.0.1][/login][System][LOGIN_SUCCESS] User uidai logged in successfully
+[2026-08-28T11:57:07.652238][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-28T11:57:09.169298][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T11:57:35.221800][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T11:58:33.955549][Admin][Unknown IP][Unknown Endpoint][System][USER_ADDED] Added user 'admin' with companies ['Admin'] and perms ['can_download_files', 'can_view_ccf', 'can_view_unimate', 'can_view_cdr', 'can_view_apr', 'can_manage_users', 'can_view_logs', 'can_edit_settings']
+[2026-08-28T11:58:34.197940][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:58:34.655826][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:58:34.886880][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T11:58:35.112850][Admin][testclient][/users/add][System][USER_ADDED] Added user 'testuser' with companies ['Digitech'] and perms []
+[2026-08-28T12:00:49.225375][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T12:01:21.021821][Admin][Unknown IP][Unknown Endpoint][System][USER_ADDED] Added user 'admin' with companies ['Admin'] and perms ['can_download_files', 'can_view_ccf', 'can_view_unimate', 'can_view_cdr', 'can_view_apr', 'can_manage_users', 'can_view_logs', 'can_edit_settings']
+[2026-08-28T12:01:21.273245][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T12:01:21.747168][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T12:01:22.000211][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T12:01:22.241340][Admin][testclient][/users/add][System][USER_ADDED] Added user 'testuser' with companies ['Digitech'] and perms []
+[2026-08-28T12:01:49.265594][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T12:04:00.736202][system_cron][Unknown IP][Unknown Endpoint][System][FILE_UPLOADED] Uploaded and ingested CCF Data file: ccf_skill_data_20260828_113539.xlsx
+[2026-08-28T12:05:25.484256][system_cron][Unknown IP][Unknown Endpoint][System][FILE_UPLOADED] Uploaded and ingested CDR Data file: cdr_data_20260828_113354.xlsx
+[2026-08-28T12:06:53.032517][system_cron][Unknown IP][Unknown Endpoint][System][FILE_UPLOADED] Uploaded and ingested UniMate Data file: unimate_data_20260828_113442.xlsx
+[2026-08-28T12:12:49.256368][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T12:16:33.344489][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/date_comparison
+[2026-08-28T12:17:21.373621][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/hourly
+[2026-08-28T12:17:41.681430][Admin][Unknown IP][Unknown Endpoint][System][USER_ADDED] Added user 'admin' with companies ['Admin'] and perms ['can_download_files', 'can_view_ccf', 'can_view_unimate', 'can_view_cdr', 'can_view_apr', 'can_manage_users', 'can_view_logs', 'can_edit_settings']
+[2026-08-28T12:17:41.923786][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T12:17:42.157406][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-28T12:17:42.405007][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T12:17:42.645137][admin][testclient][/login][System][LOGIN_SUCCESS] User admin logged in successfully
+[2026-08-28T12:17:42.874583][Admin][testclient][/users/add][System][USER_ADDED] Added user 'testuser' with companies ['Digitech'] and perms []
+[2026-08-28T12:17:43.221392][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /unimate/dashboard
+[2026-08-28T12:17:57.693746][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /unimate/raw_data
+[2026-08-28T12:18:01.698143][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /unimate/dashboard
+[2026-08-28T12:18:03.437056][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-28T12:18:06.934425][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /cdr/dashboard
+[2026-08-28T12:18:35.016863][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /cdr/dashboard
+[2026-08-28T12:18:51.073192][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /select
+[2026-08-28T12:18:52.227073][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
+[2026-08-28T12:21:29.209238][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard

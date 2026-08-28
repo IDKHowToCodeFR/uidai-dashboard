@@ -59,8 +59,7 @@ layout = html.Div([
                                 dbc.Col([
                                     dbc.Label("File Operations", className="small text-muted text-uppercase fw-bold"),
                                     dbc.Checklist(
-                                        options=[
-                                            {"label": " Upload Files", "value": "can_upload_files"},
+                                        options = [
                                             {"label": " Download Files", "value": "can_download_files"},
                                         ],
                                         value=[], id="offcanvas-perms-files", switch=True, className="mb-3"
@@ -125,7 +124,6 @@ layout = html.Div([
                     {"label": " View UniMate Data", "value": "can_view_unimate"},
                     {"label": " View CDR Data", "value": "can_view_cdr"},
                     {"label": " View APR Report", "value": "can_view_apr"},
-                    {"label": " Upload Files", "value": "can_upload_files"},
                     {"label": " Download Files", "value": "can_download_files"}
                 ],
                 value=["can_view_ccf", "can_view_unimate", "can_view_cdr"],
@@ -176,7 +174,7 @@ def create_card(username, companies, perms, login_count=0, last_login="Never"):
             company_badges.append(html.Span(c, style={"backgroundColor": "#6366f1", "color": "white"}, className="badge me-1 mb-1 px-2 py-1 rounded-pill shadow-sm"))
 
     data_module_perms = ["can_view_ccf", "can_view_unimate", "can_view_cdr", "can_view_apr"]
-    file_op_perms = ["can_upload_files", "can_download_files"]
+    file_op_perms = ["can_download_files"]
     admin_perms = ["can_manage_users", "can_view_logs", "can_edit_settings"]
     
     badge_labels = {
@@ -184,7 +182,6 @@ def create_card(username, companies, perms, login_count=0, last_login="Never"):
         "can_view_unimate": "UniMate",
         "can_view_cdr": "CDR",
         "can_view_apr": "APR",
-        "can_upload_files": "Upload",
         "can_download_files": "Download",
         "can_manage_users": "Manage Users",
         "can_view_logs": "Logs",
@@ -316,7 +313,7 @@ def open_manage_modal(manage_clicks, close_clicks, auth_state, is_open):
 
     is_admin = username.lower() == "admin"
     if is_admin:
-        perms = ["can_upload_files", "can_download_files", "can_view_ccf", "can_view_unimate", "can_view_cdr", "can_manage_users", "can_view_logs", "can_edit_settings"]
+        perms = ["can_download_files", "can_view_ccf", "can_view_unimate", "can_view_cdr", "can_manage_users", "can_view_logs", "can_edit_settings"]
 
     return True, username, companies, is_admin, perms, perms, is_admin, is_admin, ""
 

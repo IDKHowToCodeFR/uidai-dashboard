@@ -218,7 +218,9 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
                 
             fig_sl.update_layout(xaxis_title="Date")
             fig_sl.add_hline(y=85, line_dash="dash", line_color=COLOR_SUCCESS, annotation_text="85% Target")
-            fig_sl.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10))
+            
+            y_min = max(0, min(daily_grp['SL %'].min() - 10, 70))
+            fig_sl.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), yaxis=dict(range=[y_min, 100]))
             ui_sl = dcc.Graph(id='sl-trend', figure=fig_sl, config={'displayModeBar': False})
         else:
             ui_sl = e_ui('sl-trend')

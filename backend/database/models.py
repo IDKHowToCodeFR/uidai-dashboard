@@ -212,20 +212,3 @@ class AgentMetadata(Base):
     location = Column(String)
 
 
-class CustomerMetadata(Base):
-    __tablename__ = "customer_metadata"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    ani = Column(String, unique=True, index=True, nullable=False)
-    name = Column(String)
-    segment = Column(String)
-    last_contact_date = Column(String)
-
-
-class DispositionMetadata(Base):
-    __tablename__ = "disposition_metadata"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    termination_reason = Column(String, unique=True, index=True, nullable=False)
-    disposition_category = Column(String)
-

@@ -11,7 +11,7 @@ async def parse_apr(save_path: str, progress_callback=None) -> pd.DataFrame:
     if save_path.endswith('.csv'):
         df = pd.read_csv(save_path)
     else:
-        df = pd.read_excel(save_path, engine='openpyxl')
+        df = pd.read_excel(save_path)
         
     df.columns = df.columns.str.strip()
     

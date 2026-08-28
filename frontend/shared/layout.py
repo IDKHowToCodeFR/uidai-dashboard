@@ -111,7 +111,7 @@ def get_topbar(user_role, permissions, pathname=None):
             )
         )
         
-    if pathname != '/select':
+    if pathname != '/select' and user_role != 'Admin':
         right_elements.append(
             dbc.Button(
                 html.I(className="bi bi-house-fill fs-6"),
@@ -229,7 +229,7 @@ def get_sidebar(user_role, token, permissions, nav_content=None, history_options
             className="premium-offcanvas sidebar-container border-0 shadow-lg"
         )
         
-    can_upload = 'can_upload_files' in permissions
+    
 
     sidebar_content = html.Div([
         # Context switcher removed per requirements. Context is selected via the /select landing page.
