@@ -28,6 +28,10 @@ action_cell_style = {
         {
             "condition": "params.value.includes('LOADED') || params.value.includes('ADDED')", 
             "style": {"color": "#664d03", "backgroundColor": "#fff3cd", "fontWeight": "bold"}
+        },
+        {
+            "condition": "params.value.includes('PAGE_VIEW')", 
+            "style": {"color": "#055160", "backgroundColor": "#cff4fc", "fontWeight": "bold"}
         }
     ]
 }

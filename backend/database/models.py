@@ -62,6 +62,7 @@ class FileMetadata(Base):
     metrics = relationship("CCFData", back_populates="file", cascade="all, delete-orphan")
     unimate_metrics = relationship("UniMateData", back_populates="file", cascade="all, delete-orphan")
     cdr_metrics = relationship("CDRData", back_populates="file", cascade="all, delete-orphan")
+    apr_metrics = relationship("APRData", back_populates="file", cascade="all, delete-orphan")
 
 
 class CCFData(Base):
@@ -158,6 +159,46 @@ class CDRData(Base):
     language = Column(String, index=True)
     
     file = relationship("FileMetadata", back_populates="cdr_metrics")
+
+
+class APRData(Base):
+    __tablename__ = "apr_data"
+    __table_args__ = (UniqueConstraint('date_logged', 'login_id', name='uq_apr_date_login'),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    file_id = Column(Integer, ForeignKey("file_metadata.id"), nullable=False)
+    
+    date_logged = Column(String, index=True)
+    agent_name = Column(String)
+    login_id = Column(String, index=True)
+    acd_calls = Column(Integer)
+    avg_acd_time = Column(Integer)
+    avg_acw_time = Column(Integer)
+    occupancy_with_acw = Column(Float)
+    occupancy_without_acw = Column(Float)
+    acd_time = Column(String)
+    acw_time = Column(String)
+    agent_ring_time = Column(String)
+    other_time = Column(String)
+    aux_time = Column(String)
+    avail_time = Column(String)
+    staffed_time = Column(String)
+    held_calls = Column(String)
+    tea_break = Column(String)
+    lunch_dinner = Column(String)
+    quality_feedback = Column(String)
+    email_support = Column(String)
+    briefing = Column(String)
+    system_down = Column(String)
+    meeting = Column(String)
+    trans_out = Column(Integer)
+    split_skill = Column(String)
+    conf = Column(Integer)
+    
+    company = Column(String, index=True)
+    language = Column(String, index=True)
+    
+    file = relationship("FileMetadata", back_populates="apr_metrics")
 
 
 class AgentMetadata(Base):

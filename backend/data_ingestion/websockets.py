@@ -43,6 +43,7 @@ async def process_file_background(save_path: str, out_filename: str, client_id: 
         DATA_TYPE_MAP = {
             "UniMate Data": ("backend.data_ingestion.unimate_parser", "parse_unimate", "save_unimate_data"),
             "CDR Data": ("backend.data_ingestion.cdr_parser", "parse_cdr", "save_cdr_data"),
+            "APR Data": ("backend.data_ingestion.apr_parser", "parse_apr", "save_apr_data"),
         }
         mod_name, parse_name, save_name = DATA_TYPE_MAP.get(data_type, ("backend.data_ingestion.ccf_parser", "parse_ccf", "save_ccf_data"))
         
