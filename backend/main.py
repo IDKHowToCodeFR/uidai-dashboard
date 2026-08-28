@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from backend.auth.auth_utils import archive_old_logs
+from backend.audit.audit_logger import archive_old_logs
 from backend.database.database import SessionLocal
 from apscheduler.schedulers.background import BackgroundScheduler
 import os

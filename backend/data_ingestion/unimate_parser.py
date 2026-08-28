@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
+from backend.database.models import UniMateData
+from backend.data_ingestion.base_parser import parse_generic
 
 """
 Pure domain module for parsing UniMate Excel/CSV data.
 """
-from backend.database.models import UniMateData
 
 MAPPING = {
     'UCID': 'ucid', 'Session ID': 'session_id', 'Company': 'company', 'Day of Week': 'day_of_week',
@@ -16,23 +17,7 @@ MAPPING = {
 MODEL = UniMateData
 INDEX_ELEMENTS = ['ucid']
 
-async def parse_unimate(save_path: str, progress_callback=None) -> pd.DataFrame:
-    if progress_callback:
-        await progress_callback(10, 'Parsing file...')
-        
-    if save_path.endswith('.csv'):
-        df = pd.read_csv(save_path)
-    else:
-        df = pd.read_excel(save_path)
-        
-    df.columns = df.columns.str.strip()
-    
-    if progress_callback:
-        await progress_callback(50, 'Cleaning data...')
-        
-    df.dropna(how='all', inplace=True)
-    df.dropna(axis=1, how='all', inplace=True)
-    
+def transform_unimate(df: pd.DataFrame) -> pd.DataFrame:
     # Determine company based on DNIS
     if 'DNIS' in df.columns:
         df['DNIS'] = df['DNIS'].astype(str).str.strip()
@@ -40,12 +25,6 @@ async def parse_unimate(save_path: str, progress_callback=None) -> pd.DataFrame:
                            np.where(df['DNIS'].str.startswith('57'), 'NSB', 'Unknown'))
     else:
         df['Company'] = 'Unknown'
-        
-    if 'UCID' in df.columns:
-        df.drop_duplicates(subset=['UCID'], keep='last', inplace=True)
-        
-    if progress_callback:
-        await progress_callback(80, 'Formatting columns...')
         
     if 'Day of Week' in df.columns:
         day_map = {1: 'Sunday', 2: 'Monday', 3: 'Tuesday', 4: 'Wednesday', 5: 'Thursday', 6: 'Friday', 7: 'Saturday'}
@@ -66,17 +45,19 @@ async def parse_unimate(save_path: str, progress_callback=None) -> pd.DataFrame:
                 if pd.isna(x): return 0
                 parts = str(x).split(':')
                 if len(parts) == 3:
-                    # Handle datetime string format like '1899-12-31 00:07:23'
                     hours_str = parts[0].split(' ')[-1]
                     return int(hours_str) * 3600 + int(parts[1]) * 60 + int(float(parts[2]))
             except Exception:
                 pass
             return 0
         df['Call Duration'] = df['Call Duration'].apply(duration_to_seconds)
-
-    object_cols = df.select_dtypes(include=['object', 'string']).columns
-    df[object_cols] = df[object_cols].fillna('Unknown')
-    for col in object_cols:
-        df[col] = df[col].astype(str).str.strip()
         
     return df
+
+async def parse_unimate(save_path: str, progress_callback=None) -> pd.DataFrame:
+    return await parse_generic(
+        save_path=save_path,
+        progress_callback=progress_callback,
+        custom_transform=transform_unimate,
+        dedupe_cols=['UCID']
+    )

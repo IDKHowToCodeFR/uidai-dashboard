@@ -7,8 +7,9 @@ from backend.database.database import get_db
 from backend.database.models import User
 from backend.auth.auth_utils import (
     load_users, verify_and_upgrade_password, create_access_token, create_refresh_token, get_current_user,
-    add_user, remove_user, update_permissions, add_log, record_login, reset_password, extract_request_metadata
+    add_user, remove_user, update_permissions, record_login, reset_password
 )
+from backend.audit.audit_logger import add_log, extract_request_metadata
 
 router = APIRouter()
 
