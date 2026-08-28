@@ -3,7 +3,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from backend.database.models import FileMetadata, CCFData, UniMateData, CDRData
-from backend.auth.auth_utils import add_log
+from backend.audit.audit_logger import add_log
 
 def save_data(db: Session, df: pd.DataFrame, save_path: str, out_filename: str, username: str, data_type: str, mapping: dict, model, index_elements: list, meta: dict = None):
     file_meta = FileMetadata(

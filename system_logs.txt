@@ -1,3 +1,0 @@
-[2026-08-28T16:45:47.865951][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
-[2026-08-28T16:47:47.878470][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard
-[2026-08-28T16:48:31.305765][uidai][127.0.0.1][/logs/page_view][System][PAGE_VIEW] Viewed /ccf/dashboard

@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from backend.auth.auth_utils import add_log
+from backend.audit.audit_logger import add_log
 from backend.database.database import SessionLocal
 from backend.database.models import FileMetadata, CCFData
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
