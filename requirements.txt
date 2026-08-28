@@ -11,7 +11,6 @@ uvicorn
 python-jose[cryptography]
 python-multipart
 bcrypt
-passlib
 python-dotenv
 kaleido
 reportlab
