@@ -69,6 +69,17 @@ def register_routing_callbacks(app, content_div):
                             ], vertical=True, pills=True, className="custom-sidebar-nav mb-4"
                         )
                     ]
+                elif pathname.startswith('/apr'):
+                    context = "APR Data"
+                    nav_content = [
+                        html.H6("APR", className="section-title mb-3"),
+                        dbc.Nav(
+                            [
+                                dbc.NavLink([html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")], href="/apr/dashboard", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                                dbc.NavLink([html.I(className="bi bi-person-lines-fill me-3"), html.Span("Agent Performance", className="nav-link-text")], href="/apr/agent-performance", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                            ], vertical=True, pills=True, className="custom-sidebar-nav mb-4"
+                        )
+                    ]
                 else:
                     context = "CCF Data"
                     nav_content = [
@@ -144,6 +155,8 @@ def register_routing_callbacks(app, content_div):
         if pathname.startswith('/unimate') and 'can_view_unimate' not in permissions:
             return '/select'
         if pathname.startswith('/cdr') and 'can_view_cdr' not in permissions:
+            return '/select'
+        if pathname.startswith('/apr') and 'can_view_apr' not in permissions:
             return '/select'
                 
         return dash.no_update

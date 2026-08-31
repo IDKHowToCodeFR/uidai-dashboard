@@ -203,5 +203,15 @@ class AgentMetadata(Base):
     tenure_months = Column(Integer)
     team = Column(String)
     location = Column(String)
+    company = Column(String, index=True)
+    language = Column(String)
+    
+    # Aggregated APR Metrics
+    total_acd_calls = Column(Integer, default=0)
+    total_staffed_time_sec = Column(Integer, default=0)
+    total_acd_time_sec = Column(Integer, default=0)
+    total_acw_time_sec = Column(Integer, default=0)
+    avg_occupancy = Column(Float, default=0.0)
+    composite_score = Column(Float, default=0.0)
 
 

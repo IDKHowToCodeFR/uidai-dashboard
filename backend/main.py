@@ -50,6 +50,7 @@ def process_unprocessed_files():
                             "ccf_data": "CCF Data",
                             "cdr_data": "CDR Data",
                             "unimate_data": "UniMate Data",
+                            "apr_data": "APR Data",
                         }
                         data_type = FOLDER_TO_DATA_TYPE.get(data_type_folder.lower())
                         if data_type is None:

@@ -27,6 +27,8 @@ def render_cards(auth_state):
     unimate_style, unimate_btn = get_style_and_btn("can_view_unimate", "success", "/unimate/dashboard", "Go to UniMate")
     cdr_style, cdr_btn = get_style_and_btn("can_view_cdr", "info", "/cdr/dashboard", "Go to CDR")
 
+    apr_style, apr_btn = get_style_and_btn("can_view_apr", "secondary", "/apr/dashboard", "Go to APR")
+
     return [
         dbc.Col([
             dbc.Card([
@@ -63,9 +65,9 @@ def render_cards(auth_state):
                 dbc.CardBody([
                     html.I(className="bi bi-graph-up-arrow display-4 mb-3", style={"color": "var(--bs-secondary)"}),
                     html.H4("APR Reports", className="card-title fw-bold"),
-                    html.P("Advanced Performance Reporting (Coming Soon).", className="card-text text-muted flex-grow-1"),
-                    dbc.Button("Coming Soon", disabled=True, color="secondary", className="w-100 mt-auto fw-bold py-2 rounded-pill")
+                    html.P("Agent Performance Reporting analytics.", className="card-text text-muted flex-grow-1"),
+                    apr_btn
                 ], className="text-center p-5 d-flex flex-column h-100")
-            ], className="shadow h-100 border-0 rounded-4 hover-elevate", style={"transition": "transform 0.3s ease, box-shadow 0.3s ease"})
+            ], className="shadow h-100 border-0 rounded-4 hover-elevate", style=apr_style)
         ], xs=12, md=6, lg=5, className="mb-4")
     ]

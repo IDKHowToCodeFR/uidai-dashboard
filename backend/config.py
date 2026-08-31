@@ -9,4 +9,4 @@ def get_active_folders(db: Session) -> list:
     if setting and isinstance(setting.value, list):
         return setting.value
     # Default fallback to preserve existing behavior if setting isn't configured yet
-    return ["ccf_data", "unimate_data", "cdr_data"]
+    return ["ccf_data", "unimate_data", "cdr_data", "apr_data"]

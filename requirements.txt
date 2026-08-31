@@ -7,7 +7,7 @@ plotly
 openpyxl
 requests
 fastapi
-uvicorn
+uvicorn[standard]
 python-jose[cryptography]
 python-multipart
 bcrypt
