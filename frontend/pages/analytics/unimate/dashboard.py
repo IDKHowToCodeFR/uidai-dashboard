@@ -274,8 +274,8 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
             'Cust_Drop': ('Termination Reason', lambda x: (x.astype(str).str.lower() == 'customer opted').sum()),
             'Avg_Duration': ('Call Duration', 'mean')
         }
-        if 'is_fcr' in comp_df.columns:
-            comp_agg['FCR_Count'] = ('is_fcr', lambda x: (x.astype(str).isin(['1', '1.0', 'true', 'True']) | (x == 1)).sum())
+        if 'Termination Type' in comp_df.columns:
+            comp_agg['Transfer_Count'] = ('Termination Type', lambda x: (x.astype(str).str.lower() == 'transfer').sum())
             
         comp_grp = comp_df.groupby('Company').agg(**comp_agg).reset_index()
         
@@ -285,21 +285,21 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         comp_grp['Volume Share'] = (comp_grp['Volume'] / total_vol) * 100 if total_vol > 0 else 0
         comp_grp['Duration Score'] = np.where(comp_grp['Avg_Duration'].isna() | (comp_grp['Avg_Duration'] == 0), 0, (180 / comp_grp['Avg_Duration'] * 100)).clip(min=0, max=100)
         
-        if 'FCR_Count' in comp_grp.columns:
-            comp_grp['FCR Score'] = np.where(comp_grp['Volume'] == 0, 0, (comp_grp['FCR_Count'] / comp_grp['Volume']) * 100)
+        if 'Transfer_Count' in comp_grp.columns:
+            comp_grp['Containment Score'] = np.where(comp_grp['Volume'] == 0, 0, 100 - ((comp_grp['Transfer_Count'] / comp_grp['Volume']) * 100))
         else:
-            comp_grp['FCR Score'] = 0
+            comp_grp['Containment Score'] = 0
             
         comp_grp['Retention Score'] = np.where(comp_grp['Volume'] == 0, 0, 100 - ((comp_grp['Cust_Drop'] / comp_grp['Volume']) * 100))
         
-        categories = ['Auth Rate', 'Completion Rate', 'Volume Share', 'Duration Score', 'FCR Score', 'Retention Score']
+        categories = ['Auth Rate', 'Completion Rate', 'Volume Share', 'Duration Score', 'Containment Score', 'Retention Score']
         categories_closed = categories + [categories[0]]
         
         fig_comp = go.Figure()
         colors = [COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_INFO]
         
         for i, row in comp_grp.iterrows():
-            r_vals = [row['Auth Rate'], row['Completion Rate'], row['Volume Share'], row['Duration Score'], row['FCR Score'], row['Retention Score']]
+            r_vals = [row['Auth Rate'], row['Completion Rate'], row['Volume Share'], row['Duration Score'], row['Containment Score'], row['Retention Score']]
             r_vals_closed = r_vals + [r_vals[0]]
             fig_comp.add_trace(go.Scatterpolar(
                 r=r_vals_closed, theta=categories_closed, fill='toself', name=row['Company'], line_color=colors[i % len(colors)], opacity=0.6
@@ -367,8 +367,8 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         if 'Termination Reason' in radar_df.columns:
             radar_agg['Sys_Drop'] = ('Termination Reason', lambda x: (x.astype(str).str.lower() == 'system').sum())
             radar_agg['Cust_Drop'] = ('Termination Reason', lambda x: (x.astype(str).str.lower() == 'customer opted').sum())
-        if 'is_fcr' in radar_df.columns:
-            radar_agg['FCR_Count'] = ('is_fcr', lambda x: (x.astype(str).isin(['1', '1.0', 'true', 'True']) | (x == 1)).sum())
+        if 'Termination Type' in radar_df.columns:
+            radar_agg['Transfer_Count'] = ('Termination Type', lambda x: (x.astype(str).str.lower() == 'transfer').sum())
             
         radar_grp = radar_df.groupby('Language').agg(**radar_agg).reset_index()
         
@@ -377,23 +377,23 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         radar_grp['Volume Share'] = (radar_grp['Volume'] / len(df)) * 100
         radar_grp['Duration Score'] = np.where(radar_grp['Avg_Duration'].isna() | (radar_grp['Avg_Duration'] == 0), 0, (300 / radar_grp['Avg_Duration'] * 100)).clip(max=100)
         
-        if 'FCR_Count' in radar_grp.columns:
-            radar_grp['FCR Score'] = np.where(radar_grp['Volume'] == 0, 0, (radar_grp['FCR_Count'] / radar_grp['Volume']) * 100)
+        if 'Transfer_Count' in radar_grp.columns:
+            radar_grp['Containment Score'] = np.where(radar_grp['Volume'] == 0, 0, 100 - ((radar_grp['Transfer_Count'] / radar_grp['Volume']) * 100))
         else:
-            radar_grp['FCR Score'] = 0
+            radar_grp['Containment Score'] = 0
             
         if 'Cust_Drop' in radar_grp.columns:
             radar_grp['Retention Score'] = np.where(radar_grp['Volume'] == 0, 0, 100 - ((radar_grp['Cust_Drop'] / radar_grp['Volume']) * 100))
         else:
             radar_grp['Retention Score'] = 0
         
-        categories = ['Volume Share', 'Auth Rate', 'Completion Rate', 'Duration Score', 'FCR Score', 'Retention Score']
+        categories = ['Volume Share', 'Auth Rate', 'Completion Rate', 'Duration Score', 'Containment Score', 'Retention Score']
         categories_closed = categories + [categories[0]]
         
         fig_radar = go.Figure()
         colors = [COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_INFO]
         for i, row in radar_grp.iterrows():
-            r_vals = [row['Volume Share'], row['Auth Rate'], row['Completion Rate'], row['Duration Score'], row['FCR Score'], row['Retention Score']]
+            r_vals = [row['Volume Share'], row['Auth Rate'], row['Completion Rate'], row['Duration Score'], row['Containment Score'], row['Retention Score']]
             r_vals_closed = r_vals + [r_vals[0]]
             fig_radar.add_trace(go.Scatterpolar(
                 r=r_vals_closed, theta=categories_closed, fill='toself', name=row['Language'], line_color=colors[i % len(colors)], opacity=0.6
