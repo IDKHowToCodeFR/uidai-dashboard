@@ -1,60 +1,87 @@
 import dash
-from dash import html, dcc, callback, Input, Output, State
+from dash import html, dcc, callback, Input, Output, State, ctx
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 from frontend.shared.api_client import get_dataframe
-from frontend.shared.theme import COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_NEUTRAL, COLOR_INFO
-
+from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_NEUTRAL, COLOR_INFO
 from frontend.components.cards import make_kpi_card, wrap_chart_card
 from frontend.components.empty_state import render_empty_state
+from frontend.shared.pdf_generator import generate_single_chart_pdf, generate_dashboard_pdf, generate_single_chart_png, generate_single_chart_html, generate_dashboard_html
 
 dash.register_page(__name__, path='/unimate/dashboard', name='UniMate Dashboard')
 
 layout = html.Div([
-    html.Div([
-        html.H3("UniMate Overview", className="display-xl mb-0"),
-        html.P("Executive summary of UniMate call performance.", className="text-muted mb-4 mt-2"),
+    dbc.Row([
+        dbc.Col([
+            html.Div([
+                html.H3("UniMate Overview", className="display-xl mb-0"),
+                html.P("Executive summary of UniMate call performance.", className="text-muted mb-0 mt-2"),
+            ])
+        ], width=8),
+        dbc.Col([
+            html.Div([
+                make_export_dropdown("unimate-dash"),
+                dcc.Download(id={'type': 'download-data-unimate-dash', 'index': 'unimate-dash'})
+            ])
+        ], width=4, className="d-flex align-items-center justify-content-end mb-4")
     ]),
 
     dcc.Loading(type="dot", color=COLOR_PRIMARY, children=dbc.Row(id='unimate-kpi-row', className="mb-4 g-3")),
 
     dbc.Row([
-        wrap_chart_card('unimate-volume', "Call Volume Over Time", "unimate")
-    ]),
-
-    dbc.Row([
         dbc.Col([
-            wrap_chart_card('unimate-termination', "Termination Reasons", "unimate")
-        ], width=12, lg=6, className="mb-4"),
-        dbc.Col([
-            wrap_chart_card('unimate-language', "Calls by Language", "unimate")
-        ], width=12, lg=6, className="mb-4")
-    ]),
-
-    dbc.Row([
-        dbc.Col([
-            wrap_chart_card('unimate-intraday-language', "Intraday Language Distribution (Avg 30-min Buckets)", "unimate")
+            wrap_chart_card('unimate-vol-auth-trend', "Auth Rate vs Volume Trend", "unimate-dash")
         ], width=12, className="mb-4")
     ]),
 
     dbc.Row([
         dbc.Col([
-            wrap_chart_card('unimate-term-language', "Termination Reasons by Language (100% Stacked)", "unimate")
+            wrap_chart_card('unimate-language', "Calls by Language", "unimate-dash")
+        ], width=12, lg=4, className="mb-4"),
+        dbc.Col([
+            wrap_chart_card('unimate-termination', "Termination Reasons", "unimate-dash")
+        ], width=12, lg=4, className="mb-4"),
+        dbc.Col([
+            wrap_chart_card('unimate-duration-hist', "Call Duration Distribution (s)", "unimate-dash")
+        ], width=12, lg=4, className="mb-4")
+    ]),
+
+    dbc.Row([
+        dbc.Col([
+            wrap_chart_card('unimate-sunburst', "Regional Interaction Breakdown", "unimate-dash")
         ], width=12, lg=6, className="mb-4"),
         dbc.Col([
-            wrap_chart_card('unimate-radar', "Language Performance Radar (Top 5)", "unimate")
+            wrap_chart_card('unimate-company-radar', "Vendor KPI Radar", "unimate-dash")
+        ], width=12, lg=6, className="mb-4")
+    ]),
+
+    dbc.Row([
+        dbc.Col([
+            wrap_chart_card('unimate-intraday-language', "Intraday Language Distribution (Avg 30-min)", "unimate-dash")
+        ], width=12, className="mb-4")
+    ]),
+
+    dbc.Row([
+        dbc.Col([
+            wrap_chart_card('unimate-term-language', "Termination Reasons by Language", "unimate-dash")
+        ], width=12, lg=6, className="mb-4"),
+        dbc.Col([
+            wrap_chart_card('unimate-radar', "Language Performance Radar (Top 5)", "unimate-dash")
         ], width=12, lg=6, className="mb-4")
     ])
 ], className="container-fluid py-4")
 
 @callback(
     Output('unimate-kpi-row', 'children'),
-    Output('unimate-volume-container', 'children'),
+    Output('unimate-vol-auth-trend-container', 'children'),
     Output('unimate-termination-container', 'children'),
     Output('unimate-language-container', 'children'),
+    Output('unimate-duration-hist-container', 'children'),
+    Output('unimate-sunburst-container', 'children'),
+    Output('unimate-company-radar-container', 'children'),
     Output('unimate-intraday-language-container', 'children'),
     Output('unimate-term-language-container', 'children'),
     Output('unimate-radar-container', 'children'),
@@ -63,52 +90,53 @@ layout = html.Div([
     Input('language-filter', 'value'),
     Input('date-picker-range', 'start_date'),
     Input('date-picker-range', 'end_date'),
+    Input('sl-granularity', 'value'),
+    Input('sl-scale-toggle', 'value'),
     State('auth-state', 'data')
 )
-def update_unimate_dashboard(data_ref, companies, languages, start_date, end_date, auth_state):
-    empty_ui = render_empty_state()
+def update_unimate_dashboard(data_ref, companies, languages, start_date, end_date, sl_granularity, sl_scale, auth_state):
+    def e_ui(gid=None):
+        return render_empty_state(graph_id=gid)
 
-    # Empty state for the KPI row
-    empty_kpi = dbc.Col(html.Div(empty_ui, style={"height": "120px"}), width=12)
+    empty_kpi = dbc.Col(html.Div(e_ui(), style={"height": "120px"}), width=12)
+    outs = [empty_kpi] + [e_ui(gid) for gid in [
+        'unimate-vol-auth-trend', 'unimate-termination', 'unimate-language', 
+        'unimate-duration-hist', 'unimate-sunburst', 'unimate-company-radar', 
+        'unimate-intraday-language', 'unimate-term-language', 'unimate-radar'
+    ]]
 
-    if not data_ref or 'filename' not in data_ref:
-        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
-
+    if not data_ref or 'filename' not in data_ref: return outs
     token = auth_state.get('token') if auth_state else None
-    if not token:
-        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
-
+    if not token: return outs
     df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
-
-    if df is None or df.empty:
-        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
-
-    if companies and 'Company' in df.columns:
-        df = df[df['Company'].isin(companies)]
-
-    if languages and 'Language' in df.columns:
-        df = df[df['Language'].isin(languages)]
+    if df is None or df.empty: return outs
 
     if 'Call Start Time' in df.columns:
-        df['Date'] = pd.to_datetime(df['Call Start Time'], errors='coerce').dt.date
+        df['Date'] = pd.to_datetime(df['Call Start Time'], errors='coerce')
     else:
         df['Date'] = pd.NaT
 
-    if start_date and end_date:
-        valid_mask = df['Date'].notna()
-        df = df[valid_mask]
-        if not df.empty:
-            df = df[(df['Date'] >= pd.to_datetime(start_date).date()) & (df['Date'] <= pd.to_datetime(end_date).date())]
+    mask = pd.Series(True, index=df.index)
+    if companies and 'Company' in df.columns:
+        mask = mask & df['Company'].isin(companies)
+    if languages and 'Language' in df.columns:
+        mask = mask & df['Language'].isin(languages)
 
-    if df.empty:
-        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
+    if start_date and end_date and not df['Date'].isna().all():
+        s = pd.to_datetime(start_date)
+        e = pd.to_datetime(end_date) + pd.Timedelta(days=1)
+        mask = mask & (df['Date'] >= s) & (df['Date'] < e)
+
+    df = df[mask].copy()
+    if df.empty: return outs
+    
+    date_col = 'Date' if not df['Date'].isna().all() else None
 
     # KPIs
     total_calls = len(df)
-
     auth_rate = 0
     if 'Authentication' in df.columns:
-        auth_calls = df[df['Authentication'].astype(str).str.lower() == 'true'].shape[0]
+        auth_calls = df[df['Authentication'].astype(str).str.lower().isin(['true', '1', '1.0'])].shape[0]
         auth_rate = (auth_calls / total_calls * 100) if total_calls > 0 else 0
 
     system_term = 0
@@ -121,77 +149,192 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         try:
             durations = pd.to_numeric(df['Call Duration'], errors='coerce')
             avg_duration = durations.mean() if not durations.isna().all() else 0
-        except Exception:
-            pass
+        except: pass
+
+    task_rate = 0
+    if 'is_fcr' in df.columns:
+        completed = df[df['is_fcr'].astype(str).isin(['1', '1.0', 'true', 'True']) | (df['is_fcr'] == 1)].shape[0]
+        task_rate = (completed / total_calls * 100) if total_calls > 0 else 0
 
     kpis = [
-        dbc.Col(make_kpi_card("Total Calls", f"{total_calls:,}"), width=3),
-        dbc.Col(make_kpi_card("Avg Duration (s)", f"{avg_duration:.1f}"), width=3),
-        dbc.Col(make_kpi_card("Auth Rate", f"{auth_rate:.1f}%", "good" if auth_rate > 50 else "neutral"), width=3),
-        dbc.Col(make_kpi_card("System Drops", f"{system_term:.1f}%", "bad" if system_term > 10 else "neutral"), width=3),
+        dbc.Col(make_kpi_card("Total Calls", f"{total_calls:,}"), width=True),
+        dbc.Col(make_kpi_card("Avg Duration", f"{avg_duration:.1f}s"), width=True),
+        dbc.Col(make_kpi_card("Auth Rate", f"{auth_rate:.1f}%", "good" if auth_rate > 50 else "neutral"), width=True),
+        dbc.Col(make_kpi_card("System Drops", f"{system_term:.1f}%", "bad" if system_term > 10 else "neutral"), width=True),
+        dbc.Col(make_kpi_card("Completion Rate", f"{task_rate:.1f}%", "good" if task_rate > 70 else "neutral"), width=True),
     ]
 
-    # Volume Trend
-    if not df['Date'].isna().all():
-        vol_df = df.groupby('Date').size().reset_index(name='Calls')
-        fig_vol = px.bar(vol_df, x='Date', y='Calls', template='plotly_white', color_discrete_sequence=[COLOR_PRIMARY])
-        fig_vol.update_traces(hovertemplate='<b>Date:</b> %{x}<br><b>Calls:</b> %{y:,}<extra></extra>')
-        fig_vol.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)')
-        fig_vol.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
-        vol_ui = dcc.Graph(figure=fig_vol, config={'displayModeBar': False})
+    # Time Bucketing
+    if date_col:
+        df['Date_Day'] = df['Date'].dt.date
+        if sl_granularity and sl_granularity != 'Auto':
+            freq = sl_granularity
+        else:
+            days_diff = (df['Date'].max() - df['Date'].min()).days
+            freq = 'M' if days_diff > 90 else ('W-MON' if days_diff > 31 else 'D')
+            
+        if freq == 'D':
+            df['Date_Bucket'] = df['Date'].dt.floor('D')
+        else:
+            df['Date_Bucket'] = df['Date'].dt.to_period(freq).dt.to_timestamp()
     else:
-        vol_ui = empty_ui
+        df['Date_Bucket'] = pd.NaT
 
-    # Termination Chart
-    if 'Termination Reason' in df.columns:
-        term_df = df['Termination Reason'].value_counts().reset_index()
-        term_df.columns = ['Reason', 'Count']
-        fig_term = px.bar(term_df, x='Reason', y='Count', template='plotly_white')
-        colors = [COLOR_DANGER if str(r).lower() in ['system', 'abandon'] else COLOR_NEUTRAL for r in term_df['Reason']]
-        fig_term.update_traces(marker_color=colors, hovertemplate='<b>Reason:</b> %{x}<br><b>Count:</b> %{y:,}<extra></extra>')
-        fig_term.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)')
-        fig_term.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
-        term_ui = dcc.Graph(figure=fig_term, config={'displayModeBar': False})
+    # 1. Dual-Axis Vol Auth Trend
+    if date_col and 'Authentication' in df.columns:
+        trend_grp = df.groupby('Date_Bucket').agg(
+            Calls=('Authentication', 'size'),
+            Auths=('Authentication', lambda x: x.astype(str).str.lower().isin(['true', '1', '1.0']).sum())
+        ).reset_index()
+        trend_grp['Auth %'] = np.where(trend_grp['Calls'] == 0, 0, (trend_grp['Auths'] / trend_grp['Calls']) * 100)
+        
+        from plotly.subplots import make_subplots
+        fig_dual = make_subplots(specs=[[{"secondary_y": True}]])
+        fig_dual.add_trace(go.Bar(
+            x=trend_grp['Date_Bucket'], y=trend_grp['Calls'], name="Volume", 
+            marker_color=COLOR_INFO, opacity=0.85, 
+            hovertemplate='<b>Date:</b> %{x}<br><b>Volume:</b> %{y:,}<extra></extra>'
+        ), secondary_y=False)
+        
+        fig_dual.add_trace(go.Scatter(
+            x=trend_grp['Date_Bucket'], y=trend_grp['Auth %'], name="Auth %", 
+            mode='lines+markers', line=dict(color=COLOR_SUCCESS, width=3, shape='spline'), 
+            hovertemplate='<b>Date:</b> %{x}<br><b>Auth %:</b> %{y:.2f}%<extra></extra>'
+        ), secondary_y=True)
+        
+        fig_dual.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+        fig_dual.update_yaxes(title_text="Volume", secondary_y=False, showgrid=False)
+        fig_dual.update_yaxes(title_text="Auth %", secondary_y=True, showgrid=False, range=[0, max(100, trend_grp['Auth %'].max() + 5)])
+        ui_vol_auth = dcc.Graph(id='unimate-vol-auth-trend', figure=fig_dual, config={'displayModeBar': False})
     else:
-        term_ui = empty_ui
+        ui_vol_auth = e_ui('unimate-vol-auth-trend')
 
-
+    # 2. Language Pie
     if 'Language' in df.columns:
         lang_df = df['Language'].value_counts().reset_index()
         lang_df.columns = ['Language', 'Count']
-        fig_lang = px.pie(lang_df, names='Language', values='Count', template='plotly_white', hole=0.6,
-                         color_discrete_sequence=px.colors.qualitative.Vivid)
+        fig_lang = px.pie(lang_df, names='Language', values='Count', hole=0.6, color_discrete_sequence=px.colors.qualitative.Pastel)
         fig_lang.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>%{label}</b><br>Count: %{value:,}<extra></extra>', marker=dict(line=dict(color='#ffffff', width=2)))
-        fig_lang.update_layout(margin=dict(l=0, r=0, t=20, b=0), showlegend=False)
-        lang_ui = dcc.Graph(figure=fig_lang, config={'displayModeBar': False})
+        fig_lang.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
+        ui_lang = dcc.Graph(id='unimate-language', figure=fig_lang, config={'displayModeBar': False})
     else:
-        lang_ui = empty_ui
+        ui_lang = e_ui('unimate-language')
 
-    # 1. Intraday Language Distribution
-    if 'Date' in df.columns and not df['Date'].isna().all() and 'Language' in df.columns:
-        df['Time'] = pd.to_datetime(df['Call Start Time'], errors='coerce').dt.floor('30min').dt.time
-        df['True_Day'] = df['Date']
-        intra_grp = df.groupby(['True_Day', 'Time', 'Language']).size().reset_index(name='Calls')
+    # 3. Termination Chart
+    if 'Termination Reason' in df.columns:
+        term_df = df['Termination Reason'].value_counts().reset_index()
+        term_df.columns = ['Reason', 'Count']
+        fig_term = px.bar(term_df, x='Reason', y='Count', color_discrete_sequence=[COLOR_PRIMARY])
+        colors = [COLOR_DANGER if str(r).lower() in ['system', 'abandon'] else COLOR_NEUTRAL for r in term_df['Reason']]
+        fig_term.update_traces(marker_color=colors, hovertemplate='<b>Reason:</b> %{x}<br><b>Count:</b> %{y:,}<extra></extra>')
+        fig_term.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False)
+        ui_term = dcc.Graph(id='unimate-termination', figure=fig_term, config={'displayModeBar': False})
+    else:
+        ui_term = e_ui('unimate-termination')
+
+    # 4. Duration Histogram
+    if 'Call Duration' in df.columns:
+        df_dur = df[df['Call Duration'].notna()].copy()
+        df_dur['Call Duration'] = pd.to_numeric(df_dur['Call Duration'], errors='coerce')
+        df_dur = df_dur[df_dur['Call Duration'] > 0]
+        
+        fig_hist = px.histogram(df_dur, x='Call Duration', nbins=30, color_discrete_sequence=[COLOR_PRIMARY])
+        fig_hist.update_traces(hovertemplate='<b>Duration:</b> %{x}s<br><b>Frequency:</b> %{y:,}<extra></extra>')
+        fig_hist.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False, xaxis_title="Seconds")
+        ui_hist = dcc.Graph(id='unimate-duration-hist', figure=fig_hist, config={'displayModeBar': False})
+    else:
+        ui_hist = e_ui('unimate-duration-hist')
+
+    # 5. Regional Sunburst (Region -> Language -> Auth)
+    if all(c in df.columns for c in ['Region', 'Language', 'Authentication']):
+        df_sun = df.copy()
+        df_sun['Region'] = df_sun['Region'].fillna('Unknown')
+        df_sun['Language'] = df_sun['Language'].fillna('Unknown')
+        df_sun['Auth_Status'] = np.where(df_sun['Authentication'].astype(str).str.lower().isin(['true', '1', '1.0']), 'Authenticated', 'Not Authenticated')
+        
+        sun_grp = df_sun.groupby(['Region', 'Language', 'Auth_Status']).size().reset_index(name='Calls')
+        
+        fig_sun = px.sunburst(sun_grp, path=['Region', 'Language', 'Auth_Status'], values='Calls', color='Auth_Status', 
+                              color_discrete_map={'Authenticated': COLOR_SUCCESS, 'Not Authenticated': COLOR_WARNING, '(?)': COLOR_NEUTRAL})
+        fig_sun.update_traces(textinfo='label+percent parent', hovertemplate='<b>%{label}</b><br>Calls: %{value:,}<extra></extra>')
+        fig_sun.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10))
+        ui_sun = dcc.Graph(id='unimate-sunburst', figure=fig_sun, config={'displayModeBar': False})
+    else:
+        ui_sun = e_ui('unimate-sunburst')
+
+    # 6. Company KPI Radar
+    if all(c in df.columns for c in ['Company', 'Call Duration', 'Authentication', 'Termination Reason']):
+        comp_df = df.copy()
+        comp_df['Call Duration'] = pd.to_numeric(comp_df['Call Duration'], errors='coerce')
+        
+        comp_agg = {
+            'Volume': ('Company', 'size'),
+            'Auth_True': ('Authentication', lambda x: x.astype(str).str.lower().isin(['true', '1', '1.0']).sum()),
+            'Sys_Drop': ('Termination Reason', lambda x: (x.astype(str).str.lower() == 'system').sum()),
+            'Cust_Drop': ('Termination Reason', lambda x: (x.astype(str).str.lower() == 'customer opted').sum()),
+            'Avg_Duration': ('Call Duration', 'mean')
+        }
+        if 'is_fcr' in comp_df.columns:
+            comp_agg['FCR_Count'] = ('is_fcr', lambda x: (x.astype(str).isin(['1', '1.0', 'true', 'True']) | (x == 1)).sum())
+            
+        comp_grp = comp_df.groupby('Company').agg(**comp_agg).reset_index()
+        
+        total_vol = len(df)
+        comp_grp['Auth Rate'] = np.where(comp_grp['Volume'] == 0, 0, (comp_grp['Auth_True'] / comp_grp['Volume']) * 100)
+        comp_grp['Completion Rate'] = np.where(comp_grp['Volume'] == 0, 0, 100 - ((comp_grp['Sys_Drop'] / comp_grp['Volume']) * 100))
+        comp_grp['Volume Share'] = (comp_grp['Volume'] / total_vol) * 100 if total_vol > 0 else 0
+        comp_grp['Duration Score'] = np.where(comp_grp['Avg_Duration'].isna() | (comp_grp['Avg_Duration'] == 0), 0, (180 / comp_grp['Avg_Duration'] * 100)).clip(min=0, max=100)
+        
+        if 'FCR_Count' in comp_grp.columns:
+            comp_grp['FCR Score'] = np.where(comp_grp['Volume'] == 0, 0, (comp_grp['FCR_Count'] / comp_grp['Volume']) * 100)
+        else:
+            comp_grp['FCR Score'] = 0
+            
+        comp_grp['Retention Score'] = np.where(comp_grp['Volume'] == 0, 0, 100 - ((comp_grp['Cust_Drop'] / comp_grp['Volume']) * 100))
+        
+        categories = ['Auth Rate', 'Completion Rate', 'Volume Share', 'Duration Score', 'FCR Score', 'Retention Score']
+        categories_closed = categories + [categories[0]]
+        
+        fig_comp = go.Figure()
+        colors = [COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_INFO]
+        
+        for i, row in comp_grp.iterrows():
+            r_vals = [row['Auth Rate'], row['Completion Rate'], row['Volume Share'], row['Duration Score'], row['FCR Score'], row['Retention Score']]
+            r_vals_closed = r_vals + [r_vals[0]]
+            fig_comp.add_trace(go.Scatterpolar(
+                r=r_vals_closed, theta=categories_closed, fill='toself', name=row['Company'], line_color=colors[i % len(colors)], opacity=0.6
+            ))
+            
+        fig_comp.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True, template=get_plotly_template(), margin=dict(t=40, b=40, l=100, r=100))
+        ui_comp = dcc.Graph(id='unimate-company-radar', figure=fig_comp, config={'displayModeBar': False})
+    else:
+        ui_comp = e_ui('unimate-company-radar')
+
+    # 7. Intraday Language Distribution
+    if date_col and 'Language' in df.columns:
+        df_intra = df.copy()
+        df_intra['Time'] = df_intra['Date'].dt.floor('30min').dt.time
+        df_intra['True_Day'] = df_intra['Date_Day']
+        intra_grp = df_intra.groupby(['True_Day', 'Time', 'Language']).size().reset_index(name='Calls')
         avg_intra = intra_grp.groupby(['Time', 'Language'])['Calls'].mean().reset_index()
         avg_intra['Calls'] = avg_intra['Calls'].round().astype(int)
         avg_intra['TimeStr'] = avg_intra['Time'].astype(str).str[:5]
         avg_intra = avg_intra.sort_values(['TimeStr', 'Language'])
         
-        fig_intra = px.line(avg_intra, x='TimeStr', y='Calls', color='Language', template='plotly_white', color_discrete_sequence=px.colors.qualitative.Vivid)
+        fig_intra = px.line(avg_intra, x='TimeStr', y='Calls', color='Language', color_discrete_sequence=px.colors.qualitative.Vivid)
         fig_intra.update_traces(mode='lines', line_shape='spline', hovertemplate='<b>Time:</b> %{x}<br><b>Language:</b> %{data.name}<br><b>Calls:</b> %{y:d}<extra></extra>')
-        fig_intra.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)', xaxis_title="Time of Day", yaxis_title="Average Volume")
-        fig_intra.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
-        intra_lang_ui = dcc.Graph(figure=fig_intra, config={'displayModeBar': False})
+        fig_intra.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), xaxis_title="Time of Day", yaxis_title="Average Volume")
+        ui_intra = dcc.Graph(id='unimate-intraday-language', figure=fig_intra, config={'displayModeBar': False})
     else:
-        intra_lang_ui = empty_ui
+        ui_intra = e_ui('unimate-intraday-language')
 
-    # 2. Language-wise Termination Breakdown (100% Stacked)
+    # 8. Language-wise Termination Breakdown
     if 'Language' in df.columns and 'Termination Reason' in df.columns:
         term_lang_df = df.groupby(['Language', 'Termination Reason']).size().reset_index(name='Count')
         lang_totals = term_lang_df.groupby('Language')['Count'].transform('sum')
         term_lang_df['Percentage'] = (term_lang_df['Count'] / lang_totals) * 100
         
-        fig_term_lang = px.bar(term_lang_df, x='Language', y='Percentage', color='Termination Reason', hover_data=['Count'], template='plotly_white')
+        fig_term_lang = px.bar(term_lang_df, x='Language', y='Percentage', color='Termination Reason', hover_data=['Count'])
         
         color_map = {}
         for reason in term_lang_df['Termination Reason'].unique():
@@ -203,49 +346,201 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
                 
         fig_term_lang.for_each_trace(lambda t: t.update(marker_color=color_map.get(t.name, COLOR_NEUTRAL)))
         fig_term_lang.update_traces(hovertemplate='<b>%{x}</b><br>Reason: %{data.name}<br>Percentage: %{y:.1f}%<br>Count: %{customdata[0]:,}<extra></extra>')
-        fig_term_lang.update_layout(barmode='stack', margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)', yaxis_title="% of Calls")
-        fig_term_lang.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
-        term_lang_ui = dcc.Graph(figure=fig_term_lang, config={'displayModeBar': False})
+        fig_term_lang.update_layout(barmode='stack', template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), yaxis_title="% of Calls")
+        ui_term_lang = dcc.Graph(id='unimate-term-language', figure=fig_term_lang, config={'displayModeBar': False})
     else:
-        term_lang_ui = empty_ui
+        ui_term_lang = e_ui('unimate-term-language')
 
-    # 3. Language Performance Radar
+    # 9. Language Performance Radar
     if 'Language' in df.columns and 'Call Duration' in df.columns:
         top_langs = df['Language'].value_counts().nlargest(5).index
-        radar_df = df[df['Language'].isin(top_langs)]
+        radar_df = df[df['Language'].isin(top_langs)].copy()
         
-        def safe_mean(x):
-            try: return pd.to_numeric(x, errors='coerce').mean()
-            except: return 0
+        radar_df['Call Duration'] = pd.to_numeric(radar_df['Call Duration'], errors='coerce')
+        
+        radar_agg = {
+            'Volume': ('Language', 'count'),
+            'Avg_Duration': ('Call Duration', 'mean')
+        }
+        if 'Authentication' in radar_df.columns:
+            radar_agg['Auth_True'] = ('Authentication', lambda x: x.astype(str).str.lower().isin(['true', '1', '1.0']).sum())
+        if 'Termination Reason' in radar_df.columns:
+            radar_agg['Sys_Drop'] = ('Termination Reason', lambda x: (x.astype(str).str.lower() == 'system').sum())
+            radar_agg['Cust_Drop'] = ('Termination Reason', lambda x: (x.astype(str).str.lower() == 'customer opted').sum())
+        if 'is_fcr' in radar_df.columns:
+            radar_agg['FCR_Count'] = ('is_fcr', lambda x: (x.astype(str).isin(['1', '1.0', 'true', 'True']) | (x == 1)).sum())
             
-        radar_grp = radar_df.groupby('Language').agg(
-            Volume=('Language', 'count'),
-            Auth_True=('Authentication', lambda x: (x.astype(str).str.lower() == 'true').sum() if 'Authentication' in df.columns else 0),
-            Sys_Drop=('Termination Reason', lambda x: (x.astype(str).str.lower() == 'system').sum() if 'Termination Reason' in df.columns else 0),
-            Avg_Duration=('Call Duration', safe_mean)
-        ).reset_index()
+        radar_grp = radar_df.groupby('Language').agg(**radar_agg).reset_index()
         
-        radar_grp['Auth Rate'] = (radar_grp['Auth_True'] / radar_grp['Volume']) * 100
-        radar_grp['Completion Rate'] = 100 - ((radar_grp['Sys_Drop'] / radar_grp['Volume']) * 100)
+        radar_grp['Auth Rate'] = np.where(radar_grp['Volume'] == 0, 0, (radar_grp['Auth_True'] / radar_grp['Volume']) * 100) if 'Auth_True' in radar_grp.columns else 0
+        radar_grp['Completion Rate'] = np.where(radar_grp['Volume'] == 0, 0, 100 - ((radar_grp['Sys_Drop'] / radar_grp['Volume']) * 100)) if 'Sys_Drop' in radar_grp.columns else 0
         radar_grp['Volume Share'] = (radar_grp['Volume'] / len(df)) * 100
-        radar_grp['Duration Score'] = (300 / radar_grp['Avg_Duration'].replace(0, 1) * 100).clip(upper=100)
+        radar_grp['Duration Score'] = np.where(radar_grp['Avg_Duration'].isna() | (radar_grp['Avg_Duration'] == 0), 0, (300 / radar_grp['Avg_Duration'] * 100)).clip(max=100)
         
-        categories = ['Volume Share', 'Auth Rate', 'Completion Rate', 'Duration Score']
+        if 'FCR_Count' in radar_grp.columns:
+            radar_grp['FCR Score'] = np.where(radar_grp['Volume'] == 0, 0, (radar_grp['FCR_Count'] / radar_grp['Volume']) * 100)
+        else:
+            radar_grp['FCR Score'] = 0
+            
+        if 'Cust_Drop' in radar_grp.columns:
+            radar_grp['Retention Score'] = np.where(radar_grp['Volume'] == 0, 0, 100 - ((radar_grp['Cust_Drop'] / radar_grp['Volume']) * 100))
+        else:
+            radar_grp['Retention Score'] = 0
+        
+        categories = ['Volume Share', 'Auth Rate', 'Completion Rate', 'Duration Score', 'FCR Score', 'Retention Score']
         categories_closed = categories + [categories[0]]
         
         fig_radar = go.Figure()
         colors = [COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_INFO]
         for i, row in radar_grp.iterrows():
-            r_vals = [row['Volume Share'], row['Auth Rate'], row['Completion Rate'], row['Duration Score']]
+            r_vals = [row['Volume Share'], row['Auth Rate'], row['Completion Rate'], row['Duration Score'], row['FCR Score'], row['Retention Score']]
             r_vals_closed = r_vals + [r_vals[0]]
             fig_radar.add_trace(go.Scatterpolar(
-                r=r_vals_closed,
-                theta=categories_closed, fill='toself', name=row['Language'], line_color=colors[i % len(colors)], opacity=0.6
+                r=r_vals_closed, theta=categories_closed, fill='toself', name=row['Language'], line_color=colors[i % len(colors)], opacity=0.6
             ))
             
-        fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True, template='plotly_white', margin=dict(t=40, b=40, l=90, r=90))
-        radar_ui = dcc.Graph(figure=fig_radar, config={'displayModeBar': False})
+        fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True, template=get_plotly_template(), margin=dict(t=40, b=40, l=100, r=100))
+        ui_radar = dcc.Graph(id='unimate-radar', figure=fig_radar, config={'displayModeBar': False})
     else:
-        radar_ui = empty_ui
+        ui_radar = e_ui('unimate-radar')
 
-    return kpis, vol_ui, term_ui, lang_ui, intra_lang_ui, term_lang_ui, radar_ui
+    return kpis, ui_vol_auth, ui_term, ui_lang, ui_hist, ui_sun, ui_comp, ui_intra, ui_term_lang, ui_radar
+
+
+# ---------------- EXPORT CALLBACKS ----------------
+
+@callback(
+    Output({'type': 'download-data-unimate-dash', 'index': dash.MATCH}, "data"),
+    Input({'type': 'export-csv-unimate-dash', 'index': dash.MATCH}, "n_clicks"),
+    State('data-store', 'data'),
+    State('company-filter', 'value'),
+    State('language-filter', 'value'),
+    State('date-picker-range', 'start_date'),
+    State('date-picker-range', 'end_date'),
+    State('auth-state', 'data'),
+    prevent_initial_call=True
+)
+def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, start_date, end_date, auth_state):
+    if not n_clicks or not data_ref or 'filename' not in data_ref: return dash.no_update
+    if ctx.triggered_id['index'] != 'unimate-dash': return dash.no_update
+        
+    token = auth_state.get('token') if auth_state else None
+    if not token: return dash.no_update
+        
+    df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
+    if df.empty: return dash.no_update
+
+    if company_filter and 'Company' in df.columns:
+        df = df[df['Company'].isin(company_filter)]
+    if language_filter and 'Language' in df.columns:
+        df = df[df['Language'].isin(language_filter)]
+
+    if 'Call Start Time' in df.columns:
+        df['Date'] = pd.to_datetime(df['Call Start Time'], errors='coerce')
+        if start_date and end_date and not df['Date'].isna().all():
+            start_dt, end_dt = pd.to_datetime(start_date), pd.to_datetime(end_date) + pd.Timedelta(days=1)
+            df = df[(df['Date'] >= start_dt) & (df['Date'] < end_dt)]
+        df = df.drop(columns=['Date'])
+
+    return dcc.send_data_frame(df.to_csv, "unimate_dashboard_data.csv", index=False)
+
+
+@callback(
+    Output({'type': 'download-data-unimate-dash', 'index': dash.MATCH}, "data", allow_duplicate=True),
+    Input({'type': 'export-pdf-unimate-dash', 'index': dash.MATCH}, "n_clicks"),
+    State('unimate-vol-auth-trend', 'figure'),
+    State('unimate-language', 'figure'),
+    State('unimate-termination', 'figure'),
+    State('unimate-duration-hist', 'figure'),
+    State('unimate-sunburst', 'figure'),
+    State('unimate-company-radar', 'figure'),
+    State('unimate-intraday-language', 'figure'),
+    State('unimate-term-language', 'figure'),
+    State('unimate-radar', 'figure'),
+    prevent_initial_call=True
+)
+def export_pdf_dashboard(n_clicks, vol_auth, lang, term, hist, sun, comp, intra, term_lang, radar):
+    if not n_clicks: return dash.no_update
+    index = ctx.triggered_id['index']
+    
+    figures = {
+        'unimate-vol-auth-trend': vol_auth, 'unimate-language': lang, 'unimate-termination': term,
+        'unimate-duration-hist': hist, 'unimate-sunburst': sun, 'unimate-company-radar': comp,
+        'unimate-intraday-language': intra, 'unimate-term-language': term_lang, 'unimate-radar': radar
+    }
+    
+    if index == 'unimate-dash':
+        pdf_bytes = generate_dashboard_pdf(figures, "UniMate Dashboard")
+        return dcc.send_bytes(pdf_bytes, "unimate_dashboard_export.pdf")
+    else:
+        fig_dict = figures.get(index)
+        if not fig_dict: return dash.no_update
+        pdf_bytes = generate_single_chart_pdf(fig_dict)
+        return dcc.send_bytes(pdf_bytes, f"{index}_export.pdf")
+
+
+@callback(
+    Output({'type': 'download-data-unimate-dash', 'index': dash.MATCH}, "data", allow_duplicate=True),
+    Input({'type': 'export-png-unimate-dash', 'index': dash.MATCH}, "n_clicks"),
+    State('unimate-vol-auth-trend', 'figure'),
+    State('unimate-language', 'figure'),
+    State('unimate-termination', 'figure'),
+    State('unimate-duration-hist', 'figure'),
+    State('unimate-sunburst', 'figure'),
+    State('unimate-company-radar', 'figure'),
+    State('unimate-intraday-language', 'figure'),
+    State('unimate-term-language', 'figure'),
+    State('unimate-radar', 'figure'),
+    prevent_initial_call=True
+)
+def export_png_dashboard(n_clicks, vol_auth, lang, term, hist, sun, comp, intra, term_lang, radar):
+    if not n_clicks: return dash.no_update
+    index = ctx.triggered_id['index']
+    
+    figures = {
+        'unimate-vol-auth-trend': vol_auth, 'unimate-language': lang, 'unimate-termination': term,
+        'unimate-duration-hist': hist, 'unimate-sunburst': sun, 'unimate-company-radar': comp,
+        'unimate-intraday-language': intra, 'unimate-term-language': term_lang, 'unimate-radar': radar
+    }
+    
+    if index == 'unimate-dash':
+        pdf_bytes = generate_dashboard_pdf(figures, "UniMate Dashboard")
+        return dcc.send_bytes(pdf_bytes, "unimate_dashboard_export.pdf")
+    else:
+        fig_dict = figures.get(index)
+        if not fig_dict: return dash.no_update
+        png_bytes = generate_single_chart_png(fig_dict)
+        return dcc.send_bytes(png_bytes, f"{index}_export.png")
+
+@callback(
+    Output({'type': 'download-data-unimate-dash', 'index': dash.MATCH}, "data", allow_duplicate=True),
+    Input({'type': 'export-html-unimate-dash', 'index': dash.MATCH}, "n_clicks"),
+    State('unimate-vol-auth-trend', 'figure'),
+    State('unimate-language', 'figure'),
+    State('unimate-termination', 'figure'),
+    State('unimate-duration-hist', 'figure'),
+    State('unimate-sunburst', 'figure'),
+    State('unimate-company-radar', 'figure'),
+    State('unimate-intraday-language', 'figure'),
+    State('unimate-term-language', 'figure'),
+    State('unimate-radar', 'figure'),
+    prevent_initial_call=True
+)
+def export_html_dashboard(n_clicks, vol_auth, lang, term, hist, sun, comp, intra, term_lang, radar):
+    if not n_clicks: return dash.no_update
+    index = ctx.triggered_id['index']
+    
+    figures = {
+        'unimate-vol-auth-trend': vol_auth, 'unimate-language': lang, 'unimate-termination': term,
+        'unimate-duration-hist': hist, 'unimate-sunburst': sun, 'unimate-company-radar': comp,
+        'unimate-intraday-language': intra, 'unimate-term-language': term_lang, 'unimate-radar': radar
+    }
+    
+    if index == 'unimate-dash':
+        html_str = generate_dashboard_html(figures, "UniMate Dashboard")
+        return dcc.send_string(html_str, "unimate_dashboard_export.html")
+    else:
+        fig_dict = figures.get(index)
+        if not fig_dict: return dash.no_update
+        html_str = generate_single_chart_html(fig_dict)
+        return dcc.send_string(html_str, f"{index}_export.html")

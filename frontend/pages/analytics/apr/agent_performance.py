@@ -1,5 +1,6 @@
 import dash
-from dash import html, dcc, callback, Input, Output, State, dash_table
+from dash import html, dcc, callback, Input, Output, State
+import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
 import pandas as pd
 import numpy as np
@@ -13,10 +14,27 @@ layout = html.Div([
     html.Div([
         html.H3("Agent Performance Rankings", className="display-xl mb-0"),
         html.P("Top 20 and Bottom 20 agents by composite performance score.", className="text-muted mb-4 mt-2"),
+        dbc.Alert([
+            html.H5([html.I(className="bi bi-info-circle me-2"), " Performance Score Formula"], className="alert-heading"),
+            html.P("The composite score evaluates agents based on three key metrics: Calls Per Hour (CPH), Occupancy, and Average Handle Time (AHT)."),
+            html.Hr(),
+            html.Div([
+                html.Strong("Score = "),
+                html.Code("(CPH / 15) * 40 + (Occupancy / 100) * 30 + (240 / AHT) * 30", className="bg-white p-1 rounded text-primary border")
+            ], className="mb-0")
+        ], color="info", className="shadow-sm mb-4 rounded-3")
     ]),
 
     dcc.Loading(type="dot", color=COLOR_PRIMARY, children=html.Div(id='apr-ranking-content'))
 ], className="container-fluid py-4")
+
+def format_seconds(seconds):
+    if pd.isna(seconds): return "00:00:00"
+    seconds = int(seconds)
+    h = seconds // 3600
+    m = (seconds % 3600) // 60
+    s = seconds % 60
+    return f"{h:02d}:{m:02d}:{s:02d}"
 
 def hhmmss_to_seconds(time_str):
     if pd.isna(time_str):
@@ -51,7 +69,7 @@ def update_agent_rankings(companies, languages, auth_state):
     except Exception:
         return empty_ui
         
-    if not agents:
+    if not agents or isinstance(agents, dict):
         return empty_ui
 
     df = pd.DataFrame(agents)
@@ -73,10 +91,14 @@ def update_agent_rankings(companies, languages, auth_state):
             html.H4("No agents found with at least 20 hours of staffed time.", className="text-center text-muted mt-5")
         ])
 
-    df['Calls Per Hour'] = np.where(df['Total Staffed Time Sec'] > 0, df['Total ACD Calls'] / (df['Total Staffed Time Sec'] / 3600), 0).round(1)
-    df['AHT (sec)'] = np.where(df['Total ACD Calls'] > 0, (df['Total ACD Time Sec'] + df['Total ACW Time Sec']) / df['Total ACD Calls'], 0).round(0)
+    df['Calls Per Hour'] = np.where(df['Total Staffed Time Sec'] > 0, df['Total ACD Calls'] / (df['Total Staffed Time Sec'] / 3600), 0)
+    df['AHT (sec)'] = np.where(df['Total ACD Calls'] > 0, (df['Total ACD Time Sec'] + df['Total ACW Time Sec']) / df['Total ACD Calls'], 0)
+    df['AHT'] = df['AHT (sec)'].apply(format_seconds)
     
-    display_cols = ['Company', 'Agent Name', 'Login ID', 'Total ACD Calls', 'Calls Per Hour', 'Occupancy %', 'AHT (sec)', 'Score']
+    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+    df[numeric_cols] = df[numeric_cols].round(2)
+    
+    display_cols = ['Login ID', 'Agent Name', 'Score', 'Total ACD Calls', 'Calls Per Hour', 'Occupancy %', 'AHT']
 
     tables = []
     for company in df['Company'].unique():
@@ -86,22 +108,22 @@ def update_agent_rankings(companies, languages, auth_state):
 
         tables.append(html.Div([
             html.H4(f"{company} - Top 20 Best Performing Agents", className="mt-4 mb-3 text-success"),
-            dash_table.DataTable(
-                data=top_20,
-                columns=[{"name": i, "id": i} for i in display_cols],
-                style_table={'overflowX': 'auto'},
-                style_cell={'textAlign': 'left', 'padding': '10px'},
-                style_header={'backgroundColor': '#f8f9fa', 'fontWeight': 'bold'},
-                style_data_conditional=[{'if': {'row_index': 'odd'}, 'backgroundColor': '#f8f9fa'}]
+            dag.AgGrid(
+                rowData=top_20,
+                columnDefs=[{"field": i} for i in display_cols],
+                defaultColDef={"sortable": True, "filter": True, "resizable": True},
+                className="ag-theme-alpine",
+                dashGridOptions={"pagination": True, "paginationPageSize": 10, "paginationPageSizeSelector": [10, 20, 50, 100], "domLayout": "autoHeight"},
+                style={"width": "100%"}
             ),
             html.H4(f"{company} - Top 20 Worst Performing Agents (Needs Improvement)", className="mt-5 mb-3 text-danger"),
-            dash_table.DataTable(
-                data=bottom_20,
-                columns=[{"name": i, "id": i} for i in display_cols],
-                style_table={'overflowX': 'auto'},
-                style_cell={'textAlign': 'left', 'padding': '10px'},
-                style_header={'backgroundColor': '#f8f9fa', 'fontWeight': 'bold'},
-                style_data_conditional=[{'if': {'row_index': 'odd'}, 'backgroundColor': '#f8f9fa'}]
+            dag.AgGrid(
+                rowData=bottom_20,
+                columnDefs=[{"field": i} for i in display_cols],
+                defaultColDef={"sortable": True, "filter": True, "resizable": True},
+                className="ag-theme-alpine",
+                dashGridOptions={"pagination": True, "paginationPageSize": 10, "paginationPageSizeSelector": [10, 20, 50, 100], "domLayout": "autoHeight"},
+                style={"width": "100%"}
             )
         ], className="card p-4 shadow-sm mb-4"))
 

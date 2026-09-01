@@ -43,9 +43,11 @@ layout = html.Div([
     Input('language-filter', 'value'),
     Input('date-picker-range', 'start_date'),
     Input('date-picker-range', 'end_date'),
+    Input('sl-granularity', 'value'),
+    Input('sl-scale-toggle', 'value'),
     State('auth-state', 'data')
 )
-def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, auth_state):
+def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, sl_granularity, sl_scale, auth_state):
     empty_ui = render_empty_state()
     empty_kpi = dbc.Col(html.Div(empty_ui, style={"height": "120px"}), width=12)
 
@@ -81,17 +83,30 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, a
 
     total_acd_calls = df['ACD Calls'].sum() if 'ACD Calls' in df.columns else 0
     avg_occ = df['% Agent Occupancy with ACW'].mean() if '% Agent Occupancy with ACW' in df.columns else 0
+    avg_util = df['% Agent Occupancy without ACW'].mean() if '% Agent Occupancy without ACW' in df.columns else 0
     
     df['aht'] = df['Avg ACD Time'] + df['Avg ACW Time'] if 'Avg ACD Time' in df.columns and 'Avg ACW Time' in df.columns else 0
     avg_aht = df['aht'].mean() if 'aht' in df.columns else 0
+
+    if 'Date' in df.columns and not df['Date'].isna().all():
+        if sl_granularity and sl_granularity != 'Auto':
+            freq = sl_granularity
+        else:
+            days_diff = (df['Date'].max() - df['Date'].min()).days if not df['Date'].empty else 0
+            freq = 'M' if days_diff > 90 else ('W-MON' if days_diff > 31 else 'D')
+        df['Date_Bucket'] = pd.to_datetime(df['Date'])
+        if freq != 'D':
+            df['Date_Bucket'] = df['Date_Bucket'].dt.to_period(freq).dt.to_timestamp()
+        df['Date'] = df['Date_Bucket'].dt.date
     
     kpis = [
-        dbc.Col(make_kpi_card("Total ACD Calls", f"{total_acd_calls:,}"), width=4),
-        dbc.Col(make_kpi_card("Avg Occupancy", f"{avg_occ:.1f}%", "good" if avg_occ > 70 else "neutral"), width=4),
-        dbc.Col(make_kpi_card("Avg Handle Time", f"{avg_aht:.0f}s", "bad" if avg_aht > 240 else "good"), width=4),
+        dbc.Col(make_kpi_card("Total ACD Calls", f"{total_acd_calls:,}"), width=True),
+        dbc.Col(make_kpi_card("Avg Occupancy", f"{avg_occ:.1f}%", "good" if avg_occ > 70 else "neutral"), width=True),
+        dbc.Col(make_kpi_card("Utilization (No ACW)", f"{avg_util:.1f}%", "good" if avg_util > 60 else "neutral"), width=True),
+        dbc.Col(make_kpi_card("Avg Handle Time", f"{avg_aht:.0f}s", "bad" if avg_aht > 240 else "good"), width=True),
     ]
 
-    if not df['Date'].isna().all() and 'ACD Calls' in df.columns:
+    if 'Date' in df.columns and not df['Date'].isna().all() and 'ACD Calls' in df.columns:
         vol_df = df.groupby('Date')['ACD Calls'].sum().reset_index()
         fig_vol = px.bar(vol_df, x='Date', y='ACD Calls', template='plotly_white', color_discrete_sequence=[COLOR_PRIMARY])
         fig_vol.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)')
@@ -99,15 +114,17 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, a
     else:
         vol_ui = empty_ui
 
-    if not df['Date'].isna().all() and '% Agent Occupancy with ACW' in df.columns:
+    if 'Date' in df.columns and not df['Date'].isna().all() and '% Agent Occupancy with ACW' in df.columns:
         occ_df = df.groupby('Date')['% Agent Occupancy with ACW'].mean().reset_index()
         fig_occ = px.line(occ_df, x='Date', y='% Agent Occupancy with ACW', template='plotly_white', color_discrete_sequence=[COLOR_WARNING])
         fig_occ.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)')
+        if not (sl_scale and 1 in sl_scale):
+            fig_occ.update_yaxes(range=[0, 100])
         occ_ui = dcc.Graph(figure=fig_occ, config={'displayModeBar': False})
     else:
         occ_ui = empty_ui
         
-    if not df['Date'].isna().all() and 'aht' in df.columns:
+    if 'Date' in df.columns and not df['Date'].isna().all() and 'aht' in df.columns:
         aht_df = df.groupby('Date')['aht'].mean().reset_index()
         fig_aht = px.line(aht_df, x='Date', y='aht', template='plotly_white', color_discrete_sequence=[COLOR_NEUTRAL])
         fig_aht.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)')

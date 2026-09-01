@@ -95,48 +95,51 @@ def get_topbar(user_role, permissions, pathname=None):
         impersonate_div,
     ]
     
-    if user_role != 'Admin' and pathname != '/select':
-        right_elements.append(
-            html.Div([
-                dcc.Dropdown(
-                    id='sl-granularity',
-                    options=[
-                        {'label': 'Auto', 'value': 'Auto'},
-                        {'label': 'Daily', 'value': 'D'},
-                        {'label': 'Weekly', 'value': 'W-MON'},
-                        {'label': 'Monthly', 'value': 'M'},
-                        {'label': 'Yearly', 'value': 'Y'}
-                    ],
-                    value='Auto',
-                    clearable=False,
-                    className="me-3",
-                    style={'width': '100px', 'marginRight': '24px'}
-                ),
-                dbc.Checklist(
-                    options=[{"label": "Dynamic Scale", "value": 1}],
-                    value=[1],
-                    id="sl-scale-toggle",
-                    switch=True,
-                    className="me-4 mb-0"
-                )
-            ], className="d-flex align-items-center" if pathname != '/select' and pathname != '/admin/user_management' else "d-none")
-        )
-        
-        right_elements.append(
-            html.Button(
-                html.I(className="bi bi-funnel-fill fs-6"),
-                id="btn-filters",
-                n_clicks=0,
-                className="btn btn-light me-3 body-strong rounded-circle",
-                style={
-                    "width": "36px", "height": "36px",
-                    "display": "flex", "alignItems": "center", "justifyContent": "center",
-                    "border": "1px solid var(--color-border)",
-                    "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
-                }
+    is_dashboard = pathname and any(pathname.startswith(p) for p in ['/ccf', '/cdr', '/unimate', '/apr'])
+    visibility_class = "d-flex align-items-center" if is_dashboard else "d-none"
+    
+    right_elements.append(
+        html.Div([
+            dcc.Dropdown(
+                id='sl-granularity',
+                options=[
+                    {'label': 'Auto', 'value': 'Auto'},
+                    {'label': 'Daily', 'value': 'D'},
+                    {'label': 'Weekly', 'value': 'W-MON'},
+                    {'label': 'Monthly', 'value': 'M'},
+                    {'label': 'Yearly', 'value': 'Y'}
+                ],
+                value='Auto',
+                clearable=False,
+                className="me-3",
+                style={'width': '100px', 'marginRight': '24px'}
+            ),
+            dbc.Checklist(
+                options=[{"label": "Dynamic Scale", "value": 1}],
+                value=[1],
+                id="sl-scale-toggle",
+                switch=True,
+                className="me-4 mb-0"
             )
+        ], className=visibility_class)
+    )
+    
+    right_elements.append(
+        html.Button(
+            html.I(className="bi bi-funnel-fill fs-6"),
+            id="btn-filters",
+            n_clicks=0,
+            className=f"btn btn-light me-3 body-strong rounded-circle {'' if is_dashboard else 'd-none'}",
+            style={
+                "width": "36px", "height": "36px",
+                "display": "flex", "alignItems": "center", "justifyContent": "center",
+                "border": "1px solid var(--color-border)",
+                "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
+            }
         )
+    )
         
+
     if pathname != '/select' and user_role != 'Admin':
         right_elements.append(
             dbc.Button(
