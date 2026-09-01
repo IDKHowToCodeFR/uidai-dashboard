@@ -30,14 +30,16 @@ def register_routing_callbacks(app, content_div):
 
     @app.callback(
         Output("app-container", "children"),
+        Output("auth-state", "data", allow_duplicate=True),
         Input("auth-state", "data"),
-        Input("url", "pathname")
+        Input("url", "pathname"),
+        prevent_initial_call='initial_duplicate'
     )
     def render_page(auth_state, pathname):
         page_container_div = html.Div(dash.page_container, id="main-content", className="p-0 m-0" if pathname == '/login' else "main-content")
         
         if pathname == '/login':
-            return html.Div([page_container_div], style={"backgroundColor": "var(--color-background)", "minHeight": "100vh"})
+            return html.Div([page_container_div], style={"backgroundColor": "var(--color-background)", "minHeight": "100vh"}), dash.no_update
             
         if auth_state and auth_state.get('user') and auth_state.get('token'):
             user_role = auth_state.get('user')
@@ -69,6 +71,19 @@ def register_routing_callbacks(app, content_div):
                             ], vertical=True, pills=True, className="custom-sidebar-nav mb-4"
                         )
                     ]
+                elif pathname.startswith('/apr'):
+                    context = "APR Data"
+                    nav_content = [
+                        html.H6("APR", className="section-title mb-3"),
+                        dbc.Nav(
+                            [
+                                dbc.NavLink([html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")], href="/apr/dashboard", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                                dbc.NavLink([html.I(className="bi bi-person-lines-fill me-3"), html.Span("Agent Performance", className="nav-link-text")], href="/apr/agent-performance", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                                dbc.NavLink([html.I(className="bi bi-person-badge me-3"), html.Span("Agent Explorer", className="nav-link-text")], href="/apr/agent_explorer", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                                dbc.NavLink([html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")], href="/apr/raw_data", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                            ], vertical=True, pills=True, className="custom-sidebar-nav mb-4"
+                        )
+                    ]
                 else:
                     context = "CCF Data"
                     nav_content = [
@@ -84,6 +99,10 @@ def register_routing_callbacks(app, content_div):
                     ]
                     
                 opts = get_history_options(token, user_role, permissions, data_type=context)
+                
+                if opts == "UNAUTHORIZED":
+                    return html.Div(), None
+                    
                 if has_permission(permissions, 'can_view_global') and any(opt.get('value') == 'aggregate' for opt in opts):
                     val = 'aggregate'
                 else:
@@ -105,9 +124,9 @@ def register_routing_callbacks(app, content_div):
                 sidebar,
                 filter_drawer,
                 page_container_div
-            ], style={"backgroundColor": "var(--color-background)", "minHeight": "100vh"})
+            ], style={"backgroundColor": "var(--color-background)", "minHeight": "100vh"}), dash.no_update
             
-        return html.Div()
+        return html.Div(), dash.no_update
 
 
     @app.callback(
@@ -144,6 +163,8 @@ def register_routing_callbacks(app, content_div):
         if pathname.startswith('/unimate') and 'can_view_unimate' not in permissions:
             return '/select'
         if pathname.startswith('/cdr') and 'can_view_cdr' not in permissions:
+            return '/select'
+        if pathname.startswith('/apr') and 'can_view_apr' not in permissions:
             return '/select'
                 
         return dash.no_update

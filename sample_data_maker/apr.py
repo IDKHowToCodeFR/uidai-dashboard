@@ -76,7 +76,7 @@ def generate_sample_apr_data(num_agents: int = 600, days: int = 180):
         for _ in range(count):
             first = random.choice(FIRST_NAMES)
             last = random.choice(LAST_NAMES)
-            agent_name = f"{vendor_name}_{first}{last}"
+            agent_name = f"{vendor_name}_{first} {last}"
             # 7-digit login: prefix + 5 random digits
             while True:
                 login_id = f"{vinfo['prefix']}{random.randint(10000, 99999)}"

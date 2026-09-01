@@ -63,9 +63,11 @@ layout = html.Div([
     Input('language-filter', 'value'),
     Input('date-picker-range', 'start_date'),
     Input('date-picker-range', 'end_date'),
+    Input('sl-granularity', 'value'),
+    Input('sl-scale-toggle', 'value'),
     State('auth-state', 'data')
 )
-def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, auth_state):
+def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, sl_granularity, sl_scale, auth_state):
     empty_ui = render_empty_state()
     empty_kpi = dbc.Col(html.Div(empty_ui, style={"height": "120px"}), width=12)
 
@@ -116,15 +118,26 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, a
         transfer_rate = (transferred_calls / total_calls * 100) if total_calls > 0 else 0
 
     kpis = [
-        dbc.Col(make_kpi_card("Total Calls", f"{total_calls:,}"), width=3),
-        dbc.Col(make_kpi_card("Avg Talk Time", f"{avg_talk:.1f}s"), width=3),
-        dbc.Col(make_kpi_card("Avg Hold Time", f"{avg_hold:.1f}s", "bad" if avg_hold > 30 else "neutral"), width=3),
-        dbc.Col(make_kpi_card("Transfer Rate", f"{transfer_rate:.1f}%", "good" if transfer_rate < 10 else "neutral"), width=3),
+        dbc.Col(make_kpi_card("Total Calls", f"{total_calls:,}"), width=True),
+        dbc.Col(make_kpi_card("Avg Speed to Answer", f"{avg_hold:.1f}s", "bad" if avg_hold > 30 else "neutral"), width=True),
+        dbc.Col(make_kpi_card("Avg Talk Time", f"{avg_talk:.1f}s"), width=True),
+        dbc.Col(make_kpi_card("Transfer Rate", f"{transfer_rate:.1f}%", "good" if transfer_rate < 10 else "neutral"), width=True),
     ]
 
     # Volume Trend
     if not df['Date'].isna().all():
-        vol_df = df.groupby('Date').size().reset_index(name='Calls')
+        if sl_granularity and sl_granularity != 'Auto':
+            freq = sl_granularity
+        else:
+            days_diff = (df['Date'].max() - df['Date'].min()).days if not df['Date'].empty else 0
+            freq = 'M' if days_diff > 90 else ('W-MON' if days_diff > 31 else 'D')
+            
+        df['Date_Bucket'] = pd.to_datetime(df['Date'])
+        if freq != 'D':
+            df['Date_Bucket'] = df['Date_Bucket'].dt.to_period(freq).dt.to_timestamp()
+            
+        vol_df = df.groupby(df['Date_Bucket'].dt.date).size().reset_index(name='Calls')
+        vol_df.rename(columns={'Date_Bucket': 'Date'}, inplace=True)
         fig_vol = px.bar(vol_df, x='Date', y='Calls', template='plotly_white', color_discrete_sequence=[COLOR_PRIMARY])
         fig_vol.update_traces(hovertemplate='<b>Date:</b> %{x}<br><b>Calls:</b> %{y:,}<extra></extra>')
         fig_vol.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)')

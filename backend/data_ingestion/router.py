@@ -56,6 +56,29 @@ def serialize_data(metrics, data_type):
                 "Language": m.language
             } for m in metrics
         ]
+    elif data_type == "APR Data":
+        return [
+            {
+                "Date": m.date_logged,
+                "Agent Name": m.agent_name,
+                "Login ID": m.login_id,
+                "ACD Calls": m.acd_calls,
+                "Avg ACD Time": m.avg_acd_time,
+                "Avg ACW Time": m.avg_acw_time,
+                "% Agent Occupancy with ACW": m.occupancy_with_acw,
+                "% Agent Occupancy without ACW": m.occupancy_without_acw,
+                "ACD Time": m.acd_time,
+                "ACW Time": m.acw_time,
+                "Agent Ring Time": m.agent_ring_time,
+                "Other Time": m.other_time,
+                "AUX Time": m.aux_time,
+                "Avail Time": m.avail_time,
+                "Staffed Time": m.staffed_time,
+                "Held Calls": m.held_calls,
+                "Company": m.company,
+                "Language": m.language
+            } for m in metrics
+        ]
     else:
         return [
             {
@@ -220,6 +243,9 @@ async def get_data(filename: str, impersonate: Optional[str] = None, current_use
         model_class = UniMateData
     elif file_meta.data_type == "CDR Data":
         model_class = CDRData
+    elif file_meta.data_type == "APR Data":
+        from backend.database.models import APRData
+        model_class = APRData
     else:
         model_class = CCFData
         
@@ -269,6 +295,9 @@ async def download_file(request: Request, filename: str, impersonate: Optional[s
         model_class = UniMateData
     elif file_meta.data_type == "CDR Data":
         model_class = CDRData
+    elif file_meta.data_type == "APR Data":
+        from backend.database.models import APRData
+        model_class = APRData
     else:
         model_class = CCFData
         
@@ -306,6 +335,8 @@ async def download_file(request: Request, filename: str, impersonate: Optional[s
         export_prefix = "UniMate_Report"
     elif file_meta.data_type == "CDR Data":
         export_prefix = "CDR_Report"
+    elif file_meta.data_type == "APR Data":
+        export_prefix = "APR_Report"
     else:
         export_prefix = "CCF_Report"
         
@@ -333,3 +364,43 @@ async def get_unimate_metrics(impersonate: Optional[str] = None, current_user: d
 @router.get("/dashboards/cdr/metrics")
 async def get_cdr_metrics(impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     return await get_aggregated_data(data_type="CDR Data", impersonate=impersonate, current_user=current_user, db=db)
+
+@router.get("/dashboards/apr/metrics")
+async def get_apr_metrics(impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    return await get_aggregated_data(data_type="APR Data", impersonate=impersonate, current_user=current_user, db=db)
+
+@router.get("/dashboards/apr/agents")
+async def get_apr_agents(impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    from backend.database.models import AgentMetadata
+    query = db.query(AgentMetadata)
+    
+    user_companies = current_user.get("companies", [])
+    permissions = current_user.get("permissions", [])
+    is_global = current_user.get("role") == "Admin" or "can_view_global" in permissions
+    
+    if is_global:
+        if impersonate:
+            query = query.filter(AgentMetadata.company == impersonate)
+    else:
+        if impersonate:
+            if impersonate not in user_companies:
+                raise HTTPException(status_code=403, detail="Access denied to this company.")
+            query = query.filter(AgentMetadata.company == impersonate)
+        else:
+            query = query.filter(AgentMetadata.company.in_(user_companies))
+            
+    agents = query.all()
+    return [
+        {
+            "Login ID": a.anslogin,
+            "Agent Name": a.name,
+            "Company": a.company,
+            "Language": a.language,
+            "Total ACD Calls": a.total_acd_calls,
+            "Total Staffed Time Sec": a.total_staffed_time_sec,
+            "Total ACD Time Sec": a.total_acd_time_sec,
+            "Total ACW Time Sec": a.total_acw_time_sec,
+            "Occupancy %": a.avg_occupancy,
+            "Score": a.composite_score
+        } for a in agents
+    ]

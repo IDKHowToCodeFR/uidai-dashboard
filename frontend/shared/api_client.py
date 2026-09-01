@@ -69,6 +69,8 @@ def get_history_options(token, user_role=None, permissions=None, impersonate=Non
         response = api_get("history", token=token, params={"impersonate": impersonate, "data_type": data_type})
         if response.status_code == 200:
             file_times = response.json()
+        elif response.status_code == 401:
+            return "UNAUTHORIZED"
         else:
             return []
     except Exception:
