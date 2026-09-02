@@ -1,6 +1,6 @@
 import dash
 from dash import Input, Output, State, ctx, html
-from frontend.shared.api_client import api_client
+from frontend.shared.api_client import api_get, api_post, get_history_options, download_file
 
 def register_admin_callbacks(app):
     # --- ADMIN: OPEN ADD MODAL ---
@@ -43,7 +43,7 @@ def register_admin_callbacks(app):
             
         try:
             req_data = {"username": username, "password": password, "company_name": company_name}
-            response = api_client.add_user(token, req_data)
+            response = api_post("users/add", token=token, json=req_data)
             if response.status_code == 200:
                 return html.Span(response.json().get("message"), className="text-success"), "", "", "", (version or 0) + 1, False
             else:
@@ -79,7 +79,7 @@ def register_admin_callbacks(app):
             return []
             
         try:
-            response = api_client.get_users(token)
+            response = api_get("users", token=token)
             if response.status_code == 200:
                 users = response.json()
                 options = [
@@ -115,7 +115,7 @@ def register_admin_callbacks(app):
             return html.Span("Unauthorized.", className="text-danger"), dash.no_update, dash.no_update, True
             
         try:
-            response = api_client.remove_user(token, username)
+            response = api_post("users/remove", token=token, json={"username": username})
             if response.status_code == 200:
                 return html.Span(response.json().get("message"), className="text-success"), None, (version or 0) + 1, False
             else:
@@ -147,7 +147,7 @@ def register_admin_callbacks(app):
         if not token:
             return []
         try:
-            response = api_client.get_users(token)
+            response = api_get("users", token=token)
             if response.status_code == 200:
                 users = response.json()
                 options = [
@@ -173,7 +173,7 @@ def register_admin_callbacks(app):
         if not token:
             return []
         try:
-            response = api_client.get_users(token)
+            response = api_get("users", token=token)
             if response.status_code == 200:
                 users = response.json()
                 user_data = users.get(username, {})
@@ -203,7 +203,7 @@ def register_admin_callbacks(app):
             
         try:
             payload = {"username": username, "permissions": switches}
-            response = api_client.update_permissions(token, payload)
+            response = api_post("users/permissions", token=token, json=payload)
             if response.status_code == 200:
                 return html.Span(response.json().get("message"), className="text-success"), False
             else:
@@ -227,11 +227,15 @@ def register_admin_callbacks(app):
     # --- LOGOUT: CONFIRMED ---
     @app.callback(
         Output("auth-state", "data", allow_duplicate=True),
+        Output("auth-state-local", "data", allow_duplicate=True),
+        Output("auth-state-session", "data", allow_duplicate=True),
+        Output("data-store", "data", allow_duplicate=True),
+        Output("url", "pathname", allow_duplicate=True),
         Output("logout-confirm-modal", "is_open", allow_duplicate=True),
         Input("btn-logout-confirm", "n_clicks"),
         prevent_initial_call=True
     )
     def handle_logout(n_clicks):
         if n_clicks:
-            return None, False
-        return dash.no_update, dash.no_update
+            return None, None, None, None, '/', False
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update

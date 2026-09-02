@@ -22,7 +22,7 @@ app = Dash(
     ],
     suppress_callback_exceptions=True
 )
-app.title = "UIDAI analytics Dashboard"
+app.title = "Dashboard"
 
 content = html.Div(
     dash.page_container,

@@ -1,12 +1,11 @@
 # Glossary & Ubiquitous Language
-
-## Core Domain Terms & Telemetry
-
-- **Permissions**: Granular capabilities assigned to a user identity.
-  - `can_view_global`: Can view all data across all companies and agencies.
-  - `can_view_scoped`: Can only view data for assigned companies.
-  - `can_upload_files`: Can upload raw Excel/CSV telemetry data.
-  - `can_download_files`: Can download raw files and aggregated Excel/PDF reports.
+- **Vendor**: A third-party operator handling calls for the contact center (e.g., Digitech, NSB). Replaces "agency" or "company" for consistency. Vendor identification is extracted from raw data (e.g., parsing the first digit of the `split1` column in CDR) because raw files strictly omit explicit Vendor columns.
+- **Datasets**: CDR, Unimate, and CCF data streams are treated as completely independent sources for aggregated visualizations. There is no requirement to join them at the individual call/session level (e.g., linking UCID to Call ID).
+- **Permissions**: Granular capabilities assigned to an identity.
+  - `can_view_global`: Can view all data.
+  - `can_view_scoped`: Can only view assigned data.
+  - `can_upload_files`: Can upload data.
+  - `can_download_files`: Can download data.
 - **Roles**:
   - `Admin`: Single protected administrator account (`admin`) managing users, permissions, global settings, and audit logs. Protected against self-deactivation and privilege removal.
   - `User`: Standard user with scoped capabilities governed by assigned permissions and company restrictions.

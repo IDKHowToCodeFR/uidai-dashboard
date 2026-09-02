@@ -2,7 +2,7 @@ import dash
 from dash import html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
 import requests
-from frontend.shared.api_client import api_client
+from frontend.shared.api_client import api_get, api_post, get_history_options, download_file
 
 # --- LOGIN PAGE LAYOUT ---
 login_page = dbc.Row(
@@ -16,7 +16,8 @@ login_page = dbc.Row(
             style={
                 "backgroundColor": "var(--color-bg)",
                 "color": "var(--color-text-heading)",
-                "padding": "40px"
+                "padding": "40px",
+                "minHeight": "100vh"
             },
             children=[
                 html.Div(
@@ -24,7 +25,7 @@ login_page = dbc.Row(
                     children=[
                         html.Img(src="/assets/aadhaar-logo.png", height="120px", className="mb-2"),
                         html.H3("Unique Identification Authority of India", className="fw-bold mb-2", style={"color": "var(--color-text-heading)"}),
-                        html.P("Internal Administrator Dashboard", className="text-muted")
+                        html.P("UIDAI Portal Login", className="text-muted")
                     ]
                 ),
 
@@ -35,7 +36,11 @@ login_page = dbc.Row(
         dbc.Col(
             xs=12, sm=12, md=7, lg=6,
             className="d-flex align-items-center justify-content-center",
-            style={"backgroundColor": "var(--color-surface)", "padding": "40px"},
+            style={
+                "backgroundColor": "var(--color-surface)", 
+                "padding": "40px",
+                "minHeight": "100vh"
+            },
             children=[
                 html.Div(
                     style={"width": "100%", "maxWidth": "360px"},
@@ -140,10 +145,16 @@ def register_auth_callbacks(app):
             return dash.no_update, dash.no_update, "Please enter password.", error_class
 
         try:
-            response = api_client.login(username, password)
+            response = api_post("login", data={"username": username, "password": password})
             if response.status_code == 200:
                 data = response.json()
-                auth_data = {'user': data['role'], 'token': data['access_token'], 'permissions': data.get('permissions', [])}
+                auth_data = {
+                    'user': data['role'],
+                    'token': data['access_token'],
+                    'refresh_token': data.get('refresh_token'),
+                    'permissions': data.get('permissions', []),
+                    'companies': data.get('companies', [])
+                }
                 if remember:
                     return auth_data, None, "", "text-danger small mb-3"
                 else:

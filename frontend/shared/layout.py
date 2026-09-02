@@ -44,22 +44,28 @@ filter_drawer = dbc.Offcanvas(
     className="offcanvas border-0 shadow-lg"
 )
 
-def get_topbar(user_role, permissions):
+def get_topbar(user_role, permissions, pathname=None):
     impersonate_div = html.Div(dcc.Dropdown(id="impersonate-dropdown"), style={"display": "none"})
 
-    left_elements = [
-        html.Button(
-            html.I(className="bi bi-list fs-5"),
-            id="btn-sidebar-toggle",
-            n_clicks=0,
-            className="btn btn-light me-3 body-strong rounded-circle",
-            style={
-                "width": "36px", "height": "36px",
-                "display": "flex", "alignItems": "center", "justifyContent": "center",
-                "border": "1px solid var(--color-border)",
-                "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
-            }
-        ),
+    left_elements = []
+    
+    if pathname != '/select':
+        left_elements.append(
+            html.Button(
+                html.I(className="bi bi-list fs-5"),
+                id="btn-sidebar-toggle",
+                n_clicks=0,
+                className="btn btn-light me-3 body-strong rounded-circle",
+                style={
+                    "width": "36px", "height": "36px",
+                    "display": "flex", "alignItems": "center", "justifyContent": "center",
+                    "border": "1px solid var(--color-border)",
+                    "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
+                }
+            )
+        )
+        
+    left_elements.extend([
         html.Img(src="/assets/aadhaar-logo.png", style={"height": "32px", "marginRight": "12px"}),
         html.Div([
             html.H5(
@@ -74,7 +80,7 @@ def get_topbar(user_role, permissions):
                 }
             ),
             html.Span(
-                "Internal Administrator Dashboard",
+                "Internal Administrator Dashboard" if user_role == 'Admin' else "UIDAI Vendor Portal",
                 style={
                     "fontSize": "11px",
                     "color": "var(--color-text-muted, #6c757d)",
@@ -83,18 +89,62 @@ def get_topbar(user_role, permissions):
                 }
             )
         ], style={"display": "flex", "flexDirection": "column", "justifyContent": "center"})
-    ]
+    ])
 
     right_elements = [
         impersonate_div,
     ]
     
-    if user_role != 'Admin':
+    is_dashboard = pathname and any(pathname.startswith(p) for p in ['/ccf', '/cdr', '/unimate', '/apr'])
+    visibility_class = "d-flex align-items-center" if is_dashboard else "d-none"
+    
+    right_elements.append(
+        html.Div([
+            dcc.Dropdown(
+                id='sl-granularity',
+                options=[
+                    {'label': 'Auto', 'value': 'Auto'},
+                    {'label': 'Daily', 'value': 'D'},
+                    {'label': 'Weekly', 'value': 'W-MON'},
+                    {'label': 'Monthly', 'value': 'M'},
+                    {'label': 'Yearly', 'value': 'Y'}
+                ],
+                value='Auto',
+                clearable=False,
+                className="me-3",
+                style={'width': '100px', 'marginRight': '24px'}
+            ),
+            dbc.Checklist(
+                options=[{"label": "Dynamic Scale", "value": 1}],
+                value=[1],
+                id="sl-scale-toggle",
+                switch=True,
+                className="me-4 mb-0"
+            )
+        ], className=visibility_class)
+    )
+    
+    right_elements.append(
+        html.Button(
+            html.I(className="bi bi-funnel-fill fs-6"),
+            id="btn-filters",
+            n_clicks=0,
+            className=f"btn btn-light me-3 body-strong rounded-circle {'' if is_dashboard else 'd-none'}",
+            style={
+                "width": "36px", "height": "36px",
+                "display": "flex", "alignItems": "center", "justifyContent": "center",
+                "border": "1px solid var(--color-border)",
+                "boxShadow": "0 1px 2px rgba(0,0,0,0.04)"
+            }
+        )
+    )
+        
+
+    if pathname != '/select' and user_role != 'Admin':
         right_elements.append(
-            html.Button(
-                html.I(className="bi bi-funnel-fill fs-6"),
-                id="btn-filters",
-                n_clicks=0,
+            dbc.Button(
+                html.I(className="bi bi-house-fill fs-6"),
+                href="/select",
                 className="btn btn-light me-3 body-strong rounded-circle",
                 style={
                     "width": "36px", "height": "36px",
@@ -159,7 +209,7 @@ def get_topbar(user_role, permissions):
         }
     )
 
-def get_sidebar(user_role, token, permissions):
+def get_sidebar(user_role, token, permissions, nav_content=None, history_options=None, history_value=None):
     if user_role == 'Admin':
         sidebar_content = html.Div([
             html.H6("ADMINISTRATOR", className="section-title mb-3"),
@@ -167,25 +217,25 @@ def get_sidebar(user_role, token, permissions):
                 [
                     dbc.NavLink(
                         [html.I(className="bi bi-people-fill me-3"), html.Span("Manage Users", className="nav-link-text")],
-                        href="/admin-manage",
+                        href="/admin/user_management",
                         active="exact",
                         className="body-strong mb-2 d-flex align-items-center"
                     ),
                     dbc.NavLink(
                         [html.I(className="bi bi-card-list me-3"), html.Span("System Logs", className="nav-link-text")],
-                        href="/admin-logs",
+                        href="/admin/logs",
                         active="exact",
                         className="body-strong mb-2 d-flex align-items-center"
                     ),
                     dbc.NavLink(
                         [html.I(className="bi bi-folder-fill me-3"), html.Span("File Repository", className="nav-link-text")],
-                        href="/admin-files",
+                        href="/admin/files",
                         active="exact",
                         className="body-strong mb-2 d-flex align-items-center"
                     ),
                     dbc.NavLink(
                         [html.I(className="bi bi-gear-fill me-3"), html.Span("Global Settings", className="nav-link-text")],
-                        href="/admin-settings",
+                        href="/admin/settings",
                         active="exact",
                         className="body-strong mb-2 d-flex align-items-center"
                     ),
@@ -208,26 +258,13 @@ def get_sidebar(user_role, token, permissions):
             className="premium-offcanvas sidebar-container border-0 shadow-lg"
         )
         
-    can_upload = 'can_upload_files' in permissions
+    
 
     sidebar_content = html.Div([
-        html.Div(
-            dbc.RadioItems(
-                id="context-switcher",
-                className="btn-group w-100 mb-4",
-                inputClassName="btn-check",
-                labelClassName="btn btn-outline-primary",
-                labelCheckedClassName="active",
-                options=[
-                    {"label": "CCF", "value": "Ccf Data"},
-                    {"label": "UniMate", "value": "UniMate Data"},
-                ],
-                value="Ccf Data",
-            ),
-            className="radio-group",
-        ),
+        # Context switcher removed per requirements. Context is selected via the /select landing page.
+        html.Div(id="context-switcher", style={"display": "none"}),
         
-        html.Div(id="sidebar-nav-container"),
+        html.Div(nav_content, id="sidebar-nav-container"),
 
         html.Hr(style={"borderColor": "#e2e8f0"}),
         html.H6("HISTORY", className="section-title mb-3"),
@@ -235,8 +272,8 @@ def get_sidebar(user_role, token, permissions):
         html.Div(
             dbc.RadioItems(
                 id="file-history",
-                options=[],
-                value=None,
+                options=history_options or [],
+                value=history_value,
                 className="mb-4 history-radio-group"
             )
         )

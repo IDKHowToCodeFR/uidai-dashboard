@@ -35,8 +35,11 @@ def wrap_chart_card(graph_id, title=None, page_id="dashboard"):
         dbc.Card(
             dbc.CardBody([
                 dcc.Loading(
-                    custom_spinner=html.Div(className="skeleton-pulse"),
-                    children=[html.Div(id=container_id)]
+                    type="dot",
+                    color="var(--color-primary)",
+                    children=[html.Div(id=container_id, children=[
+                        dcc.Graph(id=graph_id, style={'display': 'none'}, figure={})
+                    ])]
                 ),
                 dcc.Download(id={'type': f'download-data-{page_id}', 'index': graph_id})
             ]),

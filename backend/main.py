@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from backend.auth.auth_utils import archive_old_logs
+from backend.audit.audit_logger import archive_old_logs
 from backend.database.database import SessionLocal
 from apscheduler.schedulers.background import BackgroundScheduler
 import os
@@ -27,8 +27,8 @@ def process_unprocessed_files():
     db = SessionLocal()
     try:
         indexed = {(f[0], f[1]) for f in db.query(FileMetadata.filename, FileMetadata.upload_directory).all()}
-        from backend.config import ActiveFoldersConfig
-        active_folders = ActiveFoldersConfig.get_active_folders(db)
+        from backend.config import get_active_folders
+        active_folders = get_active_folders(db)
         
         for data_type_folder in os.listdir(uidai_data_dir):
             folder_path = os.path.join(uidai_data_dir, data_type_folder)
@@ -45,14 +45,19 @@ def process_unprocessed_files():
                 if (filename, upload_dir) not in indexed:
                     from backend.data_ingestion.websockets import process_file_background
                     try:
-                        data_type = data_type_folder.replace("_", " ").title()
-                        if data_type.lower() == "unimate data":
-                            data_type = "UniMate Data"
+                        # Canonical mapping — .title() breaks acronyms ("Cdr Data" instead of "CDR Data")
+                        FOLDER_TO_DATA_TYPE = {
+                            "ccf_data": "CCF Data",
+                            "cdr_data": "CDR Data",
+                            "unimate_data": "UniMate Data",
+                            "apr_data": "APR Data",
+                        }
+                        data_type = FOLDER_TO_DATA_TYPE.get(data_type_folder.lower())
+                        if data_type is None:
+                            print(f"CRON: Unknown data folder '{data_type_folder}', skipping {filename}")
+                            continue
                             
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        loop.run_until_complete(process_file_background(file_path, filename, "CRON", "system_cron", data_type=data_type, meta={}))
-                        loop.close()
+                        asyncio.run(process_file_background(file_path, filename, "CRON", "system_cron", data_type=data_type, meta={}))
                     except Exception as e:
                         print(f"CRON task failed for {filename}: {e}")
     except Exception as e:

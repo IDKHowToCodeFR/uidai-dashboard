@@ -61,6 +61,8 @@ class FileMetadata(Base):
     
     metrics = relationship("CCFData", back_populates="file", cascade="all, delete-orphan")
     unimate_metrics = relationship("UniMateData", back_populates="file", cascade="all, delete-orphan")
+    cdr_metrics = relationship("CDRData", back_populates="file", cascade="all, delete-orphan")
+    apr_metrics = relationship("APRData", back_populates="file", cascade="all, delete-orphan")
 
 
 class CCFData(Base):
@@ -84,18 +86,11 @@ class CCFData(Base):
     aban_calls = Column(Float)
     held_calls = Column(Float)
     
-    service_level_pct = Column(Float)
-    service_level_status = Column(String)
-    
     acd_calls = Column(Float)
     hold_time = Column(Float)
-    avg_hold_time = Column(Float)
-    hold_time_status = Column(String)
     
     acd_time = Column(Float)
     acw_time = Column(Float)
-    avg_handle_time = Column(Float)
-    aht_status = Column(String)
     
     file = relationship("FileMetadata", back_populates="metrics")
 
@@ -125,4 +120,98 @@ class UniMateData(Base):
     description = Column(String)
     region = Column(String)
     
+    is_fcr = Column(Integer, default=1) # 1 for True, 0 for False (using Int for SQLite compatibility if needed, though Boolean is fine in sqlalchemy)
+    
     file = relationship("FileMetadata", back_populates="unimate_metrics")
+
+
+class CDRData(Base):
+    __tablename__ = "cdr_data"
+
+    id = Column(Integer, primary_key=True, index=True)
+    file_id = Column(Integer, ForeignKey("file_metadata.id"), nullable=False)
+    
+    __table_args__ = (UniqueConstraint('call_id', name='uq_cdr_data'),)
+    
+    call_id = Column(String, index=True)
+    acwtime = Column(Integer)
+    ansholdtime = Column(Integer)
+    duration = Column(Integer)
+    segstart = Column(String, index=True)
+    segstartutc = Column(String)
+    segstop = Column(String)
+    segstoputc = Column(String)
+    talktime = Column(Integer)
+    split1 = Column(String)
+    transferred = Column(Integer)
+    agt_released = Column(Integer)
+    origlogin = Column(String)
+    anslogin = Column(String)
+    
+    company = Column(String, index=True)
+    language = Column(String, index=True)
+    
+    file = relationship("FileMetadata", back_populates="cdr_metrics")
+
+
+class APRData(Base):
+    __tablename__ = "apr_data"
+    __table_args__ = (UniqueConstraint('date_logged', 'login_id', name='uq_apr_date_login'),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    file_id = Column(Integer, ForeignKey("file_metadata.id"), nullable=False)
+    
+    date_logged = Column(String, index=True)
+    agent_name = Column(String)
+    login_id = Column(String, index=True)
+    acd_calls = Column(Integer)
+    avg_acd_time = Column(Integer)
+    avg_acw_time = Column(Integer)
+    occupancy_with_acw = Column(Float)
+    occupancy_without_acw = Column(Float)
+    acd_time = Column(String)
+    acw_time = Column(String)
+    agent_ring_time = Column(String)
+    other_time = Column(String)
+    aux_time = Column(String)
+    avail_time = Column(String)
+    staffed_time = Column(String)
+    held_calls = Column(String)
+    tea_break = Column(String)
+    lunch_dinner = Column(String)
+    quality_feedback = Column(String)
+    email_support = Column(String)
+    briefing = Column(String)
+    system_down = Column(String)
+    meeting = Column(String)
+    trans_out = Column(Integer)
+    split_skill = Column(String)
+    conf = Column(Integer)
+    
+    company = Column(String, index=True)
+    language = Column(String, index=True)
+    
+    file = relationship("FileMetadata", back_populates="apr_metrics")
+
+
+class AgentMetadata(Base):
+    __tablename__ = "agent_metadata"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    anslogin = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String)
+    tenure_months = Column(Integer)
+    team = Column(String)
+    location = Column(String)
+    company = Column(String, index=True)
+    language = Column(String)
+    
+    # Aggregated APR Metrics
+    total_acd_calls = Column(Integer, default=0)
+    total_staffed_time_sec = Column(Integer, default=0)
+    total_acd_time_sec = Column(Integer, default=0)
+    total_acw_time_sec = Column(Integer, default=0)
+    avg_occupancy = Column(Float, default=0.0)
+    composite_score = Column(Float, default=0.0)
+
+

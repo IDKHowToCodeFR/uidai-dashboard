@@ -2,9 +2,9 @@ import dash
 from dash import html, dcc, callback, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
 import dash_ag_grid as dag
-from frontend.shared.api_client import api_client
+from frontend.shared.api_client import api_get, api_post, get_history_options, download_file
 
-dash.register_page(__name__, path='/admin-logs', name='System Logs')
+dash.register_page(__name__, path='/admin/logs', name='System Logs')
 
 # Styling for Action Badges
 action_cell_style = {
@@ -28,6 +28,10 @@ action_cell_style = {
         {
             "condition": "params.value.includes('LOADED') || params.value.includes('ADDED')", 
             "style": {"color": "#664d03", "backgroundColor": "#fff3cd", "fontWeight": "bold"}
+        },
+        {
+            "condition": "params.value.includes('PAGE_VIEW')", 
+            "style": {"color": "#055160", "backgroundColor": "#cff4fc", "fontWeight": "bold"}
         }
     ]
 }
@@ -127,7 +131,7 @@ def fetch_and_populate_logs(auth_state, refresh_clicks, load_all, start_date, en
         return no_update, "Unauthorized"
         
     try:
-        response = api_client.get_logs(token)
+        response = api_get("logs", token=token)
         
         if response.status_code == 200:
             logs = response.json()

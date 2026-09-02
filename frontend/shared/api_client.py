@@ -7,110 +7,58 @@ from flask import request, has_request_context
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
-class ApiClient:
-    def __init__(self, base_url: str):
-        self.base_url = base_url
-        self.session = requests.Session()
+_session = requests.Session()
 
-    def _get_headers(self, token: str = None):
-        headers = {}
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
+def _get_headers(token: str = None):
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+        
+    if has_request_context():
+        # Forward the true client IP from Dash frontend to FastAPI backend
+        x_forwarded = request.headers.get("X-Forwarded-For")
+        if x_forwarded:
+            headers["X-Forwarded-For"] = x_forwarded
+        elif request.remote_addr:
+            headers["X-Real-IP"] = request.remote_addr
             
-        if has_request_context():
-            # Forward the true client IP from Dash frontend to FastAPI backend
-            x_forwarded = request.headers.get("X-Forwarded-For")
-            if x_forwarded:
-                headers["X-Forwarded-For"] = x_forwarded
-            elif request.remote_addr:
-                headers["X-Real-IP"] = request.remote_addr
-                
-            # Forward User Agent
-            user_agent = request.headers.get("User-Agent")
-            if user_agent:
-                headers["User-Agent"] = user_agent
-                
-        return headers
-
-    def _handle_response(self, response):
-        return response
-
-    def login(self, username, password):
-        return self._handle_response(self.session.post(
-            f"{self.base_url}/login", 
-            data={"username": username, "password": password},
-            headers=self._get_headers()
-        ))
-
-    def get_users(self, token: str):
-        return self._handle_response(self.session.get(f"{self.base_url}/users", headers=self._get_headers(token)))
-
-    def add_user(self, token: str, req_data: dict):
-        return self._handle_response(self.session.post(f"{self.base_url}/users/add", headers=self._get_headers(token), json=req_data))
-
-    def remove_user(self, token: str, username: str):
-        return self._handle_response(self.session.post(f"{self.base_url}/users/remove", headers=self._get_headers(token), json={"username": username}))
-
-    def update_permissions(self, token: str, req_data: dict):
-        return self._handle_response(self.session.post(f"{self.base_url}/users/permissions", headers=self._get_headers(token), json=req_data))
-
-    def reset_password(self, token: str, req_data: dict):
-        return self._handle_response(self.session.post(f"{self.base_url}/users/reset-password", headers=self._get_headers(token), json=req_data))
-
-    def get_logs(self, token: str):
-        return self._handle_response(self.session.get(f"{self.base_url}/logs", headers=self._get_headers(token)))
-
-    def get_data_types(self, token: str):
-        return self._handle_response(self.session.get(f"{self.base_url}/data_types", headers=self._get_headers(token)))
-
-    def get_history(self, token: str, impersonate: str = None, data_type: str = None):
-        url = f"{self.base_url}/history"
-        params = []
-        if impersonate:
-            params.append(f"impersonate={impersonate}")
-        if data_type:
-            params.append(f"data_type={data_type}")
-        if params:
-            url += "?" + "&".join(params)
-        return self._handle_response(self.session.get(url, headers=self._get_headers(token)))
-
-    def get_data(self, token: str, val: str, impersonate: str = None):
-        url = f"{self.base_url}/data/{val}"
-        if impersonate:
-            url += f"?impersonate={impersonate}"
-        return self._handle_response(self.session.get(url, headers=self._get_headers(token)))
-
-    def download_file(self, token: str, filename: str, impersonate: str = None):
-        url = f"{self.base_url}/download/{filename}"
-        if impersonate:
-            url += f"?impersonate={impersonate}"
-        response = self._handle_response(self.session.get(url, headers=self._get_headers(token)))
-        if response.status_code == 200:
-            encoded = base64.b64encode(response.content).decode()
+        # Forward User Agent
+        user_agent = request.headers.get("User-Agent")
+        if user_agent:
+            headers["User-Agent"] = user_agent
             
-            # Extract filename from Content-Disposition header
-            out_filename = filename
-            content_disposition = response.headers.get("content-disposition", "")
-            if 'filename="' in content_disposition:
-                out_filename = content_disposition.split('filename="')[1].split('"')[0]
-            elif 'filename=' in content_disposition:
-                out_filename = content_disposition.split('filename=')[1]
-                
-            return dict(content=encoded, filename=out_filename, base64=True)
-        return None
+    return headers
 
-    def upload_file(self, token: str, files: dict, client_id: str = None, data_type: str = "Ccf Data"):
-        data = {"client_id": client_id} if client_id else {}
-        data["data_type"] = data_type
-        return self._handle_response(self.session.post(f"{self.base_url}/upload", headers=self._get_headers(token), files=files, data=data))
+def api_get(endpoint: str, token: str = None, **kwargs):
+    """Generic wrapper for GET requests to the API."""
+    url = f"{API_BASE_URL}/{endpoint.lstrip('/')}"
+    return _session.get(url, headers=_get_headers(token), **kwargs)
 
-    def get_settings(self, token: str):
-        return self._handle_response(self.session.get(f"{self.base_url}/settings", headers=self._get_headers(token)))
+def api_post(endpoint: str, token: str = None, **kwargs):
+    """Generic wrapper for POST requests to the API."""
+    url = f"{API_BASE_URL}/{endpoint.lstrip('/')}"
+    return _session.post(url, headers=_get_headers(token), **kwargs)
 
-    def update_settings(self, token: str, settings: dict):
-        return self._handle_response(self.session.post(f"{self.base_url}/settings", headers=self._get_headers(token), json=settings))
-
-api_client = ApiClient(API_BASE_URL)
+def download_file(token: str, filename: str, impersonate: str = None):
+    """Downloads and decodes a file from the API."""
+    params = {}
+    if impersonate:
+        params["impersonate"] = impersonate
+        
+    response = api_get(f"download/{filename}", token=token, params=params)
+    if response.status_code == 200:
+        encoded = base64.b64encode(response.content).decode()
+        
+        # Extract filename from Content-Disposition header
+        out_filename = filename
+        content_disposition = response.headers.get("content-disposition", "")
+        if 'filename="' in content_disposition:
+            out_filename = content_disposition.split('filename="')[1].split('"')[0]
+        elif 'filename=' in content_disposition:
+            out_filename = content_disposition.split('filename=')[1]
+            
+        return dict(content=encoded, filename=out_filename, base64=True)
+    return None
 
 from datetime import datetime
 from dash import html
@@ -118,9 +66,11 @@ from dash import html
 def get_history_options(token, user_role=None, permissions=None, impersonate=None, data_type=None):
     if permissions is None: permissions = []
     try:
-        response = api_client.get_history(token, impersonate, data_type)
+        response = api_get("history", token=token, params={"impersonate": impersonate, "data_type": data_type})
         if response.status_code == 200:
             file_times = response.json()
+        elif response.status_code == 401:
+            return "UNAUTHORIZED"
         else:
             return []
     except Exception:
@@ -154,12 +104,13 @@ def get_history_options(token, user_role=None, permissions=None, impersonate=Non
         options.append({'label': label, 'value': item['name']})
     return options
 
-def upload_file_to_api(contents, filename, token, client_id=None, data_type="Ccf Data"):
+def upload_file_to_api(contents, filename, token, client_id=None, data_type="CCF Data"):
+    import base64
     try:
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
         files = {'file': (filename, decoded)}
-        response = api_client.upload_file(token, files, client_id=client_id, data_type=data_type)
+        response = api_post("upload", token=token, files=files, data={"client_id": client_id, "data_type": data_type})
         if response.status_code == 200:
             return response.json()
         else:
@@ -169,11 +120,20 @@ def upload_file_to_api(contents, filename, token, client_id=None, data_type="Ccf
         print(f'Exception during upload: {e}')
         return None
 
+def get_all_companies(token: str = None):
+    try:
+        response = api_get("companies", token=token)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        print(f"Error fetching companies: {e}")
+    return ["Digitech", "NSB"]
+
 @lru_cache(maxsize=16)
 def get_dataframe(token: str, filename: str, impersonate: str = None) -> pd.DataFrame:
     """Fetches data from backend and caches it in Dash server memory as a DataFrame."""
     try:
-        response = api_client.get_data(token, filename, impersonate)
+        response = api_get(f"data/{filename}", token=token, params={"impersonate": impersonate})
         if response.status_code == 200:
             return pd.DataFrame(response.json())
         return pd.DataFrame()

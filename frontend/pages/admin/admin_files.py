@@ -2,12 +2,12 @@ import dash
 from dash import html, dcc, callback, Input, Output, State, ALL, MATCH
 import dash_bootstrap_components as dbc
 import requests
-from frontend.shared.api_client import api_client
+from frontend.shared.api_client import api_get, api_post, get_history_options, download_file
 import pandas as pd
 import base64
 from datetime import datetime, date, timedelta
 
-dash.register_page(__name__, path='/admin-files', name='File Repository')
+dash.register_page(__name__, path='/admin/files', name='File Repository')
 
 layout = html.Div([
     html.Div([
@@ -103,7 +103,7 @@ def load_files(auth_state, n_clicks, start_date, end_date, selected_type, impers
     if not token:
         return html.Div("Unauthorized")
     try:
-        response = api_client.get_history(token, impersonate)
+        response = api_get("history", token=token, params={"impersonate": impersonate})
         if response.status_code == 200:
             files = response.json()
             if not files:
@@ -231,7 +231,7 @@ def handle_download_click(n_clicks_list, auth_state, impersonate):
         
     token = auth_state.get("token")
     try:
-        result = api_client.download_file(token, filename, impersonate)
+        result = download_file(token, filename, impersonate)
         if result:
             return result
     except:
@@ -260,7 +260,7 @@ def export_file_list(n_clicks, auth_state, start_date, end_date, selected_type, 
         return dash.no_update
         
     try:
-        response = api_client.get_history(token, impersonate)
+        response = api_get("history", token=token, params={"impersonate": impersonate})
         if response.status_code == 200:
             files = response.json()
             if not files:
@@ -298,7 +298,7 @@ def populate_data_types(auth_state):
     if not token:
         return default_options
     try:
-        response = api_client.get_data_types(token)
+        response = api_get("data_types", token=token)
         if response.status_code == 200:
             types = response.json()
             options = [{'label': t, 'value': t} for t in types]

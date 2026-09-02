@@ -4,14 +4,14 @@ import plotly.graph_objects as go
 def generate_single_chart_pdf(fig_dict):
     """Generate a single-page PDF containing one Plotly figure."""
     fig = go.Figure(fig_dict)
-    pdf_bytes = fig.to_image(format="pdf", engine="kaleido")
+    pdf_bytes = fig.to_image(format="pdf")
     return pdf_bytes
 
 def generate_single_chart_png(fig_dict):
     """Generate a single high-res PNG containing one Plotly figure."""
     fig = go.Figure(fig_dict)
     # Scale=4 gives 300+ DPI equivalent for PPT
-    png_bytes = fig.to_image(format="png", engine="kaleido", scale=4)
+    png_bytes = fig.to_image(format="png", scale=4)
     return png_bytes
 
 def generate_single_chart_html(fig_dict):
@@ -63,7 +63,7 @@ def generate_dashboard_pdf(fig_dicts, title="Dashboard Export"):
         # Configure layout for a cleaner export
         fig.update_layout(paper_bgcolor='white', plot_bgcolor='white')
         
-        img_bytes = fig.to_image(format="png", engine="kaleido", width=1200, height=700)
+        img_bytes = fig.to_image(format="png", width=1200, height=700)
         img = ImageReader(io.BytesIO(img_bytes))
         
         # Draw Image
