@@ -26,7 +26,6 @@ def render_cards(auth_state):
     ccf_style, ccf_btn = get_style_and_btn("can_view_ccf", "primary", "/ccf/dashboard", "Go to CCF")
     unimate_style, unimate_btn = get_style_and_btn("can_view_unimate", "success", "/unimate/dashboard", "Go to UniMate")
     cdr_style, cdr_btn = get_style_and_btn("can_view_cdr", "info", "/cdr/dashboard", "Go to CDR")
-
     apr_style, apr_btn = get_style_and_btn("can_view_apr", "secondary", "/apr/dashboard", "Go to APR")
 
     return [

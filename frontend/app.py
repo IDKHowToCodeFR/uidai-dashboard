@@ -32,7 +32,7 @@ content = html.Div(
 
 app.layout = html.Div(
     [
-        dcc.Location(id="url", refresh=False),
+        dcc.Location(id="url", refresh=True),
         dcc.Store(id="auth-state-local", storage_type="local"),
         dcc.Store(id="auth-state-session", storage_type="session"),
         dcc.Store(id="auth-state", storage_type="memory"),

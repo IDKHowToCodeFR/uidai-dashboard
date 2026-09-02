@@ -151,17 +151,11 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
             avg_duration = durations.mean() if not durations.isna().all() else 0
         except: pass
 
-    task_rate = 0
-    if 'is_fcr' in df.columns:
-        completed = df[df['is_fcr'].astype(str).isin(['1', '1.0', 'true', 'True']) | (df['is_fcr'] == 1)].shape[0]
-        task_rate = (completed / total_calls * 100) if total_calls > 0 else 0
-
     kpis = [
         dbc.Col(make_kpi_card("Total Calls", f"{total_calls:,}"), width=True),
         dbc.Col(make_kpi_card("Avg Duration", f"{avg_duration:.1f}s"), width=True),
         dbc.Col(make_kpi_card("Auth Rate", f"{auth_rate:.1f}%", "good" if auth_rate > 50 else "neutral"), width=True),
         dbc.Col(make_kpi_card("System Drops", f"{system_term:.1f}%", "bad" if system_term > 10 else "neutral"), width=True),
-        dbc.Col(make_kpi_card("Completion Rate", f"{task_rate:.1f}%", "good" if task_rate > 70 else "neutral"), width=True),
     ]
 
     # Time Bucketing
@@ -204,7 +198,10 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         
         fig_dual.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
         fig_dual.update_yaxes(title_text="Volume", secondary_y=False, showgrid=False)
-        fig_dual.update_yaxes(title_text="Auth %", secondary_y=True, showgrid=False, range=[0, max(100, trend_grp['Auth %'].max() + 5)])
+        if sl_scale and 1 in sl_scale:
+            fig_dual.update_yaxes(title_text="Auth %", secondary_y=True, showgrid=False, range=[max(0, min(trend_grp['Auth %'].min() - 2, 80)), min(100, trend_grp['Auth %'].max() + 2)])
+        else:
+            fig_dual.update_yaxes(title_text="Auth %", secondary_y=True, showgrid=False, range=[0, 100])
         ui_vol_auth = dcc.Graph(id='unimate-vol-auth-trend', figure=fig_dual, config={'displayModeBar': False})
     else:
         ui_vol_auth = e_ui('unimate-vol-auth-trend')
@@ -225,9 +222,8 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         term_df = df['Termination Reason'].value_counts().reset_index()
         term_df.columns = ['Reason', 'Count']
         fig_term = px.bar(term_df, x='Reason', y='Count', color_discrete_sequence=[COLOR_PRIMARY])
-        colors = [COLOR_DANGER if str(r).lower() in ['system', 'abandon'] else COLOR_NEUTRAL for r in term_df['Reason']]
-        fig_term.update_traces(marker_color=colors, hovertemplate='<b>Reason:</b> %{x}<br><b>Count:</b> %{y:,}<extra></extra>')
-        fig_term.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False)
+        fig_term.update_traces(hovertemplate='<b>Reason:</b> %{x}<br><b>Count:</b> %{y:,}<extra></extra>', marker_line_width=0)
+        fig_term.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False, bargap=0.15)
         ui_term = dcc.Graph(id='unimate-termination', figure=fig_term, config={'displayModeBar': False})
     else:
         ui_term = e_ui('unimate-termination')
@@ -238,18 +234,19 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         df_dur['Call Duration'] = pd.to_numeric(df_dur['Call Duration'], errors='coerce')
         df_dur = df_dur[df_dur['Call Duration'] > 0]
         
-        fig_hist = px.histogram(df_dur, x='Call Duration', nbins=30, color_discrete_sequence=[COLOR_PRIMARY])
-        fig_hist.update_traces(hovertemplate='<b>Duration:</b> %{x}s<br><b>Frequency:</b> %{y:,}<extra></extra>')
-        fig_hist.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False, xaxis_title="Seconds")
+        fig_hist = px.histogram(df_dur, x='Call Duration', color_discrete_sequence=[COLOR_PRIMARY])
+        fig_hist.update_traces(xbins=dict(start=0, end=df_dur['Call Duration'].max(), size=10), hovertemplate='<b>Duration:</b> %{x}s<br><b>Frequency:</b> %{y:,}<extra></extra>', marker_line_width=0)
+        fig_hist.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False, xaxis_title="Seconds", bargap=0.05)
         ui_hist = dcc.Graph(id='unimate-duration-hist', figure=fig_hist, config={'displayModeBar': False})
     else:
         ui_hist = e_ui('unimate-duration-hist')
 
     # 5. Regional Sunburst (Region -> Language -> Auth)
-    if all(c in df.columns for c in ['Region', 'Language', 'Authentication']):
+    if 'Language' in df.columns:
         df_sun = df.copy()
-        df_sun['Region'] = df_sun['Region'].fillna('Unknown')
+        df_sun['Region'] = df_sun.get('Region', pd.Series('Unknown', index=df_sun.index)).fillna('Unknown')
         df_sun['Language'] = df_sun['Language'].fillna('Unknown')
+        df_sun['Authentication'] = df_sun.get('Authentication', pd.Series('Unknown', index=df_sun.index))
         df_sun['Auth_Status'] = np.where(df_sun['Authentication'].astype(str).str.lower().isin(['true', '1', '1.0']), 'Authenticated', 'Not Authenticated')
         
         sun_grp = df_sun.groupby(['Region', 'Language', 'Auth_Status']).size().reset_index(name='Calls')
@@ -263,9 +260,11 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         ui_sun = e_ui('unimate-sunburst')
 
     # 6. Company KPI Radar
-    if all(c in df.columns for c in ['Company', 'Call Duration', 'Authentication', 'Termination Reason']):
+    if 'Company' in df.columns:
         comp_df = df.copy()
-        comp_df['Call Duration'] = pd.to_numeric(comp_df['Call Duration'], errors='coerce')
+        comp_df['Call Duration'] = pd.to_numeric(comp_df.get('Call Duration', pd.Series(0, index=comp_df.index)), errors='coerce')
+        comp_df['Authentication'] = comp_df.get('Authentication', pd.Series('Unknown', index=comp_df.index))
+        comp_df['Termination Reason'] = comp_df.get('Termination Reason', pd.Series('Unknown', index=comp_df.index))
         
         comp_agg = {
             'Volume': ('Company', 'size'),
@@ -281,25 +280,24 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         
         total_vol = len(df)
         comp_grp['Auth Rate'] = np.where(comp_grp['Volume'] == 0, 0, (comp_grp['Auth_True'] / comp_grp['Volume']) * 100)
-        comp_grp['Completion Rate'] = np.where(comp_grp['Volume'] == 0, 0, 100 - ((comp_grp['Sys_Drop'] / comp_grp['Volume']) * 100))
         comp_grp['Volume Share'] = (comp_grp['Volume'] / total_vol) * 100 if total_vol > 0 else 0
         comp_grp['Duration Score'] = np.where(comp_grp['Avg_Duration'].isna() | (comp_grp['Avg_Duration'] == 0), 0, (180 / comp_grp['Avg_Duration'] * 100)).clip(min=0, max=100)
         
         if 'Transfer_Count' in comp_grp.columns:
-            comp_grp['Containment Score'] = np.where(comp_grp['Volume'] == 0, 0, 100 - ((comp_grp['Transfer_Count'] / comp_grp['Volume']) * 100))
+            comp_grp['Resolution Rate'] = np.where(comp_grp['Volume'] == 0, 0, 100 - ((comp_grp['Transfer_Count'] / comp_grp['Volume']) * 100))
         else:
-            comp_grp['Containment Score'] = 0
+            comp_grp['Resolution Rate'] = 0
             
         comp_grp['Retention Score'] = np.where(comp_grp['Volume'] == 0, 0, 100 - ((comp_grp['Cust_Drop'] / comp_grp['Volume']) * 100))
         
-        categories = ['Auth Rate', 'Completion Rate', 'Volume Share', 'Duration Score', 'Containment Score', 'Retention Score']
+        categories = ['Auth Rate', 'Volume Share', 'Duration Score', 'Resolution Rate', 'Retention Score']
         categories_closed = categories + [categories[0]]
         
         fig_comp = go.Figure()
         colors = [COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_INFO]
         
         for i, row in comp_grp.iterrows():
-            r_vals = [row['Auth Rate'], row['Completion Rate'], row['Volume Share'], row['Duration Score'], row['Containment Score'], row['Retention Score']]
+            r_vals = [row['Auth Rate'], row['Volume Share'], row['Duration Score'], row['Resolution Rate'], row['Retention Score']]
             r_vals_closed = r_vals + [r_vals[0]]
             fig_comp.add_trace(go.Scatterpolar(
                 r=r_vals_closed, theta=categories_closed, fill='toself', name=row['Company'], line_color=colors[i % len(colors)], opacity=0.6
@@ -373,27 +371,26 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         radar_grp = radar_df.groupby('Language').agg(**radar_agg).reset_index()
         
         radar_grp['Auth Rate'] = np.where(radar_grp['Volume'] == 0, 0, (radar_grp['Auth_True'] / radar_grp['Volume']) * 100) if 'Auth_True' in radar_grp.columns else 0
-        radar_grp['Completion Rate'] = np.where(radar_grp['Volume'] == 0, 0, 100 - ((radar_grp['Sys_Drop'] / radar_grp['Volume']) * 100)) if 'Sys_Drop' in radar_grp.columns else 0
         radar_grp['Volume Share'] = (radar_grp['Volume'] / len(df)) * 100
         radar_grp['Duration Score'] = np.where(radar_grp['Avg_Duration'].isna() | (radar_grp['Avg_Duration'] == 0), 0, (300 / radar_grp['Avg_Duration'] * 100)).clip(max=100)
         
         if 'Transfer_Count' in radar_grp.columns:
-            radar_grp['Containment Score'] = np.where(radar_grp['Volume'] == 0, 0, 100 - ((radar_grp['Transfer_Count'] / radar_grp['Volume']) * 100))
+            radar_grp['Resolution Rate'] = np.where(radar_grp['Volume'] == 0, 0, 100 - ((radar_grp['Transfer_Count'] / radar_grp['Volume']) * 100))
         else:
-            radar_grp['Containment Score'] = 0
+            radar_grp['Resolution Rate'] = 0
             
         if 'Cust_Drop' in radar_grp.columns:
             radar_grp['Retention Score'] = np.where(radar_grp['Volume'] == 0, 0, 100 - ((radar_grp['Cust_Drop'] / radar_grp['Volume']) * 100))
         else:
             radar_grp['Retention Score'] = 0
         
-        categories = ['Volume Share', 'Auth Rate', 'Completion Rate', 'Duration Score', 'Containment Score', 'Retention Score']
+        categories = ['Volume Share', 'Auth Rate', 'Duration Score', 'Resolution Rate', 'Retention Score']
         categories_closed = categories + [categories[0]]
         
         fig_radar = go.Figure()
         colors = [COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_INFO]
         for i, row in radar_grp.iterrows():
-            r_vals = [row['Volume Share'], row['Auth Rate'], row['Completion Rate'], row['Duration Score'], row['Containment Score'], row['Retention Score']]
+            r_vals = [row['Volume Share'], row['Auth Rate'], row['Duration Score'], row['Resolution Rate'], row['Retention Score']]
             r_vals_closed = r_vals + [r_vals[0]]
             fig_radar.add_trace(go.Scatterpolar(
                 r=r_vals_closed, theta=categories_closed, fill='toself', name=row['Language'], line_color=colors[i % len(colors)], opacity=0.6
