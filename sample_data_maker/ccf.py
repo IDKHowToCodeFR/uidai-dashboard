@@ -116,20 +116,20 @@ def generate_sample_ccf_data(daily_calls: int = 50000, days: int = 180):
             combo = combos[idx]
             call_offered = count
             
-            # Typical abandonment rate ~5-8%
-            aban_calls = int(call_offered * rng.uniform(0.02, 0.10))
+            # Realistic skewed abandonment rate (beta distribution peaking around ~5-8%)
+            aban_calls = int(call_offered * rng.beta(2, 25))
             acd_calls = call_offered - aban_calls
             
-            # Sub-metrics
-            acd_10 = int(acd_calls * rng.uniform(0.4, 0.7)) if acd_calls > 0 else 0
-            acd_20 = int(acd_10 + (acd_calls - acd_10) * rng.uniform(0.5, 0.9)) if acd_calls > 0 else 0
-            aban_10 = int(aban_calls * rng.uniform(0.1, 0.4)) if aban_calls > 0 else 0
+            # Sub-metrics using beta distribution
+            acd_10 = int(acd_calls * rng.beta(6, 4)) if acd_calls > 0 else 0
+            acd_20 = int(acd_10 + (acd_calls - acd_10) * rng.beta(8, 2)) if acd_calls > 0 else 0
+            aban_10 = int(aban_calls * rng.beta(2, 5)) if aban_calls > 0 else 0
             
-            # Times (in seconds, matches raw data structure logic)
-            acd_time = int(acd_calls * rng.uniform(120, 240))
-            acw_time = int(acd_calls * rng.uniform(15, 60))
-            hold_time = int(acd_calls * rng.uniform(10, 45) * 0.35) # 35% have hold time
-            held_calls = int(acd_calls * rng.uniform(0.2, 0.5)) if acd_calls > 0 else 0
+            # Times (skewed lognormal distributions)
+            acd_time = int(acd_calls * np.clip(rng.lognormal(5.0, 0.3), 60, 400))
+            acw_time = int(acd_calls * np.clip(rng.lognormal(3.2, 0.4), 10, 120))
+            hold_time = int(acd_calls * np.clip(rng.lognormal(3.0, 0.5), 5, 60) * 0.35) # 35% have hold time
+            held_calls = int(acd_calls * rng.beta(2, 6)) if acd_calls > 0 else 0
             
             combo.update({
                 "ACD Calls in 10 Sec": acd_10,
