@@ -115,34 +115,33 @@ def generate_sample_apr_data(num_agents: int = 600, days: int = 180):
 
             # --- Core ACD metrics ---
             if is_holiday:
-                acd_calls = random.randint(15, 45)
+                acd_calls = int(np.clip(np.random.normal(30, 10), 0, None))
             elif is_sunday:
-                acd_calls = random.randint(15, 40)
+                acd_calls = int(np.clip(np.random.normal(25, 8), 0, None))
             elif is_saturday:
-                acd_calls = random.randint(25, 60)
+                acd_calls = int(np.clip(np.random.normal(45, 12), 0, None))
             else:
-                acd_calls = random.randint(50, 130)
+                acd_calls = int(np.clip(np.random.normal(90, 25), 0, None))
 
-            # Avg ACD time: 120-360 seconds (2-6 min per call)
-            avg_acd_time = random.randint(120, 360)
-            # Avg ACW time: 15-90 seconds
-            avg_acw_time = random.randint(15, 90)
+            # Skewed (Lognormal) handle times
+            avg_acd_time = int(np.clip(np.random.lognormal(5.4, 0.4), 60, 600))
+            avg_acw_time = int(np.clip(np.random.lognormal(3.4, 0.5), 10, 180))
 
             acd_time_sec = acd_calls * avg_acd_time
             acw_time_sec = acd_calls * avg_acw_time
-            ring_time_sec = acd_calls * random.randint(3, 12)
+            ring_time_sec = acd_calls * int(np.clip(np.random.lognormal(1.8, 0.3), 3, 20))
 
-            # Staffed time: full shift ~8-9 hours
-            staffed_time_sec = random.randint(27000, 33000)
+            # Staffed time: normally ~8.5 hours
+            staffed_time_sec = int(np.clip(np.random.normal(30600, 1800), 18000, 36000))
 
-            # Break times (seconds)
-            tea_sec = random.randint(600, 1200)
-            lunch_sec = random.randint(1800, 3600)
-            quality_sec = random.randint(0, 900)
-            email_sec = random.randint(0, 600)
-            briefing_sec = random.randint(300, 900)
-            sysdown_sec = random.randint(0, 1200)
-            meeting_sec = random.randint(0, 1800)
+            # Break times (skewed normal)
+            tea_sec = int(np.clip(np.random.normal(900, 180), 300, 1800))
+            lunch_sec = int(np.clip(np.random.normal(2700, 600), 1800, 3600))
+            quality_sec = int(np.clip(np.random.exponential(300), 0, 1800))
+            email_sec = int(np.clip(np.random.exponential(150), 0, 1200))
+            briefing_sec = int(np.clip(np.random.normal(600, 120), 0, 1800))
+            sysdown_sec = int(np.clip(np.random.exponential(200), 0, 3600))
+            meeting_sec = int(np.clip(np.random.exponential(400), 0, 3600))
 
             total_breaks = tea_sec + lunch_sec + quality_sec + email_sec + briefing_sec + sysdown_sec + meeting_sec
             aux_time_sec = total_breaks

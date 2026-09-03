@@ -131,11 +131,15 @@ def generate_sample_unimate_data(daily_calls: int = 50000, days: int = 180):
 
             language = rng.choice(LANGUAGES, size=n, p=LANG_WEIGHTS)
             
-            is_authenticated = rng.choice([True, False], size=n)
-            auth_mech = np.where(is_authenticated, rng.choice(["OTP", "DOB"], size=n), "")
+            # Skewed Auth Rates (85% True, 15% False)
+            is_authenticated = rng.choice([True, False], size=n, p=[0.85, 0.15])
+            
+            # Skewed Mech (90% OTP, 10% DOB)
+            auth_mech = np.where(is_authenticated, rng.choice(["OTP", "DOB"], size=n, p=[0.90, 0.10]), "")
 
-            term_type = rng.choice(TERMINATION_TYPES, size=n)
-            term_reason = rng.choice(TERMINATION_REASONS, size=n)
+            # Skewed Terminations
+            term_type = rng.choice(TERMINATION_TYPES, size=n, p=[0.65, 0.25, 0.10])
+            term_reason = rng.choice(TERMINATION_REASONS, size=n, p=[0.75, 0.05, 0.05, 0.15])
             description = rng.choice(DESCRIPTIONS, size=n)
 
             # Map region based on language, fallback to random region

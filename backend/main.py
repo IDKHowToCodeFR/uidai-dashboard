@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from backend.audit.audit_logger import archive_old_logs
-from backend.database.database import SessionLocal
+from backend.database.database import SessionLocal, engine, Base
 from apscheduler.schedulers.background import BackgroundScheduler
 import os
 import glob
@@ -65,14 +65,80 @@ def process_unprocessed_files():
     finally:
         db.close()
 
+import threading
+
+def ensure_sample_data():
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    data_dir = os.path.join(BASE_DIR, "uidai_data")
+    
+    folders_to_check = {
+        "ccf_data": "ccf",
+        "cdr_data": "cdr",
+        "unimate_data": "unimate",
+        "apr_data": "apr"
+    }
+    
+    missing_modules = []
+    for folder, module_name in folders_to_check.items():
+        folder_path = os.path.join(data_dir, folder)
+        os.makedirs(folder_path, exist_ok=True)
+        has_files = any(f for f in os.listdir(folder_path) if not f.startswith("~$") and not f.startswith("."))
+        if not has_files:
+            missing_modules.append(module_name)
+            
+    if not missing_modules:
+        return
+        
+    print(f"Startup check: Missing data in {missing_modules}. Starting background generation...")
+    
+    def generate_data():
+        import sys
+        if BASE_DIR not in sys.path:
+            sys.path.append(BASE_DIR)
+            
+        for mod in missing_modules:
+            try:
+                print(f"Generating sample data for {mod} (30 days, reduced volume)...")
+                if mod == "ccf":
+                    from sample_data_maker.ccf import generate_sample_ccf_data
+                    generate_sample_ccf_data(daily_calls=5000, days=30)
+                elif mod == "cdr":
+                    from sample_data_maker.cdr import generate_sample_cdr_data
+                    generate_sample_cdr_data(daily_calls=5000, days=30)
+                elif mod == "unimate":
+                    from sample_data_maker.unimate import generate_sample_unimate_data
+                    generate_sample_unimate_data(daily_calls=5000, days=30)
+                elif mod == "apr":
+                    from sample_data_maker.apr import generate_sample_apr_data
+                    generate_sample_apr_data(num_agents=200, days=30)
+                print(f"Finished generating sample data for {mod}.")
+            except Exception as e:
+                print(f"Failed to generate {mod}: {e}")
+                
+    threading.Thread(target=generate_data, daemon=True).start()
+
 @app.on_event("startup")
 async def startup_event():
+    # 1. Safely create all missing tables (handles "already exists" cleanly)
+    Base.metadata.create_all(bind=engine)
+    
+    # 2. Tell Alembic the DB is fully up to date to prevent migration crashes
+    try:
+        from alembic import command
+        from alembic.config import Config
+        alembic_cfg = Config("alembic.ini")
+        command.stamp(alembic_cfg, "head")
+    except Exception as e:
+        print(f"Warning: Failed to stamp alembic head: {e}")
+
     # Archive logs older than 90 days on startup
     db = SessionLocal()
     try:
         archive_old_logs(db=db, days=90)
     finally:
         db.close()
+        
+    ensure_sample_data()
         
     scheduler.add_job(process_unprocessed_files, 'interval', minutes=3)
     scheduler.start()
