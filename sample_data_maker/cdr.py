@@ -105,7 +105,7 @@ def generate_sample_cdr_data(daily_calls: int = 50000, days: int = 180):
             ansholdtime = np.where(has_hold, hold_raw, 0)
 
             # Duration = talk + acw + hold + ring overhead
-            ring_overhead = rng.integers(5, 30, size=n)
+            ring_overhead = np.clip(rng.lognormal(2.0, 0.6, size=n).astype(int), 3, 45)
             duration = talktime + acwtime + ansholdtime + ring_overhead
 
             segstop_ts = segstart_ts + pd.to_timedelta(duration.astype(np.int64), unit='s')
