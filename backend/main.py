@@ -131,10 +131,22 @@ async def startup_event():
     except Exception as e:
         print(f"Warning: Failed to stamp alembic head: {e}")
 
-    # Archive logs older than 90 days on startup
+    # Initialize DB session for startup tasks
     db = SessionLocal()
     try:
+        # Seed default users if none exist
+        from backend.database.models import User
+        if db.query(User).first() is None:
+            from backend.auth.auth_utils import get_password_hash
+            db.add(User(username="admin", password_hash=get_password_hash("admin"), companies=["Admin"]))
+            db.add(User(username="user", password_hash=get_password_hash("user"), companies=["Digitech", "NSB"]))
+            db.commit()
+            print("Startup check: Created default 'admin' and 'user' accounts.")
+            
+        # Archive logs older than 90 days on startup
         archive_old_logs(db=db, days=90)
+    except Exception as e:
+        print(f"Error during DB startup checks: {e}")
     finally:
         db.close()
         
