@@ -139,7 +139,7 @@ async def startup_event():
         if db.query(User).first() is None:
             from backend.auth.auth_utils import get_password_hash
             db.add(User(username="admin", password_hash=get_password_hash("admin"), companies=["Admin"]))
-            db.add(User(username="user", password_hash=get_password_hash("user"), companies=["Digitech", "NSB"]))
+            db.add(User(username="uidai", password_hash=get_password_hash("uidai"), companies=["Digitech", "NSB"]))
             db.commit()
             print("Startup check: Created default 'admin' and 'user' accounts.")
             
