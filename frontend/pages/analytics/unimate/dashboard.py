@@ -45,7 +45,7 @@ layout = html.Div([
             wrap_chart_card('unimate-termination', "Termination Reasons", "unimate-dash")
         ], width=12, lg=4, className="mb-4"),
         dbc.Col([
-            wrap_chart_card('unimate-duration-hist', "Call Duration Distribution (s)", "unimate-dash")
+            wrap_chart_card('unimate-company-radar', "Vendor KPI Radar", "unimate-dash")
         ], width=12, lg=4, className="mb-4")
     ]),
 
@@ -54,7 +54,7 @@ layout = html.Div([
             wrap_chart_card('unimate-sunburst', "Regional Interaction Breakdown", "unimate-dash")
         ], width=12, lg=6, className="mb-4"),
         dbc.Col([
-            wrap_chart_card('unimate-company-radar', "Vendor KPI Radar", "unimate-dash")
+            wrap_chart_card('unimate-term-language', "Termination Reasons by Language", "unimate-dash")
         ], width=12, lg=6, className="mb-4")
     ]),
 
@@ -66,11 +66,8 @@ layout = html.Div([
 
     dbc.Row([
         dbc.Col([
-            wrap_chart_card('unimate-term-language', "Termination Reasons by Language", "unimate-dash")
-        ], width=12, lg=6, className="mb-4"),
-        dbc.Col([
-            wrap_chart_card('unimate-radar', "Language Performance Radar (Top 5)", "unimate-dash")
-        ], width=12, lg=6, className="mb-4")
+            wrap_chart_card('unimate-duration-hist', "Call Duration Distribution (s)", "unimate-dash")
+        ], width=12, className="mb-4")
     ])
 ], className="container-fluid py-4")
 
@@ -84,7 +81,6 @@ layout = html.Div([
     Output('unimate-company-radar-container', 'children'),
     Output('unimate-intraday-language-container', 'children'),
     Output('unimate-term-language-container', 'children'),
-    Output('unimate-radar-container', 'children'),
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
@@ -102,7 +98,7 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
     outs = [empty_kpi] + [e_ui(gid) for gid in [
         'unimate-vol-auth-trend', 'unimate-termination', 'unimate-language', 
         'unimate-duration-hist', 'unimate-sunburst', 'unimate-company-radar', 
-        'unimate-intraday-language', 'unimate-term-language', 'unimate-radar'
+        'unimate-intraday-language', 'unimate-term-language'
     ]]
 
     if not data_ref or 'filename' not in data_ref: return outs
@@ -221,9 +217,9 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
     if 'Termination Reason' in df.columns:
         term_df = df['Termination Reason'].value_counts().reset_index()
         term_df.columns = ['Reason', 'Count']
-        fig_term = px.bar(term_df, x='Reason', y='Count', color_discrete_sequence=[COLOR_PRIMARY])
-        fig_term.update_traces(hovertemplate='<b>Reason:</b> %{x}<br><b>Count:</b> %{y:,}<extra></extra>', marker_line_width=0)
-        fig_term.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False, bargap=0.15)
+        fig_term = px.pie(term_df, names='Reason', values='Count', hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
+        fig_term.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>Reason:</b> %{label}<br><b>Count:</b> %{value:,}<extra></extra>', marker=dict(line=dict(color='#ffffff', width=2)))
+        fig_term.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
         ui_term = dcc.Graph(id='unimate-termination', figure=fig_term, config={'displayModeBar': False})
     else:
         ui_term = e_ui('unimate-termination')
@@ -237,6 +233,10 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         fig_hist = px.histogram(df_dur, x='Call Duration', color_discrete_sequence=[COLOR_PRIMARY])
         fig_hist.update_traces(xbins=dict(start=0, end=df_dur['Call Duration'].max(), size=10), hovertemplate='<b>Duration:</b> %{x}s<br><b>Frequency:</b> %{y:,}<extra></extra>', marker_line_width=0)
         fig_hist.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False, xaxis_title="Seconds", bargap=0.05)
+        
+        if sl_scale and 1 in sl_scale:
+            fig_hist.update_yaxes(type="log")
+            
         ui_hist = dcc.Graph(id='unimate-duration-hist', figure=fig_hist, config={'displayModeBar': False})
     else:
         ui_hist = e_ui('unimate-duration-hist')
@@ -296,11 +296,15 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         fig_comp = go.Figure()
         colors = [COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_INFO]
         
+        show_labels = 'lines+markers+text' if (sl_scale and 1 in sl_scale) else 'lines+markers'
+        fill_type = 'none' if (sl_scale and 1 in sl_scale) else 'toself'
+        
         for i, row in comp_grp.iterrows():
             r_vals = [row['Auth Rate'], row['Volume Share'], row['Duration Score'], row['Resolution Rate'], row['Retention Score']]
             r_vals_closed = r_vals + [r_vals[0]]
             fig_comp.add_trace(go.Scatterpolar(
-                r=r_vals_closed, theta=categories_closed, fill='toself', name=row['Company'], line_color=colors[i % len(colors)], opacity=0.6
+                r=r_vals_closed, theta=categories_closed, fill=fill_type, name=row['Company'], line_color=colors[i % len(colors)], opacity=0.7,
+                mode=show_labels, text=[f"{v:.0f}" for v in r_vals_closed], textposition="top center"
             ))
             
         fig_comp.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True, template=get_plotly_template(), margin=dict(t=40, b=40, l=100, r=100))
@@ -313,15 +317,33 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         df_intra = df.copy()
         df_intra['Time'] = df_intra['Date'].dt.floor('30min').dt.time
         df_intra['True_Day'] = df_intra['Date_Day']
-        intra_grp = df_intra.groupby(['True_Day', 'Time', 'Language']).size().reset_index(name='Calls')
-        avg_intra = intra_grp.groupby(['Time', 'Language'])['Calls'].mean().reset_index()
-        avg_intra['Calls'] = avg_intra['Calls'].round().astype(int)
+        df_intra['Time'] = df_intra['Date'].dt.floor('30min').dt.time
+        num_days = df_intra['Date_Day'].nunique()
+        num_days = num_days if num_days > 0 else 1
+        
+        avg_intra = df_intra.groupby(['Time', 'Language']).size().reset_index(name='TotalCalls')
+        avg_intra['Calls'] = (avg_intra['TotalCalls'] / num_days).round(2)
+        
+        lang_totals = avg_intra.groupby('Language')['Calls'].transform('sum')
+        avg_intra['Percent'] = np.where(lang_totals > 0, (avg_intra['Calls'] / lang_totals) * 100, 0).round(1)
+        
         avg_intra['TimeStr'] = avg_intra['Time'].astype(str).str[:5]
         avg_intra = avg_intra.sort_values(['TimeStr', 'Language'])
         
-        fig_intra = px.line(avg_intra, x='TimeStr', y='Calls', color='Language', color_discrete_sequence=px.colors.qualitative.Vivid)
-        fig_intra.update_traces(mode='lines', line_shape='spline', hovertemplate='<b>Time:</b> %{x}<br><b>Language:</b> %{data.name}<br><b>Calls:</b> %{y:d}<extra></extra>')
-        fig_intra.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), xaxis_title="Time of Day", yaxis_title="Average Volume")
+        if sl_scale and 1 in sl_scale:
+            y_col = 'Percent'
+            y_title = "% of Language's Daily Volume"
+            hover = '<b>%{data.name}</b>: %{y}%<extra></extra>'
+        else:
+            y_col = 'Calls'
+            y_title = "Average Volume (Calls)"
+            hover = '<b>%{data.name}</b>: %{y}<extra></extra>'
+        
+        fig_intra = px.line(avg_intra, x='TimeStr', y=y_col, color='Language', color_discrete_sequence=px.colors.qualitative.Vivid)
+        fig_intra.update_xaxes(categoryorder='category ascending')
+        fig_intra.update_traces(mode='lines', line_shape='spline', hovertemplate=hover)
+        fig_intra.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), xaxis_title="Time of Day", yaxis_title=y_title, hovermode='x unified')
+            
         ui_intra = dcc.Graph(id='unimate-intraday-language', figure=fig_intra, config={'displayModeBar': False})
     else:
         ui_intra = e_ui('unimate-intraday-language')
@@ -349,59 +371,7 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
     else:
         ui_term_lang = e_ui('unimate-term-language')
 
-    # 9. Language Performance Radar
-    if 'Language' in df.columns and 'Call Duration' in df.columns:
-        top_langs = df['Language'].value_counts().nlargest(5).index
-        radar_df = df[df['Language'].isin(top_langs)].copy()
-        
-        radar_df['Call Duration'] = pd.to_numeric(radar_df['Call Duration'], errors='coerce')
-        
-        radar_agg = {
-            'Volume': ('Language', 'count'),
-            'Avg_Duration': ('Call Duration', 'mean')
-        }
-        if 'Authentication' in radar_df.columns:
-            radar_agg['Auth_True'] = ('Authentication', lambda x: x.astype(str).str.lower().isin(['true', '1', '1.0']).sum())
-        if 'Termination Reason' in radar_df.columns:
-            radar_agg['Sys_Drop'] = ('Termination Reason', lambda x: (x.astype(str).str.lower() == 'system').sum())
-            radar_agg['Cust_Drop'] = ('Termination Reason', lambda x: (x.astype(str).str.lower() == 'customer opted').sum())
-        if 'Termination Type' in radar_df.columns:
-            radar_agg['Transfer_Count'] = ('Termination Type', lambda x: (x.astype(str).str.lower() == 'transfer').sum())
-            
-        radar_grp = radar_df.groupby('Language').agg(**radar_agg).reset_index()
-        
-        radar_grp['Auth Rate'] = np.where(radar_grp['Volume'] == 0, 0, (radar_grp['Auth_True'] / radar_grp['Volume']) * 100) if 'Auth_True' in radar_grp.columns else 0
-        radar_grp['Volume Share'] = (radar_grp['Volume'] / len(df)) * 100
-        radar_grp['Duration Score'] = np.where(radar_grp['Avg_Duration'].isna() | (radar_grp['Avg_Duration'] == 0), 0, (300 / radar_grp['Avg_Duration'] * 100)).clip(max=100)
-        
-        if 'Transfer_Count' in radar_grp.columns:
-            radar_grp['Resolution Rate'] = np.where(radar_grp['Volume'] == 0, 0, 100 - ((radar_grp['Transfer_Count'] / radar_grp['Volume']) * 100))
-        else:
-            radar_grp['Resolution Rate'] = 0
-            
-        if 'Cust_Drop' in radar_grp.columns:
-            radar_grp['Retention Score'] = np.where(radar_grp['Volume'] == 0, 0, 100 - ((radar_grp['Cust_Drop'] / radar_grp['Volume']) * 100))
-        else:
-            radar_grp['Retention Score'] = 0
-        
-        categories = ['Volume Share', 'Auth Rate', 'Duration Score', 'Resolution Rate', 'Retention Score']
-        categories_closed = categories + [categories[0]]
-        
-        fig_radar = go.Figure()
-        colors = [COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_INFO]
-        for i, row in radar_grp.iterrows():
-            r_vals = [row['Volume Share'], row['Auth Rate'], row['Duration Score'], row['Resolution Rate'], row['Retention Score']]
-            r_vals_closed = r_vals + [r_vals[0]]
-            fig_radar.add_trace(go.Scatterpolar(
-                r=r_vals_closed, theta=categories_closed, fill='toself', name=row['Language'], line_color=colors[i % len(colors)], opacity=0.6
-            ))
-            
-        fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True, template=get_plotly_template(), margin=dict(t=40, b=40, l=100, r=100))
-        ui_radar = dcc.Graph(id='unimate-radar', figure=fig_radar, config={'displayModeBar': False})
-    else:
-        ui_radar = e_ui('unimate-radar')
-
-    return kpis, ui_vol_auth, ui_term, ui_lang, ui_hist, ui_sun, ui_comp, ui_intra, ui_term_lang, ui_radar
+    return kpis, ui_vol_auth, ui_term, ui_lang, ui_hist, ui_sun, ui_comp, ui_intra, ui_term_lang
 
 
 # ---------------- EXPORT CALLBACKS ----------------
@@ -453,17 +423,16 @@ def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, st
     State('unimate-company-radar', 'figure'),
     State('unimate-intraday-language', 'figure'),
     State('unimate-term-language', 'figure'),
-    State('unimate-radar', 'figure'),
     prevent_initial_call=True
 )
-def export_pdf_dashboard(n_clicks, vol_auth, lang, term, hist, sun, comp, intra, term_lang, radar):
+def export_pdf_dashboard(n_clicks, vol_auth, lang, term, hist, sun, comp, intra, term_lang):
     if not n_clicks: return dash.no_update
     index = ctx.triggered_id['index']
     
     figures = {
         'unimate-vol-auth-trend': vol_auth, 'unimate-language': lang, 'unimate-termination': term,
         'unimate-duration-hist': hist, 'unimate-sunburst': sun, 'unimate-company-radar': comp,
-        'unimate-intraday-language': intra, 'unimate-term-language': term_lang, 'unimate-radar': radar
+        'unimate-intraday-language': intra, 'unimate-term-language': term_lang
     }
     
     if index == 'unimate-dash':
@@ -487,17 +456,16 @@ def export_pdf_dashboard(n_clicks, vol_auth, lang, term, hist, sun, comp, intra,
     State('unimate-company-radar', 'figure'),
     State('unimate-intraday-language', 'figure'),
     State('unimate-term-language', 'figure'),
-    State('unimate-radar', 'figure'),
     prevent_initial_call=True
 )
-def export_png_dashboard(n_clicks, vol_auth, lang, term, hist, sun, comp, intra, term_lang, radar):
+def export_png_dashboard(n_clicks, vol_auth, lang, term, hist, sun, comp, intra, term_lang):
     if not n_clicks: return dash.no_update
     index = ctx.triggered_id['index']
     
     figures = {
         'unimate-vol-auth-trend': vol_auth, 'unimate-language': lang, 'unimate-termination': term,
         'unimate-duration-hist': hist, 'unimate-sunburst': sun, 'unimate-company-radar': comp,
-        'unimate-intraday-language': intra, 'unimate-term-language': term_lang, 'unimate-radar': radar
+        'unimate-intraday-language': intra, 'unimate-term-language': term_lang
     }
     
     if index == 'unimate-dash':
@@ -520,17 +488,16 @@ def export_png_dashboard(n_clicks, vol_auth, lang, term, hist, sun, comp, intra,
     State('unimate-company-radar', 'figure'),
     State('unimate-intraday-language', 'figure'),
     State('unimate-term-language', 'figure'),
-    State('unimate-radar', 'figure'),
     prevent_initial_call=True
 )
-def export_html_dashboard(n_clicks, vol_auth, lang, term, hist, sun, comp, intra, term_lang, radar):
+def export_html_dashboard(n_clicks, vol_auth, lang, term, hist, sun, comp, intra, term_lang):
     if not n_clicks: return dash.no_update
     index = ctx.triggered_id['index']
     
     figures = {
         'unimate-vol-auth-trend': vol_auth, 'unimate-language': lang, 'unimate-termination': term,
         'unimate-duration-hist': hist, 'unimate-sunburst': sun, 'unimate-company-radar': comp,
-        'unimate-intraday-language': intra, 'unimate-term-language': term_lang, 'unimate-radar': radar
+        'unimate-intraday-language': intra, 'unimate-term-language': term_lang
     }
     
     if index == 'unimate-dash':
