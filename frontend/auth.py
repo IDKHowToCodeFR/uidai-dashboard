@@ -2,7 +2,11 @@ import dash
 from dash import html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
 import requests
+import base64
+import uuid
 from frontend.shared.api_client import api_get, api_post, get_history_options, download_file
+
+SERVER_RUN_ID = str(uuid.uuid4())
 
 # --- LOGIN PAGE LAYOUT ---
 login_page = dbc.Row(
@@ -153,7 +157,8 @@ def register_auth_callbacks(app):
                     'token': data['access_token'],
                     'refresh_token': data.get('refresh_token'),
                     'permissions': data.get('permissions', []),
-                    'companies': data.get('companies', [])
+                    'companies': data.get('companies', []),
+                    'server_run_id': SERVER_RUN_ID
                 }
                 if remember:
                     return auth_data, None, "", "text-danger small mb-3"
@@ -170,11 +175,9 @@ def register_auth_callbacks(app):
         Input("auth-state-session", "data")
     )
     def sync_auth_state(local_state, session_state):
-        # Session state overrides local if both exist somehow
-        if session_state and session_state.get("user"):
-            return session_state
-        if local_state and local_state.get("user"):
-            return local_state
+        state = session_state if session_state and session_state.get("user") else local_state
+        if state and state.get("user") and state.get("server_run_id") == SERVER_RUN_ID:
+            return state
         return None
 
     @app.callback(

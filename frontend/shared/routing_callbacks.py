@@ -56,6 +56,7 @@ def register_routing_callbacks(app, content_div):
                         dbc.Nav(
                             [
                                 dbc.NavLink([html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")], href="/unimate/dashboard", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                                dbc.NavLink([html.I(className="bi bi-lightbulb me-3"), html.Span("Insights", className="nav-link-text")], href="/unimate/insights", active="exact", className="body-strong mb-2 d-flex align-items-center"),
                                 dbc.NavLink([html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")], href="/unimate/raw_data", active="exact", className="body-strong mb-2 d-flex align-items-center"),
                             ], vertical=True, pills=True, className="custom-sidebar-nav mb-4"
                         )
