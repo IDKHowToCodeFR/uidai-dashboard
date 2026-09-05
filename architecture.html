@@ -250,67 +250,69 @@
     }
     .section-number {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-      font-weight: 600;
+      font-size: 14px;
+      font-weight: 700;
       color: var(--primary);
-      background: var(--primary-glow);
+      background: rgba(59, 130, 246, 0.12);
       padding: 4px 8px;
       border-radius: 6px;
+      border: 1px solid rgba(59, 130, 246, 0.25);
     }
     .section-title {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       letter-spacing: -0.5px;
-      color: var(--text-main);
     }
 
-    /* Cards & Containers */
+    /* Glass Cards */
     .glass-card {
       background: var(--card-bg);
-      backdrop-filter: blur(16px);
       border: 1px solid var(--card-border);
       border-radius: 16px;
       padding: 28px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
       margin-bottom: 24px;
-      transition: all 0.25s ease;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      transition: border-color 0.2s ease;
     }
     .glass-card:hover {
       border-color: var(--card-hover);
-      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.35);
     }
 
-    /* Stat Grid */
+    /* Metric Grid */
     .stat-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 18px;
-      margin-bottom: 30px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 36px;
     }
     .stat-card {
-      background: rgba(255, 255, 255, 0.03);
+      background: rgba(17, 24, 39, 0.6);
       border: 1px solid var(--card-border);
       border-radius: 12px;
       padding: 20px;
     }
     .stat-label {
       font-size: 12px;
-      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      font-weight: 600;
       margin-bottom: 8px;
     }
     .stat-val {
       font-size: 26px;
       font-weight: 800;
+      letter-spacing: -0.5px;
       color: var(--text-main);
-      font-family: 'JetBrains Mono', monospace;
     }
     .stat-desc {
       font-size: 12px;
       color: var(--emerald);
       margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
 
     /* Tables */
@@ -318,7 +320,6 @@
       overflow-x: auto;
       border-radius: 12px;
       border: 1px solid var(--card-border);
-      background: rgba(0, 0, 0, 0.2);
     }
     table {
       width: 100%;
@@ -327,63 +328,60 @@
       font-size: 13.5px;
     }
     th {
-      background: rgba(255, 255, 255, 0.04);
-      color: var(--text-main);
-      font-weight: 600;
+      background: rgba(255, 255, 255, 0.03);
       padding: 14px 18px;
+      color: var(--text-muted);
+      font-weight: 600;
       border-bottom: 1px solid var(--card-border);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     td {
       padding: 14px 18px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-      color: var(--text-muted);
+      color: var(--text-main);
     }
     tr:last-child td {
       border-bottom: none;
     }
     tr:hover td {
       background: rgba(255, 255, 255, 0.02);
-      color: var(--text-main);
     }
-    td code {
+    code {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      background: rgba(59, 130, 246, 0.15);
-      color: #93c5fd;
-      padding: 3px 6px;
+      font-size: 12.5px;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
       border-radius: 4px;
+      color: #93c5fd;
     }
 
-    /* Diagram Container */
+    /* Diagram Wrappers */
     .diagram-wrapper {
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid var(--card-border);
-      border-radius: 14px;
-      padding: 30px 20px;
+      background: rgba(11, 15, 25, 0.6);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 24px;
       display: flex;
       justify-content: center;
       overflow-x: auto;
-      margin: 20px 0;
-    }
-    .mermaid {
-      width: 100%;
-      display: flex;
-      justify-content: center;
+      margin-top: 16px;
     }
 
-    /* ADR Callout Card */
+    /* ADR Cards */
     .adr-card {
       border-left: 4px solid var(--primary);
       background: rgba(59, 130, 246, 0.05);
       border-radius: 0 12px 12px 0;
       padding: 20px 24px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       border-top: 1px solid var(--card-border);
       border-right: 1px solid var(--card-border);
       border-bottom: 1px solid var(--card-border);
     }
     .adr-title {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       color: var(--text-main);
       margin-bottom: 8px;
@@ -392,57 +390,19 @@
       gap: 8px;
     }
     .adr-tag {
+      font-family: 'JetBrains Mono', monospace;
       font-size: 11px;
-      font-weight: 700;
-      padding: 2px 8px;
+      padding: 2px 6px;
       border-radius: 4px;
       background: var(--primary);
       color: white;
-    }
-
-    /* Print Stylesheet */
-    @media print {
-      body {
-        background: #ffffff !important;
-        color: #0f172a !important;
-      }
-      aside, .bg-blobs, .btn-action {
-        display: none !important;
-      }
-      main {
-        margin-left: 0 !important;
-        padding: 20px !important;
-        max-width: 100% !important;
-      }
-      .glass-card, .diagram-wrapper, .stat-card, .adr-card {
-        background: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-        box-shadow: none !important;
-        color: #0f172a !important;
-      }
-      .hero-title {
-        color: #0f172a !important;
-        -webkit-text-fill-color: #0f172a !important;
-      }
-      td, th {
-        color: #0f172a !important;
-      }
-    }
-
-    @media (max-width: 900px) {
-      aside {
-        display: none;
-      }
-      main {
-        margin-left: 0;
-        padding: 30px 20px;
-      }
+      font-weight: 600;
     }
   </style>
 </head>
 <body>
 
-  <!-- Ambient Glow Background -->
+  <!-- Ambient Blobs -->
   <div class="bg-blobs">
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
@@ -494,7 +454,7 @@
       </div>
       <h1 class="hero-title">UIDAI Contact Center Operations & Analytics Platform</h1>
       <p class="hero-subtitle">
-        A high-throughput, multi-tenant analytics engine built to process, monitor, and audit national-scale contact center operations, derived SLA compliance, and real-time agent telemetry.
+        A high-throughput, multi-tenant analytics engine built to ingest, monitor, and audit national-scale CCF operations, derived SLA compliance, and UniMate IVR customer journey telemetry.
       </p>
     </div>
 
@@ -531,37 +491,49 @@
 
       <div class="glass-card">
         <p style="color: var(--text-muted); margin-bottom: 20px;">
-          The system separates heavy analytical calculations and multi-tenant persistence (FastAPI Backend) from high-density interactive charting (Dash & Plotly Frontend). Ingestion streams run non-blocking background threads that feed live percentage bars directly into client WebSockets.
+          The system separates heavy analytical calculations and multi-tenant persistence (FastAPI Backend) from high-density interactive charting (Dash & Plotly Frontend). Ingestion streams run non-blocking background threads that feed live percentage bars directly into client WebSockets, with dedicated pure parsing engines and idempotent database repositories.
         </p>
 
         <div class="diagram-wrapper">
           <div class="mermaid">
 graph TB
-    subgraph ClientLayer ["Client & Presentation Layer"]
+    subgraph ClientLayer ["Client & Presentation Layer (Dash :8050)"]
         Browser["User Browser (Dash / Plotly / AG-Grid)"]
+        ContextSwitch["Context Switcher (CCF vs UniMate)"]
+        WSClient["Clientside WebSocket Handler"]
     end
 
-    subgraph APILayer ["API & Service Gateway (FastAPI)"]
-        Router["FastAPI Gateway (:8000)"]
-        AuthModule["Auth & Security Engine (JWT / Bcrypt)"]
-        WSManager["WebSocket Connection Manager"]
-        ETLEngine["Asynchronous ETL Pipeline (Pandas / OpenPyXL)"]
-        CronEngine["Background Cron Scheduler (APScheduler)"]
+    subgraph APILayer ["API & Service Gateway (FastAPI :8000)"]
+        Router["FastAPI Gateway (/users, /data, /settings, /ws)"]
+        AuthModule["Auth & Security Engine (JWT / Bcrypt / Provenance)"]
+        WSManager["WebSocket Connection Manager (/ws/progress/{client_id})"]
+        
+        subgraph IngestionPipeline ["Domain Ingestion & Processing Pipeline"]
+            CCFParserEngine["CCFParser (Pure Domain Logic)"]
+            UniMateParserEngine["UniMateParser (Pure Domain Logic)"]
+            CCFRepo["CCFDatabaseRepo (Batch Upsert)"]
+            UniMateRepo["UniMateDatabaseRepo (Batch Upsert)"]
+        end
+        
+        CronEngine["Background Cron Scheduler (APScheduler - 3 min sweep)"]
+        ActiveConfig["ActiveFoldersConfig (DB Setting Driven)"]
     end
 
     subgraph StorageLayer ["Persistence & Storage Layer"]
-        SQLiteDB[("Relational DB (SQLite WAL / PostgreSQL)")]
-        FileStore[("Raw File Storage (uidai_data/)")]
+        RelationalDB[("Relational DB (SQLite WAL / PostgreSQL)")]
+        FileStore[("Raw File Storage (uidai_data/ccf_data, uidai_data/unimate_data)")]
     end
 
     Browser -->|HTTP/REST Token Bearer| Router
     Browser <-->|WebSocket Progress Stream| WSManager
+    WSClient <-->|Live Stream| WSManager
     Router --> AuthModule
-    Router --> ETLEngine
-    WSManager -.->|Live Progress Broadcast| Browser
-    ETLEngine -->|Vectorized Cleansing & Derivations| SQLiteDB
-    ETLEngine -->|Raw Excel Persistence| FileStore
-    CronEngine -->|Directory Sweep 15 min| ETLEngine
+    Router --> IngestionPipeline
+    WSManager -.->|Real-Time Progress Broadcast| Browser
+    IngestionPipeline -->|Vectorized Cleansing & Derivations| RelationalDB
+    IngestionPipeline -->|Raw Excel Persistence| FileStore
+    CronEngine -->|Dynamic Folder Sweep| ActiveConfig
+    ActiveConfig -->|Filtered Ingestion| IngestionPipeline
           </div>
         </div>
       </div>
@@ -579,19 +551,19 @@ graph TB
         <div class="diagram-wrapper">
           <div class="mermaid">
 graph LR
-    subgraph Users ["Actors & Systems"]
+    subgraph Users ["Actors & Stakeholders"]
         AdminUser["System Administrator"]
-        AnalystUser["Agency Analyst"]
-        Vendors["Contact Center Vendors"]
+        AnalystUser["Agency Analyst / Supervisor"]
+        Vendors["Contact Center Vendors (Digitech / NSB)"]
     end
 
     subgraph CorePlatform ["UIDAI Operations Platform"]
-        UIDAIApp["UIDAI Ingestion, Analytics & Audit Engine"]
+        PlatformGateway["Ingestion, Analytics, RBAC & Audit Engine"]
     end
 
-    Vendors -->|"Uploads Raw CCF Logs (.xlsx)"| UIDAIApp
-    AdminUser -->|"Configures SLAs, RBAC & Audits Logs"| UIDAIApp
-    AnalystUser -->|"Analyzes Performance & Exports Reports"| UIDAIApp
+    Vendors -->|"Uploads Raw CCF Logs & UniMate Telemetry (.xlsx / .xls)"| PlatformGateway
+    AdminUser -->|"Configures Active Folders, RBAC, SLA Rules & Audits Logs"| PlatformGateway
+    AnalystUser -->|"Analyzes Cross-Vendor Trends & Exports PDF/Excel Reports"| PlatformGateway
           </div>
         </div>
       </div>
@@ -640,6 +612,11 @@ graph LR
                 <td><code>Avg_Hold = Total_Hold_Time / Total_ACD_Calls</code></td>
               </tr>
               <tr>
+                <td><strong>DNIS Company Resolution</strong></td>
+                <td>Identification of vendor attribution in UniMate IVR streams based on dialed number prefix.</td>
+                <td><code>DNIS starts with 56 &rarr; Digitech | 57 &rarr; NSB</code></td>
+              </tr>
+              <tr>
                 <td><strong>Dynamic Time Bucketing</strong></td>
                 <td>Auto-resampling aggregation according to query interval span.</td>
                 <td><code>&le;7d: Daily | &gt;31d: Weekly | &gt;90d: Monthly</code></td>
@@ -648,6 +625,11 @@ graph LR
                 <td><strong>Lazy Password Upgrading</strong></td>
                 <td>Transparent cryptographic hash migration upon valid login.</td>
                 <td><code>if pwd_context.needs_update(): rehash()</code></td>
+              </tr>
+              <tr>
+                <td><strong>Provenance Audit Trail</strong></td>
+                <td>Strict attribution of operations with forwarded IP, User Agent, and endpoint.</td>
+                <td><code>Captured in AuditLog from X-Forwarded-For</code></td>
               </tr>
             </tbody>
           </table>
@@ -679,23 +661,43 @@ graph LR
             <tbody>
               <tr>
                 <td><strong><code>auth_utils</code></strong></td>
-                <td><code>get_current_user(), verify_and_upgrade_password(), add_log()</code></td>
-                <td>JWT decoding, passlib hashing, fallback bcrypt verification, IP/User-Agent provenance extraction, audit logging.</td>
+                <td><code>get_current_user(), verify_and_upgrade_password(), add_log(), archive_old_logs()</code></td>
+                <td>JWT decoding, passlib hashing, fallback bcrypt verification, IP/User-Agent provenance extraction, 90-day automatic log pruning.</td>
               </tr>
               <tr>
-                <td><strong><code>ETL Engine</code></strong></td>
-                <td><code>process_file_background(path, filename, client_id, user)</code></td>
-                <td>OpenPyXL multi-sheet reading, pandas vectorized calculations, SLA penalty assignment, SQLite upsert chunking.</td>
+                <td><strong><code>CCFParser</code></strong></td>
+                <td><code>CCFParser.parse(save_path, progress_callback)</code></td>
+                <td>OpenPyXL multi-sheet reading, pandas vectorized SLA/AHT calculations, SLA penalty assignment.</td>
+              </tr>
+              <tr>
+                <td><strong><code>UniMateParser</code></strong></td>
+                <td><code>UniMateParser.parse(save_path, progress_callback)</code></td>
+                <td>DNIS-based vendor assignment (<code>56*</code> vs <code>57*</code>), duration string normalization to seconds, language code resolution.</td>
+              </tr>
+              <tr>
+                <td><strong><code>CCFDatabaseRepo</code></strong></td>
+                <td><code>CCFDatabaseRepo.save_parsed_data(...)</code></td>
+                <td>FileMetadata registration, 1000-row batch chunking, SQLite <code>on_conflict_do_update</code> on composite keys.</td>
+              </tr>
+              <tr>
+                <td><strong><code>UniMateDatabaseRepo</code></strong></td>
+                <td><code>UniMateDatabaseRepo.save_parsed_data(...)</code></td>
+                <td>FileMetadata registration, 1000-row batch chunking, SQLite <code>on_conflict_do_update</code> on <code>(ucid)</code>.</td>
+              </tr>
+              <tr>
+                <td><strong><code>ActiveFoldersConfig</code></strong></td>
+                <td><code>ActiveFoldersConfig.get_active_folders(db)</code></td>
+                <td>Dynamic DB query for active ingestion directories with safe fallback to defaults.</td>
               </tr>
               <tr>
                 <td><strong><code>api_client</code></strong></td>
                 <td><code>get_dataframe(), login(), upload_file()</code></td>
-                <td>Requests session pooling, forwarded headers (<code>X-Forwarded-For</code>), in-memory LRU caching.</td>
+                <td>Requests session pooling, forwarded provenance headers (<code>X-Forwarded-For</code>), in-memory LRU caching.</td>
               </tr>
               <tr>
                 <td><strong><code>theme & export</code></strong></td>
-                <td><code>get_plotly_template(), make_header_with_download()</code></td>
-                <td>PostHog light palette, skeleton loaders, integrated PDF/PNG/HTML export dropdown bindings.</td>
+                <td><code>get_plotly_template(), generate_pdf_report(), make_header_with_download()</code></td>
+                <td>PostHog light palette, ReportLab programmatic PDF compilation, dynamic Excel export dropdown bindings.</td>
               </tr>
             </tbody>
           </table>
@@ -716,30 +718,35 @@ graph LR
           <div class="mermaid">
 sequenceDiagram
     autonumber
-    actor Client as User / Browser
-    participant WS as WebSocket (:8000)
-    participant API as FastAPI (/upload)
-    participant Disk as Local File Storage
-    participant ETL as ETL Worker (Async)
-    participant DB as Relational Database
+    actor Client as User / Browser (Dash)
+    participant WS as WebSocket (/ws/progress/{client_id})
+    participant API as FastAPI Gateway (/upload)
+    participant Disk as Raw File System (uidai_data/)
+    participant Worker as Background Task
+    participant Parser as Domain Parser (CCF / UniMate)
+    participant Repo as DB Repository (CCF / UniMate)
+    participant DB as SQLite Relational Database
 
     Client->>WS: Connect WebSocket (client_id)
     WS-->>Client: Connection Accepted
     Client->>API: POST /upload (File + client_id + data_type)
-    API->>Disk: Persist raw Excel file to disk
-    API->>ETL: Dispatch process_file_background (Async Task)
+    API->>Disk: Persist raw Excel/CSV file to directory
+    API->>Worker: Dispatch process_file_background (Async Task)
     API-->>Client: HTTP 200 {"status": "processing"}
 
-    ETL->>WS: Broadcast Progress 10% (Parsing file)
-    ETL->>ETL: OpenPyXL Multi-Sheet Read & Concat
-    ETL->>WS: Broadcast Progress 60% (Cleaning & Imputing)
-    ETL->>ETL: Vectorized KPI Computations (SLA, AHT, Hold Status)
-    ETL->>WS: Broadcast Progress 90% (Inserting into DB)
-    ETL->>DB: Insert FileMetadata record
-    ETL->>DB: Bulk Upsert (CCFData via ON CONFLICT DO UPDATE)
-    ETL->>DB: Write AuditLog (FILE_UPLOADED)
-    ETL->>WS: Broadcast Complete 100%
-    WS-->>Client: Progress 100% (Triggers UI Refresh)
+    Worker->>WS: Broadcast Progress 10% (Parsing file...)
+    Worker->>Parser: parse(save_path, progress_callback)
+    Parser->>Parser: OpenPyXL Sheet Iteration / CSV Read
+    Worker->>WS: Broadcast Progress 60% (Cleaning & Deriving KPIs...)
+    Parser->>Parser: Vectorized KPI Computations (SLA, AHT, DNIS Mapping)
+    Parser-->>Worker: Cleaned DataFrame
+    Worker->>WS: Broadcast Progress 90% (Inserting into database...)
+    Worker->>Repo: save_parsed_data(db, df, ...)
+    Repo->>DB: Insert FileMetadata record
+    Repo->>DB: Chunked ON CONFLICT DO UPDATE Upsert (1000 rows/batch)
+    Repo->>DB: Insert AuditLog (FILE_UPLOADED + Metadata)
+    Worker->>WS: Broadcast Progress 100% (Complete)
+    WS-->>Client: Triggers Client-side UI Refresh & Notification
           </div>
         </div>
       </div>
@@ -789,9 +796,11 @@ erDiagram
     }
 
     FileMetadata ||--o{ CCFData : "contains"
+    FileMetadata ||--o{ UniMateData : "contains"
     FileMetadata {
         int id PK
         string filename
+        string upload_directory
         string data_type
         string uploaded_at
         string uploader
@@ -823,6 +832,27 @@ erDiagram
         float avg_handle_time
         string aht_status
     }
+
+    UniMateData {
+        int id PK
+        int file_id FK
+        string ucid UK
+        string session_id
+        string company
+        string day_of_week
+        string call_start_time
+        string call_end_time
+        int call_duration
+        string ani
+        string dnis
+        string language
+        string authentication
+        string auth_mechanism
+        string termination_type
+        string termination_reason
+        string description
+        string region
+    }
           </div>
         </div>
       </div>
@@ -852,7 +882,7 @@ erDiagram
         </div>
         <p style="color: var(--text-muted); font-size: 13.5px;">
           <strong>Context:</strong> Files are often re-uploaded with overlapping timestamps.<br>
-          <strong>Decision:</strong> Enforce composite unique constraint <code>(company, language, call_timestamp)</code> and apply SQLite/PostgreSQL <code>ON CONFLICT DO UPDATE</code>.<br>
+          <strong>Decision:</strong> Enforce composite unique constraints <code>(company, language, call_timestamp)</code> and <code>(ucid)</code>, applying SQLite <code>ON CONFLICT DO UPDATE</code>.<br>
           <strong>Result:</strong> Guaranteed data consistency with zero duplicate records.
         </p>
       </div>
@@ -863,8 +893,30 @@ erDiagram
         </div>
         <p style="color: var(--text-muted); font-size: 13.5px;">
           <strong>Context:</strong> Frontend acts as an internal proxy, which would mask client IPs as <code>127.0.0.1</code>.<br>
-          <strong>Decision:</strong> Forwarded original <code>X-Forwarded-For</code> and <code>User-Agent</code> headers from Dash to FastAPI.<br>
+          <strong>Decision:</strong> Forward original <code>X-Forwarded-For</code> and <code>User-Agent</code> headers from Dash to FastAPI.<br>
           <strong>Result:</strong> Non-repudiation audit logging for regulatory standards.
+        </p>
+      </div>
+
+      <div class="adr-card" style="border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.05);">
+        <div class="adr-title">
+          <span class="adr-tag" style="background: #f59e0b;">ADR 0004</span> Pure Domain Parsers & Repository Pattern Separation
+        </div>
+        <p style="color: var(--text-muted); font-size: 13.5px;">
+          <strong>Context:</strong> Combining file parsing, KPI calculation, and database persistence created tight coupling and testing hurdles.<br>
+          <strong>Decision:</strong> Extracted pure domain parsers (<code>CCFParser</code>, <code>UniMateParser</code>) and dedicated persistence repositories (<code>CCFDatabaseRepo</code>, <code>UniMateDatabaseRepo</code>).<br>
+          <strong>Result:</strong> Deep modules, clean seams, and trivial extensibility for future datasets.
+        </p>
+      </div>
+
+      <div class="adr-card" style="border-left-color: #8b5cf6; background: rgba(139, 92, 246, 0.05);">
+        <div class="adr-title">
+          <span class="adr-tag" style="background: #8b5cf6;">ADR 0005</span> Dynamic DB-Configured Directory Sweep
+        </div>
+        <p style="color: var(--text-muted); font-size: 13.5px;">
+          <strong>Context:</strong> Scheduled ingestion required hardcoded folder paths, preventing runtime management of ingested telemetry types.<br>
+          <strong>Decision:</strong> Integrated APScheduler with <code>ActiveFoldersConfig</code> reading enabled folders from database <code>Setting</code> records every 3 minutes.<br>
+          <strong>Result:</strong> Zero-downtime dynamic folder management and hands-free automatic file ingestion.
         </p>
       </div>
     </section>

@@ -7,6 +7,10 @@
 ## Existing Ideas
 [o] Move upload functionality to Admin side and restrict Users from uploading. — Improves data governance; low complexity.
 [x] Allow Admin to select which companies a specific user can view (Row-Level RBAC)
+[x] Implement pure domain parsers (CCFParser, UniMateParser) and database repositories (CCFDatabaseRepo, UniMateDatabaseRepo)
+[x] Dynamic database-configured directory sweep for unindexed files via ActiveFoldersConfig
+[x] 90-day automatic audit log archiving on backend startup
+[x] Clientside 30-minute inactivity auto-logout protection in Dash UI
 [o] Migrate from SQLite to PostgreSQL for concurrent usage — Addresses known technical debt for backend database concurrency.
 [o] Implement Server-Side Caching (Redis) to replace client-side Dash memory caching — Addresses known technical debt to prevent browser freezing as data scales.
 [o] Multi-Tenant RBAC (Super Admin -> Tenant Admin -> Tenant User) — Parked idea; potentially over-engineered for <50 users, but tracked for future scaling.
