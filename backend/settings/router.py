@@ -23,5 +23,5 @@ async def get_system_logs(current_user: dict = Depends(get_current_user), db: Se
     if current_user["role"] != "Admin":
         raise HTTPException(status_code=403, detail="Admin only")
     logs = load_logs(db)
-    logs.sort(key=lambda x: x['timestamp'], reverse=True)
+    logs.sort(key=lambda x: x['timestamp'] or "", reverse=True)
     return logs

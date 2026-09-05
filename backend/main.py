@@ -130,6 +130,17 @@ async def startup_event():
         command.stamp(alembic_cfg, "head")
     except Exception as e:
         print(f"Warning: Failed to stamp alembic head: {e}")
+        if "Can't locate revision identified by" in str(e):
+            print("Attempting to recover by dropping alembic_version table...")
+            try:
+                from sqlalchemy import text
+                with engine.connect() as connection:
+                    connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
+                    connection.commit()
+                command.stamp(alembic_cfg, "head")
+                print("Successfully recovered alembic version.")
+            except Exception as e2:
+                print(f"Failed to recover alembic version: {e2}")
 
     # Initialize DB session for startup tasks
     db = SessionLocal()

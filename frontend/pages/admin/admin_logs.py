@@ -139,11 +139,11 @@ def fetch_and_populate_logs(auth_state, refresh_clicks, load_all, start_date, en
                 return [], ""
                 
             # Backend already returns newest first.
-            logs.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+            logs.sort(key=lambda x: x.get('timestamp') or '', reverse=True)
             
             # Format timestamp for better readability
             for log in logs:
-                raw_ts = log.get("timestamp", "")
+                raw_ts = log.get("timestamp") or ""
                 log["timestamp"] = raw_ts.replace("T", " ")[:19]
             
             if start_date and end_date:

@@ -80,7 +80,21 @@ def get_history_options(token, user_role=None, permissions=None, impersonate=Non
     options = []
     current_group = None
     for item in file_times:
-        mtime = datetime.fromisoformat(item['time'])
+        time_val = item.get('time')
+        if not time_val:
+            continue
+        
+        if isinstance(time_val, (int, float)):
+            mtime = datetime.fromtimestamp(time_val)
+        else:
+            time_str = str(time_val)
+            if time_str.endswith('Z'):
+                time_str = time_str[:-1] + '+00:00'
+            try:
+                mtime = datetime.fromisoformat(time_str)
+            except ValueError:
+                continue # Skip invalid dates gracefully
+                
         date = mtime.date()
         age_days = (today - date).days
         if age_days == 0:

@@ -355,7 +355,7 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
         
         fig_heat = px.line(
             heat_grp, x='Hour', y='Volume', color='Date_Str',
-            markers=True, template=template
+            markers=True, template=template, render_mode='svg'
         )
         # Apply spline smoothing to all traces
         fig_heat.update_traces(line_shape='spline')
