@@ -44,6 +44,12 @@ layout = html.Div([
         dbc.Col([
             wrap_chart_card('unimate-error-heatmap', "System & Error Outage Heatmap", "unimate-insights")
         ], width=12, lg=7, className="mb-4")
+    ]),
+
+    dbc.Row([
+        dbc.Col([
+            wrap_chart_card('unimate-lang-heatmap', "Language vs Half-Hourly Volume", "unimate-insights")
+        ], width=12, className="mb-4")
     ])
 ], className="container-fluid py-4")
 
@@ -52,6 +58,7 @@ layout = html.Div([
     Output('unimate-resolution-container', 'children'),
     Output('unimate-auth-mech-container', 'children'),
     Output('unimate-error-heatmap-container', 'children'),
+    Output('unimate-lang-heatmap-container', 'children'),
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
@@ -66,7 +73,7 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
         return render_empty_state(graph_id=gid)
 
     empty_kpi = dbc.Col(html.Div(e_ui(), style={"height": "120px"}), width=12)
-    outs = [empty_kpi] + [e_ui(gid) for gid in ['unimate-resolution', 'unimate-auth-mech', 'unimate-error-heatmap']]
+    outs = [empty_kpi] + [e_ui(gid) for gid in ['unimate-resolution', 'unimate-auth-mech', 'unimate-error-heatmap', 'unimate-lang-heatmap']]
 
     if not data_ref or 'filename' not in data_ref: return outs
     token = auth_state.get('token') if auth_state else None
@@ -144,9 +151,9 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
             fig_res.update_yaxes(range=[max(0, min(res_grp['Resolution Rate'].min() - 2, 80)), min(100, res_grp['Resolution Rate'].max() + 2)])
         else:
             fig_res.update_yaxes(range=[0, 100])
-        ui_res = dcc.Graph(id='unimate-resolution', figure=fig_res, config={'displayModeBar': False})
+        res_ui = dcc.Graph(id='unimate-resolution', figure=fig_res, config={'displayModeBar': False})
     else:
-        ui_res = e_ui('unimate-resolution')
+        res_ui = e_ui('unimate-resolution')
 
     # 2. Auth Mechanism Stacked Bar
     if 'Authentication Mechanism' in df.columns:
@@ -161,11 +168,16 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
                 marker_line_width=0, 
             )
             fig_mech.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False, bargap=0.15)
-            ui_mech = dcc.Graph(id='unimate-auth-mech', figure=fig_mech, config={'displayModeBar': False})
+            if not mech_df.empty and 'Count' in mech_df.columns:
+                min_val = mech_df['Count'].min()
+                max_val = mech_df['Count'].max()
+                if max_val > min_val:
+                    fig_mech.update_yaxes(range=[0 if min_val == 0 else min_val * 0.9, max_val * 1.1])
+            mech_ui = dcc.Graph(id='unimate-auth-mech', figure=fig_mech, config={'displayModeBar': False})
         else:
-            ui_mech = e_ui('unimate-auth-mech')
+            mech_ui = e_ui('unimate-auth-mech')
     else:
-        ui_mech = e_ui('unimate-auth-mech')
+        mech_ui = e_ui('unimate-auth-mech')
 
     # 3. Error Outage Heatmap
     if date_col and 'Termination Reason' in df.columns:
@@ -188,8 +200,9 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
                 labels=dict(x="Hour of Day", y="Day of Week", color="Error Count"),
                 x=[f"{h:02d}:00" for h in range(24)],
                 y=days_order,
-                color_continuous_scale="Reds",
-                aspect="auto"
+                color_continuous_scale="rdbu_r",
+                aspect="auto",
+                text_auto=True
             )
             fig_heat.update_traces(
                 hovertemplate='<b>%{y}, %{x}</b><br>Errors: %{z}<extra></extra>',
@@ -202,13 +215,30 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
                 coloraxis_showscale=True,
                 plot_bgcolor='rgba(0,0,0,0)',
             )
-            ui_heat = dcc.Graph(id='unimate-error-heatmap', figure=fig_heat, config={'displayModeBar': False})
+            error_ui = dcc.Graph(id='unimate-error-heatmap', figure=fig_heat, config={'displayModeBar': False})
         else:
-            ui_heat = e_ui('unimate-error-heatmap')
+            error_ui = e_ui('unimate-error-heatmap')
     else:
-        ui_heat = e_ui('unimate-error-heatmap')
+        error_ui = e_ui('unimate-error-heatmap')
 
-    return kpis, ui_res, ui_mech, ui_heat
+    # 4. Language vs Half-Hourly Volume Heatmap
+    if date_col and 'Language' in df.columns:
+        df_time = df.copy()
+        df_time['Time_30'] = df_time[date_col].dt.floor('30min').dt.strftime('%H:%M')
+        lang_time_grp = df_time.groupby(['Language', 'Time_30']).size().reset_index(name='Volume')
+        if not lang_time_grp.empty:
+            pivot_df = lang_time_grp.pivot(index='Language', columns='Time_30', values='Volume').fillna(0)
+            fig_lang_heat = px.imshow(
+                pivot_df, text_auto=True, aspect="auto", color_continuous_scale='rdbu_r', origin='upper'
+            )
+            fig_lang_heat.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), xaxis_title="Time (Half-Hourly)", yaxis_title="")
+            lang_heat_ui = dcc.Graph(id='unimate-lang-heatmap', figure=fig_lang_heat, config={'displayModeBar': False})
+        else:
+            lang_heat_ui = e_ui('unimate-lang-heatmap')
+    else:
+        lang_heat_ui = e_ui('unimate-lang-heatmap')
+
+    return kpis, res_ui, mech_ui, error_ui, lang_heat_ui
 
 
 # ---------------- EXPORT CALLBACKS ----------------
@@ -255,14 +285,15 @@ def export_csv_insights(n_clicks, data_ref, company_filter, language_filter, sta
     State('unimate-resolution', 'figure'),
     State('unimate-auth-mech', 'figure'),
     State('unimate-error-heatmap', 'figure'),
+    State('unimate-lang-heatmap', 'figure'),
     prevent_initial_call=True
 )
-def export_pdf_insights(n_clicks, res, mech, heat):
+def export_pdf_insights(n_clicks, res, mech, err, lang_heat):
     if not n_clicks: return dash.no_update
     index = ctx.triggered_id['index']
     
     figures = {
-        'unimate-resolution': res, 'unimate-auth-mech': mech, 'unimate-error-heatmap': heat
+        'unimate-resolution': res, 'unimate-auth-mech': mech, 'unimate-error-heatmap': err, 'unimate-lang-heatmap': lang_heat
     }
     
     if index == 'unimate-insights':
@@ -277,14 +308,15 @@ def export_pdf_insights(n_clicks, res, mech, heat):
     State('unimate-resolution', 'figure'),
     State('unimate-auth-mech', 'figure'),
     State('unimate-error-heatmap', 'figure'),
+    State('unimate-lang-heatmap', 'figure'),
     prevent_initial_call=True
 )
-def export_html_insights(n_clicks, res, mech, heat):
+def export_html_insights(n_clicks, res, mech, err, lang_heat):
     if not n_clicks: return dash.no_update
     index = ctx.triggered_id['index']
     
     figures = {
-        'unimate-resolution': res, 'unimate-auth-mech': mech, 'unimate-error-heatmap': heat
+        'unimate-resolution': res, 'unimate-auth-mech': mech, 'unimate-error-heatmap': err, 'unimate-lang-heatmap': lang_heat
     }
     
     if index == 'unimate-insights':

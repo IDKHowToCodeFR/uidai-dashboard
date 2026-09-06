@@ -68,6 +68,8 @@ def register_routing_callbacks(app, content_div):
                         dbc.Nav(
                             [
                                 dbc.NavLink([html.I(className="bi bi-grid-1x2-fill me-3"), html.Span("Dashboard", className="nav-link-text")], href="/cdr/dashboard", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                                dbc.NavLink([html.I(className="bi bi-person-badge-fill me-3"), html.Span("Agent Performance", className="nav-link-text")], href="/cdr/agent-performance", active="exact", className="body-strong mb-2 d-flex align-items-center"),
+                                dbc.NavLink([html.I(className="bi bi-lightning-fill me-3"), html.Span("Operational Insights", className="nav-link-text")], href="/cdr/insights", active="exact", className="body-strong mb-2 d-flex align-items-center"),
                                 dbc.NavLink([html.I(className="bi bi-table me-3"), html.Span("Raw Data Explorer", className="nav-link-text")], href="/cdr/raw_data", active="exact", className="body-strong mb-2 d-flex align-items-center"),
                             ], vertical=True, pills=True, className="custom-sidebar-nav mb-4"
                         )

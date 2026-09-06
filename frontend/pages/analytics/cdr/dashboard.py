@@ -28,10 +28,13 @@ layout = html.Div([
     dbc.Row([
         dbc.Col([
             wrap_chart_card('cdr-breakdown', "Talktime vs Hold Time vs ACW (Average Seconds)", "cdr")
-        ], width=12, lg=6, className="mb-4"),
+        ], width=12, lg=4, className="mb-4"),
         dbc.Col([
             wrap_chart_card('cdr-language', "Calls by Language", "cdr")
-        ], width=12, lg=6, className="mb-4")
+        ], width=12, lg=4, className="mb-4"),
+        dbc.Col([
+            wrap_chart_card('cdr-outcome', "Call Outcome Breakdown", "cdr")
+        ], width=12, lg=4, className="mb-4")
     ]),
 
     dbc.Row([
@@ -55,6 +58,7 @@ layout = html.Div([
     Output('cdr-volume-container', 'children'),
     Output('cdr-breakdown-container', 'children'),
     Output('cdr-language-container', 'children'),
+    Output('cdr-outcome-container', 'children'),
     Output('cdr-intraday-language-container', 'children'),
     Output('cdr-transfer-language-container', 'children'),
     Output('cdr-talktime-language-container', 'children'),
@@ -72,16 +76,16 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
     empty_kpi = dbc.Col(html.Div(empty_ui, style={"height": "120px"}), width=12)
 
     if not data_ref or 'filename' not in data_ref:
-        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
+        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
 
     token = auth_state.get('token') if auth_state else None
     if not token:
-        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
+        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
 
     df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
 
     if df is None or df.empty:
-        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
+        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
 
     if companies and 'Company' in df.columns:
         df = df[df['Company'].isin(companies)]
@@ -104,7 +108,7 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
             df = df[(df['Date'] >= pd.to_datetime(start_date).date()) & (df['Date'] <= pd.to_datetime(end_date).date())]
 
     if df.empty:
-        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
+        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
 
     # KPIs
     total_calls = len(df)
@@ -138,10 +142,15 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
             
         vol_df = df.groupby(df['Date_Bucket'].dt.date).size().reset_index(name='Calls')
         vol_df.rename(columns={'Date_Bucket': 'Date'}, inplace=True)
-        fig_vol = px.bar(vol_df, x='Date', y='Calls', template='plotly_white', color_discrete_sequence=[COLOR_PRIMARY])
-        fig_vol.update_traces(hovertemplate='<b>Date:</b> %{x}<br><b>Calls:</b> %{y:,}<extra></extra>')
+        fig_vol = px.area(vol_df, x='Date', y='Calls', template='plotly_white', color_discrete_sequence=[COLOR_PRIMARY])
+        fig_vol.update_traces(hovertemplate='<b>Date:</b> %{x}<br><b>Calls:</b> %{y:,}<extra></extra>', line=dict(width=3, shape='spline'), fill='tozeroy')
         fig_vol.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)')
         fig_vol.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
+        if not vol_df.empty and 'Calls' in vol_df.columns:
+            min_val = vol_df['Calls'].min()
+            max_val = vol_df['Calls'].max()
+            if max_val > min_val:
+                fig_vol.update_yaxes(range=[0 if min_val == 0 else min_val * 0.9, max_val * 1.1])
         vol_ui = dcc.Graph(figure=fig_vol, config={'displayModeBar': False})
     else:
         vol_ui = empty_ui
@@ -177,6 +186,29 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
     else:
         lang_ui = empty_ui
 
+    # Call Outcome Breakdown
+    if 'transferred' in df.columns and 'agt_released' in df.columns:
+        outcome_df = df.copy()
+        def get_outcome(row):
+            if row['transferred'] == 1 or str(row['transferred']).lower() == 'true':
+                return 'Transferred'
+            elif row['agt_released'] == 1 or str(row['agt_released']).lower() == 'true':
+                return 'Agent Released'
+            else:
+                return 'Customer Released'
+        
+        outcome_df['Outcome'] = outcome_df.apply(get_outcome, axis=1)
+        out_counts = outcome_df['Outcome'].value_counts().reset_index()
+        out_counts.columns = ['Outcome', 'Count']
+        
+        fig_out = px.pie(out_counts, names='Outcome', values='Count', template='plotly_white', hole=0.6,
+                         color_discrete_sequence=[COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING])
+        fig_out.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>%{label}</b><br>Count: %{value:,}<extra></extra>', marker=dict(line=dict(color='#ffffff', width=2)))
+        fig_out.update_layout(margin=dict(l=0, r=0, t=20, b=0), showlegend=False)
+        out_ui = dcc.Graph(figure=fig_out, config={'displayModeBar': False})
+    else:
+        out_ui = empty_ui
+
     # Intraday Language Distribution (line chart)
     if 'Date' in df.columns and not df['Date'].isna().all() and 'Language' in df.columns and 'segstart' in df.columns:
         df['Time'] = pd.to_datetime(df['segstart'], format='%d-%m-%Y %H:%M:%S', errors='coerce').dt.floor('30min').dt.time
@@ -208,6 +240,12 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
         fig_trans_lang.update_traces(hovertemplate='<b>%{x}</b><br>Transfer Rate: %{y:.1f}%<extra></extra>')
         fig_trans_lang.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)')
         fig_trans_lang.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
+        
+        min_val = transfer_lang['Transfer Rate %'].min()
+        max_val = transfer_lang['Transfer Rate %'].max()
+        if max_val > min_val or max_val > 0:
+            fig_trans_lang.update_yaxes(range=[0 if min_val == 0 else min_val * 0.9, max_val * 1.1])
+            
         transfer_lang_ui = dcc.Graph(figure=fig_trans_lang, config={'displayModeBar': False})
     else:
         transfer_lang_ui = empty_ui
@@ -222,8 +260,14 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
         fig_talk_lang.update_traces(hovertemplate='<b>%{x}</b><br>Avg Talktime: %{y:.1f}s<extra></extra>')
         fig_talk_lang.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)')
         fig_talk_lang.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
+        
+        min_val = talk_lang['Avg Talktime'].min()
+        max_val = talk_lang['Avg Talktime'].max()
+        if max_val > min_val or max_val > 0:
+            fig_talk_lang.update_yaxes(range=[0 if min_val == 0 else min_val * 0.9, max_val * 1.1])
+            
         talk_lang_ui = dcc.Graph(figure=fig_talk_lang, config={'displayModeBar': False})
     else:
         talk_lang_ui = empty_ui
 
-    return kpis, vol_ui, breakdown_ui, lang_ui, intra_lang_ui, transfer_lang_ui, talk_lang_ui
+    return kpis, vol_ui, breakdown_ui, lang_ui, out_ui, intra_lang_ui, transfer_lang_ui, talk_lang_ui
