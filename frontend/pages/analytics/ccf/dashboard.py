@@ -382,6 +382,10 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             fig_vol.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             fig_vol.update_xaxes(title_text="Date")
             fig_vol.update_yaxes(title_text="Volume", secondary_y=False, showgrid=False)
+            if not daily_grp.empty and "Call Offered" in daily_grp.columns:
+                min_v, max_v = daily_grp["Call Offered"].min(), daily_grp["Call Offered"].max()
+                if max_v > min_v:
+                    fig_vol.update_yaxes(secondary_y=False, range=[0 if min_v == 0 else min_v * 0.9, max_v * 1.1])
             fig_vol.update_yaxes(title_text="Abandon Rate %", secondary_y=True, showgrid=False)
             ui_vol = dcc.Graph(id='vol-aban-trend', figure=fig_vol, config={'displayModeBar': False})
         else:
@@ -427,6 +431,11 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             fig_off_ans = go.Figure(data=[trace_off, trace_ans])
             fig_off_ans.update_layout(barmode='group', template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             fig_off_ans.update_xaxes(title_text="Date")
+            if not daily_grp.empty and "Call Offered" in daily_grp.columns and "ACD Calls" in daily_grp.columns:
+                min_v = min(daily_grp["Call Offered"].min(), daily_grp["ACD Calls"].min())
+                max_v = max(daily_grp["Call Offered"].max(), daily_grp["ACD Calls"].max())
+                if max_v > min_v:
+                    fig_off_ans.update_yaxes(range=[0 if min_v == 0 else min_v * 0.9, max_v * 1.1])
             ui_off_ans = dcc.Graph(id='offered-ans-bar', figure=fig_off_ans, config={'displayModeBar': False})
         else:
             ui_off_ans = e_ui('offered-ans-bar')
