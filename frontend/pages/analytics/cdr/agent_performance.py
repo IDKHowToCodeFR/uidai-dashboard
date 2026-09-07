@@ -43,7 +43,10 @@ layout = html.Div([
     dbc.Row([
         dbc.Col([
             wrap_chart_card('cdr-agent-scatter', "Talktime vs Hold Time per Agent", "cdr-agent")
-        ], width=12, className="mb-4")
+        ], width=12, lg=6, className="mb-4"),
+        dbc.Col([
+            wrap_chart_card('cdr-agent-aht', "Top 10 Agents by AHT (Seconds)", "cdr-agent")
+        ], width=12, lg=6, className="mb-4")
     ])
 ], className="container-fluid py-4")
 
@@ -52,6 +55,7 @@ layout = html.Div([
     Output('cdr-agent-volume-container', 'children'),
     Output('cdr-agent-transfer-container', 'children'),
     Output('cdr-agent-scatter-container', 'children'),
+    Output('cdr-agent-aht-container', 'children'),
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
@@ -64,13 +68,17 @@ def update_agent_performance(data_ref, companies, languages, start_date, end_dat
         return render_empty_state(graph_id=gid)
 
     empty_kpi = dbc.Col(html.Div(e_ui(), style={"height": "120px"}), width=12)
-    outs = [empty_kpi] + [e_ui(gid) for gid in ['cdr-agent-volume', 'cdr-agent-transfer', 'cdr-agent-scatter']]
 
-    if not data_ref or 'filename' not in data_ref: return outs
+    if not data_ref or 'filename' not in data_ref:
+        return empty_kpi, e_ui('cdr-agent-volume'), e_ui('cdr-agent-transfer'), e_ui('cdr-agent-scatter'), e_ui('cdr-agent-aht')
+
     token = auth_state.get('token') if auth_state else None
-    if not token: return outs
+    if not token:
+        return empty_kpi, e_ui('cdr-agent-volume'), e_ui('cdr-agent-transfer'), e_ui('cdr-agent-scatter'), e_ui('cdr-agent-aht')
+
     df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
-    if df is None or df.empty: return outs
+    if df is None or df.empty:
+        return empty_kpi, e_ui('cdr-agent-volume'), e_ui('cdr-agent-transfer'), e_ui('cdr-agent-scatter'), e_ui('cdr-agent-aht')
 
     if 'segstart' in df.columns:
         df['Date'] = pd.to_datetime(df['segstart'], format='%d-%m-%Y %H:%M:%S', errors='coerce').dt.date
@@ -116,8 +124,10 @@ def update_agent_performance(data_ref, companies, languages, start_date, end_dat
         Calls=('call_id', 'count') if 'call_id' in df.columns else ('anslogin', 'size'),
         Avg_Talktime=('talktime', 'mean') if 'talktime' in df.columns else ('anslogin', lambda x: 0),
         Avg_Holdtime=('ansholdtime', 'mean') if 'ansholdtime' in df.columns else ('anslogin', lambda x: 0),
+        Avg_ACWtime=('acwtime', 'mean') if 'acwtime' in df.columns else ('anslogin', lambda x: 0),
         Transfers=('transferred', 'sum') if 'transferred' in df.columns else ('anslogin', lambda x: 0)
     ).reset_index()
+    agent_grp['Avg_AHT'] = agent_grp['Avg_Talktime'] + agent_grp['Avg_Holdtime'] + agent_grp['Avg_ACWtime']
     
     agent_grp['Transfer_Rate'] = (agent_grp['Transfers'] / agent_grp['Calls']) * 100
 
@@ -166,8 +176,12 @@ def update_agent_performance(data_ref, companies, languages, start_date, end_dat
             hover_name='anslogin', template='plotly_white', color_discrete_sequence=[COLOR_PRIMARY],
             labels={'Avg_Talktime': 'Average Talk Time (s)', 'Avg_Holdtime': 'Average Hold Time (s)'}
         )
+        fig_scatter.update_traces(marker=dict(size=6, opacity=0.5))
+        med_talk = agent_grp['Avg_Talktime'].median()
+        med_hold = agent_grp['Avg_Holdtime'].median()
+        fig_scatter.add_vline(x=med_talk, line_dash="dash", line_color="gray", opacity=0.5)
+        fig_scatter.add_hline(y=med_hold, line_dash="dash", line_color="gray", opacity=0.5)
         fig_scatter.update_layout(margin=dict(t=10, b=10, l=10, r=10))
-        
         min_x = agent_grp['Avg_Talktime'].min()
         max_x = agent_grp['Avg_Talktime'].max()
         if max_x > min_x or max_x > 0:
@@ -182,7 +196,19 @@ def update_agent_performance(data_ref, companies, languages, start_date, end_dat
     else:
         scatter_ui = e_ui('cdr-agent-scatter')
 
-    return kpis, vol_ui, trans_ui, scatter_ui
+    # Top 10 Agents by AHT
+    top_aht = agent_grp.sort_values(by='Avg_AHT', ascending=False).head(10)
+    if not top_aht.empty and top_aht['Avg_AHT'].sum() > 0:
+        aht_melt = top_aht.melt(id_vars=['anslogin'], value_vars=['Avg_Talktime', 'Avg_Holdtime', 'Avg_ACWtime'], var_name='Metric', value_name='Time')
+        metric_map = {'Avg_Talktime': 'Talk Time', 'Avg_Holdtime': 'Hold Time', 'Avg_ACWtime': 'ACW Time'}
+        aht_melt['Metric'] = aht_melt['Metric'].map(metric_map)
+        fig_aht = px.bar(aht_melt, x='Time', y='anslogin', color='Metric', orientation='h', barmode='stack', template='plotly_white', color_discrete_sequence=[COLOR_PRIMARY, COLOR_WARNING, COLOR_NEUTRAL])
+        fig_aht.update_layout(yaxis={'categoryorder':'total ascending'}, margin=dict(t=10, b=10, l=10, r=10), yaxis_title="Agent ID", xaxis_title="Seconds")
+        aht_ui = dcc.Graph(id='cdr-agent-aht', figure=fig_aht, config={'displayModeBar': False})
+    else:
+        aht_ui = e_ui('cdr-agent-aht')
+
+    return kpis, vol_ui, trans_ui, scatter_ui, aht_ui
 
 
 # ---------------- EXPORT CALLBACKS ----------------
@@ -192,13 +218,14 @@ def update_agent_performance(data_ref, companies, languages, start_date, end_dat
     State('cdr-agent-volume', 'figure'),
     State('cdr-agent-transfer', 'figure'),
     State('cdr-agent-scatter', 'figure'),
+    State('cdr-agent-aht', 'figure'),
     prevent_initial_call=True
 )
-def export_pdf(n_clicks, vol, trans, scatter):
+def export_pdf(n_clicks, vol, trans, scatter, aht):
     if not n_clicks: return dash.no_update
     index = ctx.triggered_id['index']
     
-    figures = {'cdr-agent-volume': vol, 'cdr-agent-transfer': trans, 'cdr-agent-scatter': scatter}
+    figures = {'cdr-agent-volume': vol, 'cdr-agent-transfer': trans, 'cdr-agent-scatter': scatter, 'cdr-agent-aht': aht}
     
     if index == 'cdr-agent':
         pdf_bytes = generate_dashboard_pdf(figures, "CDR Agent Performance")
@@ -215,13 +242,14 @@ def export_pdf(n_clicks, vol, trans, scatter):
     State('cdr-agent-volume', 'figure'),
     State('cdr-agent-transfer', 'figure'),
     State('cdr-agent-scatter', 'figure'),
+    State('cdr-agent-aht', 'figure'),
     prevent_initial_call=True
 )
-def export_png(n_clicks, vol, trans, scatter):
+def export_png(n_clicks, vol, trans, scatter, aht):
     if not n_clicks: return dash.no_update
     index = ctx.triggered_id['index']
     
-    figures = {'cdr-agent-volume': vol, 'cdr-agent-transfer': trans, 'cdr-agent-scatter': scatter}
+    figures = {'cdr-agent-volume': vol, 'cdr-agent-transfer': trans, 'cdr-agent-scatter': scatter, 'cdr-agent-aht': aht}
     
     if index == 'cdr-agent':
         pdf_bytes = generate_dashboard_pdf(figures, "CDR Agent Performance")
@@ -238,13 +266,14 @@ def export_png(n_clicks, vol, trans, scatter):
     State('cdr-agent-volume', 'figure'),
     State('cdr-agent-transfer', 'figure'),
     State('cdr-agent-scatter', 'figure'),
+    State('cdr-agent-aht', 'figure'),
     prevent_initial_call=True
 )
-def export_html(n_clicks, vol, trans, scatter):
+def export_html(n_clicks, vol, trans, scatter, aht):
     if not n_clicks: return dash.no_update
     index = ctx.triggered_id['index']
     
-    figures = {'cdr-agent-volume': vol, 'cdr-agent-transfer': trans, 'cdr-agent-scatter': scatter}
+    figures = {'cdr-agent-volume': vol, 'cdr-agent-transfer': trans, 'cdr-agent-scatter': scatter, 'cdr-agent-aht': aht}
     
     if index == 'cdr-agent':
         html_str = generate_dashboard_html(figures, "CDR Agent Performance")

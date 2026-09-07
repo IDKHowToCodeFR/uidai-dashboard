@@ -57,7 +57,8 @@ layout = Container([
     ]),
     
     Row([
-        Col([wrap_chart_card("offered-ans-bar", "Calls Offered vs Answered (Daily)")], width=12, className="mb-4")
+        Col([wrap_chart_card("ccf-ans-funnel", "Answer Speed Funnel")], width=12, lg=5, className="mb-4"),
+        Col([wrap_chart_card("offered-ans-bar", "Calls Offered vs Answered (Daily)")], width=12, lg=7, className="mb-4")
     ])
 ], fluid=True, className="px-4")
 
@@ -72,6 +73,7 @@ layout = Container([
     Output('aht-line-chart-container', 'children'),
     Output('vol-aban-trend-container', 'children'),
     Output('aht-lang-bar-container', 'children'),
+    Output('ccf-ans-funnel-container', 'children'),
     Output('offered-ans-bar-container', 'children'),
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
@@ -88,16 +90,16 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             return render_empty_state(graph_id=gid)
     
         if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref:
-            return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('offered-ans-bar')
+            return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('ccf-ans-funnel'), e_ui('offered-ans-bar')
 
             
         token = auth_state.get('token') if auth_state else None
         if not token:
-            return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('offered-ans-bar')
+            return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('ccf-ans-funnel'), e_ui('offered-ans-bar')
             
         df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
         if df is None or df.empty:
-            return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('offered-ans-bar')
+            return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('ccf-ans-funnel'), e_ui('offered-ans-bar')
     
         date_candidates = ['Timestamp', 'Call Timestamp', 'Date', 'Call Start Time']
         df['Date'] = pd.NaT
@@ -201,8 +203,8 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             Col(make_kpi_card("Answer Rate", f"{ans_rate:.1f}%"), className="col-4 col-lg mb-4"),
             Col(make_kpi_card("Abandon Rate", f"{aban_rate:.1f}%"), className="col-4 col-lg mb-4"),
             Col(make_kpi_card("Service Level", f"{overall_sl:.1f}%", sl_status), className="col-4 col-lg mb-4"),
-            Col(make_kpi_card("SLA Vol Met", f"{int(total_acd_20):,}"), className="col-4 col-lg mb-4"),
             Col(make_kpi_card("AHT", f"{overall_aht:.0f}s", aht_status), className="col-4 col-lg mb-4"),
+            Col(make_kpi_card("Avg Hold Time", f"{overall_hold:.0f}s", "bad" if overall_hold > 20 else "good"), className="col-4 col-lg mb-4"),
         ]
     
         # Chart 1: SL Trend (using shared daily_grp)
@@ -246,6 +248,22 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
         else:
             ui_lang = e_ui('lang-pie')
     
+        # Chart 2.5: Funnel
+        if all(c in df_current.columns for c in ['Call Offered', 'ACD Calls in 20 Sec', 'ACD Calls', 'ABAN Calls']):
+            offered = df_current['Call Offered'].sum()
+            ans_total = df_current['ACD Calls'].sum()
+            ans_20 = df_current['ACD Calls in 20 Sec'].sum()
+            
+            funnel_data = dict(
+                Stage=["Total Offered", "Total Answered", "Ans < 20s"],
+                Count=[offered, ans_total, ans_20]
+            )
+            fig_funnel = px.funnel(funnel_data, x='Count', y='Stage', color_discrete_sequence=[COLOR_PRIMARY])
+            fig_funnel.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10))
+            ui_funnel = dcc.Graph(id='ccf-ans-funnel', figure=fig_funnel, config={'displayModeBar': False})
+        else:
+            ui_funnel = e_ui('ccf-ans-funnel')
+
         # Chart 3, 4, 5: Histograms
         if all(c in df_current.columns for c in ['ACD Time', 'ACW Time', 'Hold Time', 'ACD Calls']):
             df_valid = df_current[df_current['ACD Calls'] > 0].copy()
@@ -331,32 +349,10 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             comp_grp['SL %'] = np.where(den_sl_radar == 0, 0, (comp_grp['ACD Calls in 20 Sec'] / den_sl_radar * 100))
             comp_grp['No Abandon %'] = 100 - comp_grp['Abandon Rate (%)']
             
-            categories = ['SL %', 'Answer Rate %', 'No Abandon %', 'Talk Score', 'Wrap Score', 'Hold Score']
-            categories_closed = categories + [categories[0]]
-            
-            fig_agent = go.Figure()
-            
-            r_targets_closed = sla_targets + [sla_targets[0]]
-            fig_agent.add_trace(go.Scatterpolar(
-                r=r_targets_closed,
-                theta=categories_closed,
-                fill='toself',
-                name='Target Limit (Red Line)',
-                line=dict(color='red', dash='dot', width=2),
-                fillcolor='rgba(255, 0, 0, 0.05)',
-                hoverinfo='skip'
-            ))
-            
-            colors = ['#3182ce', '#38a169', '#d69e2e', '#805ad5', '#e53e3e', '#319795']
-            for i, row in comp_grp.iterrows():
-                r_vals = [row['SL %'], row['Answer Rate (%)'], row['No Abandon %'], row['Talk Score'], row['Wrap Score'], row['Hold Score']]
-                r_vals_closed = r_vals + [r_vals[0]]
-                fig_agent.add_trace(go.Scatterpolar(
-                    r=r_vals_closed,
-                    theta=categories_closed, fill='toself', name=row['Company'], line_color=colors[i % len(colors)], opacity=0.6
-                ))
-                
-            fig_agent.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True, template=get_plotly_template(), margin=dict(t=40, b=40, l=40, r=40))
+            kpi_cols = ['SL %', 'Answer Rate (%)', 'No Abandon %', 'Talk Score', 'Wrap Score', 'Hold Score']
+            melted = comp_grp.melt(id_vars='Company', value_vars=kpi_cols, var_name='KPI', value_name='Score')
+            fig_agent = px.bar(melted, x='Score', y='KPI', color='Company', barmode='group', orientation='h', template=get_plotly_template(), color_discrete_sequence=px.colors.qualitative.Vivid)
+            fig_agent.update_layout(margin=dict(t=10, b=10, l=10, r=10), xaxis=dict(range=[0, 100], title="Score"), yaxis_title="")
             ui_agent = dcc.Graph(id='aht-line-chart', figure=fig_agent, config={'displayModeBar': False})
         else:
             ui_agent = e_ui('aht-line-chart')
@@ -410,9 +406,9 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
                 
             sb_df = pd.DataFrame(sunburst_data)
             color_map = {'Talk Time': COLOR_PRIMARY, 'Wrap Time': COLOR_NEUTRAL, 'Hold Time': COLOR_DANGER}
-            fig_aht_lang = px.sunburst(sb_df, path=['Language', 'Metric'], values='Value', color='Metric', color_discrete_map=color_map)
-            fig_aht_lang.update_traces(textinfo='label+value', texttemplate='%{label}: %{value}s', hovertemplate='<b>%{label}</b><br>Value: %{value}s<extra></extra>')
-            fig_aht_lang.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10))
+            fig_aht_lang = px.bar(sb_df, x='Language', y='Value', color='Metric', color_discrete_map=color_map, barmode='stack')
+            fig_aht_lang.update_traces(hovertemplate='<b>%{x}</b><br>%{data.name}: %{y}s<extra></extra>')
+            fig_aht_lang.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), yaxis_title="Time (s)")
             ui_aht_lang = dcc.Graph(id='aht-lang-bar', figure=fig_aht_lang, config={'displayModeBar': False})
         else:
             ui_aht_lang = e_ui('aht-lang-bar')
@@ -440,14 +436,13 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
         else:
             ui_off_ans = e_ui('offered-ans-bar')
     
-        return kpis, ui_sl, ui_lang, ui_talk, ui_wrap, ui_hold, ui_intra, ui_agent, ui_vol, ui_aht_lang, ui_off_ans
+        return kpis, ui_sl, ui_lang, ui_talk, ui_wrap, ui_hold, ui_intra, ui_agent, ui_vol, ui_aht_lang, ui_funnel, ui_off_ans
     
     except Exception as e:
+        print(f"Error in ccf update_dashboard: {e}")
         import traceback
-        err_msg = traceback.format_exc()
-        from dash import html
-        err_ui = [html.Div([html.H4("Dashboard Error"), html.Pre(err_msg)], style={"color": "red", "padding": "20px"})]
-        return err_ui, e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('offered-ans-bar')
+        traceback.print_exc()
+        return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('ccf-ans-funnel'), e_ui('offered-ans-bar')
 # CSV Export Callback
 @callback(
     Output({'type': 'download-data-dashboard', 'index': dash.MATCH}, "data"),
@@ -518,9 +513,10 @@ from frontend.shared.pdf_generator import generate_single_chart_pdf, generate_da
     State('vol-aban-trend', 'figure'),
     State('aht-lang-bar', 'figure'),
     State('offered-ans-bar', 'figure'),
+    State('ccf-ans-funnel', 'figure'),
     prevent_initial_call=True
 )
-def export_pdf_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_line, vol, aht_bar, offered):
+def export_pdf_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_line, vol, aht_bar, offered, funnel):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
@@ -529,7 +525,8 @@ def export_pdf_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_lin
     figures = {
         'sl-trend': sl, 'lang-pie': lang, 'talk-hist': talk, 'wrap-hist': wrap,
         'hold-hist': hold, 'intraday-chart-overall': intraday, 'aht-line-chart': aht_line,
-        'vol-aban-trend': vol, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered
+        'vol-aban-trend': vol, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered,
+        'ccf-ans-funnel': funnel
     }
     
     if index == 'dashboard':
@@ -555,9 +552,10 @@ def export_pdf_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_lin
     State('vol-aban-trend', 'figure'),
     State('aht-lang-bar', 'figure'),
     State('offered-ans-bar', 'figure'),
+    State('ccf-ans-funnel', 'figure'),
     prevent_initial_call=True
 )
-def export_png_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_line, vol, aht_bar, offered):
+def export_png_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_line, vol, aht_bar, offered, funnel):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
@@ -566,7 +564,8 @@ def export_png_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_lin
     figures = {
         'sl-trend': sl, 'lang-pie': lang, 'talk-hist': talk, 'wrap-hist': wrap,
         'hold-hist': hold, 'intraday-chart-overall': intraday, 'aht-line-chart': aht_line,
-        'vol-aban-trend': vol, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered
+        'vol-aban-trend': vol, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered,
+        'ccf-ans-funnel': funnel
     }
     
     if index == 'dashboard':
@@ -591,9 +590,10 @@ def export_png_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_lin
     State('vol-aban-trend', 'figure'),
     State('aht-lang-bar', 'figure'),
     State('offered-ans-bar', 'figure'),
+    State('ccf-ans-funnel', 'figure'),
     prevent_initial_call=True
 )
-def export_html_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_line, vol, aht_bar, offered):
+def export_html_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_line, vol, aht_bar, offered, funnel):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
@@ -602,7 +602,8 @@ def export_html_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_li
     figures = {
         'sl-trend': sl, 'lang-pie': lang, 'talk-hist': talk, 'wrap-hist': wrap,
         'hold-hist': hold, 'intraday-chart-overall': intraday, 'aht-line-chart': aht_line,
-        'vol-aban-trend': vol, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered
+        'vol-aban-trend': vol, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered,
+        'ccf-ans-funnel': funnel
     }
     
     if index == 'dashboard':

@@ -39,16 +39,28 @@ layout = html.Div([
 
     dbc.Row([
         dbc.Col([
-            wrap_chart_card('unimate-auth-mech', "Authentication Mechanism Breakdown", "unimate-insights")
+            wrap_chart_card('unimate-auth-funnel', "Authentication Funnel", "unimate-insights")
         ], width=12, lg=5, className="mb-4"),
         dbc.Col([
-            wrap_chart_card('unimate-error-heatmap', "System & Error Outage Heatmap", "unimate-insights")
+            wrap_chart_card('unimate-auth-mech', "Authentication Mechanism Breakdown", "unimate-insights")
         ], width=12, lg=7, className="mb-4")
     ]),
 
     dbc.Row([
         dbc.Col([
+            wrap_chart_card('unimate-term-reason', "Termination Type vs Reason", "unimate-insights")
+        ], width=12, className="mb-4")
+    ]),
+
+    dbc.Row([
+        dbc.Col([
             wrap_chart_card('unimate-lang-heatmap', "Language vs Half-Hourly Volume", "unimate-insights")
+        ], width=12, className="mb-4")
+    ]),
+
+    dbc.Row([
+        dbc.Col([
+            wrap_chart_card('unimate-error-heatmap', "System & Error Outage Heatmap", "unimate-insights")
         ], width=12, className="mb-4")
     ])
 ], className="container-fluid py-4")
@@ -56,9 +68,11 @@ layout = html.Div([
 @callback(
     Output('unimate-insights-kpi', 'children'),
     Output('unimate-resolution-container', 'children'),
+    Output('unimate-auth-funnel-container', 'children'),
     Output('unimate-auth-mech-container', 'children'),
     Output('unimate-error-heatmap-container', 'children'),
     Output('unimate-lang-heatmap-container', 'children'),
+    Output('unimate-term-reason-container', 'children'),
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
@@ -73,7 +87,7 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
         return render_empty_state(graph_id=gid)
 
     empty_kpi = dbc.Col(html.Div(e_ui(), style={"height": "120px"}), width=12)
-    outs = [empty_kpi] + [e_ui(gid) for gid in ['unimate-resolution', 'unimate-auth-mech', 'unimate-error-heatmap', 'unimate-lang-heatmap']]
+    outs = [empty_kpi] + [e_ui(gid) for gid in ['unimate-resolution', 'unimate-auth-funnel', 'unimate-auth-mech', 'unimate-error-heatmap', 'unimate-lang-heatmap', 'unimate-term-reason']]
 
     if not data_ref or 'filename' not in data_ref: return outs
     token = auth_state.get('token') if auth_state else None
@@ -154,6 +168,21 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
         res_ui = dcc.Graph(id='unimate-resolution', figure=fig_res, config={'displayModeBar': False})
     else:
         res_ui = e_ui('unimate-resolution')
+
+    # 1.5 Auth Funnel
+    if 'Authentication' in df.columns:
+        total_calls = len(df)
+        auths = df['Authentication'].astype(str).str.lower().isin(['true', '1', '1.0']).sum()
+        
+        funnel_data = dict(
+            Stage=["Total Calls", "Authenticated"],
+            Count=[total_calls, auths]
+        )
+        fig_funnel = px.funnel(funnel_data, x='Count', y='Stage', color_discrete_sequence=[COLOR_PRIMARY])
+        fig_funnel.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10))
+        ui_funnel = dcc.Graph(id='unimate-auth-funnel', figure=fig_funnel, config={'displayModeBar': False})
+    else:
+        ui_funnel = e_ui('unimate-auth-funnel')
 
     # 2. Auth Mechanism Stacked Bar
     if 'Authentication Mechanism' in df.columns:
@@ -240,8 +269,19 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
     else:
         lang_heat_ui = e_ui('unimate-lang-heatmap')
 
-    return kpis, res_ui, mech_ui, error_ui, lang_heat_ui
+    # Termination Type vs Reason
+    if 'Termination Type' in df.columns and 'Termination Reason' in df.columns:
+        term_grp = df.groupby(['Termination Type', 'Termination Reason']).size().reset_index(name='Count')
+        fig_term = px.bar(
+            term_grp, x='Termination Type', y='Count', color='Termination Reason', barmode='stack',
+            template=get_plotly_template(), color_discrete_sequence=px.colors.qualitative.Pastel
+        )
+        fig_term.update_layout(margin=dict(t=10, b=10, l=10, r=10), yaxis_title="Count")
+        term_ui = dcc.Graph(id='unimate-term-reason', figure=fig_term, config={'displayModeBar': False})
+    else:
+        term_ui = e_ui('unimate-term-reason')
 
+    return kpis, res_ui, ui_funnel, mech_ui, error_ui, lang_heat_ui, term_ui
 
 # ---------------- EXPORT CALLBACKS ----------------
 
@@ -285,17 +325,19 @@ def export_csv_insights(n_clicks, data_ref, company_filter, language_filter, sta
     Output({'type': 'download-data-unimate-insights', 'index': dash.MATCH}, "data", allow_duplicate=True),
     Input({'type': 'export-pdf-unimate-insights', 'index': dash.MATCH}, "n_clicks"),
     State('unimate-resolution', 'figure'),
+    State('unimate-auth-funnel', 'figure'),
     State('unimate-auth-mech', 'figure'),
     State('unimate-error-heatmap', 'figure'),
     State('unimate-lang-heatmap', 'figure'),
+    State('unimate-term-reason', 'figure'),
     prevent_initial_call=True
 )
-def export_pdf_insights(n_clicks, res, mech, err, lang_heat):
+def export_pdf_insights(n_clicks, res, funnel, mech, err, lang_heat, term_reason):
     if not n_clicks: return dash.no_update
     index = ctx.triggered_id['index']
     
     figures = {
-        'unimate-resolution': res, 'unimate-auth-mech': mech, 'unimate-error-heatmap': err, 'unimate-lang-heatmap': lang_heat
+        'unimate-resolution': res, 'unimate-auth-funnel': funnel, 'unimate-auth-mech': mech, 'unimate-error-heatmap': err, 'unimate-lang-heatmap': lang_heat, 'unimate-term-reason': term_reason
     }
     
     if index == 'unimate-insights':
@@ -308,17 +350,19 @@ def export_pdf_insights(n_clicks, res, mech, err, lang_heat):
     Output({'type': 'download-data-unimate-insights', 'index': dash.MATCH}, "data", allow_duplicate=True),
     Input({'type': 'export-html-unimate-insights', 'index': dash.MATCH}, "n_clicks"),
     State('unimate-resolution', 'figure'),
+    State('unimate-auth-funnel', 'figure'),
     State('unimate-auth-mech', 'figure'),
     State('unimate-error-heatmap', 'figure'),
     State('unimate-lang-heatmap', 'figure'),
+    State('unimate-term-reason', 'figure'),
     prevent_initial_call=True
 )
-def export_html_insights(n_clicks, res, mech, err, lang_heat):
+def export_html_insights(n_clicks, res, funnel, mech, err, lang_heat, term_reason):
     if not n_clicks: return dash.no_update
     index = ctx.triggered_id['index']
     
     figures = {
-        'unimate-resolution': res, 'unimate-auth-mech': mech, 'unimate-error-heatmap': err, 'unimate-lang-heatmap': lang_heat
+        'unimate-resolution': res, 'unimate-auth-funnel': funnel, 'unimate-auth-mech': mech, 'unimate-error-heatmap': err, 'unimate-lang-heatmap': lang_heat, 'unimate-term-reason': term_reason
     }
     
     if index == 'unimate-insights':

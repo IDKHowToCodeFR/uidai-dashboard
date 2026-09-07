@@ -199,7 +199,7 @@ async def get_history(data_type: Optional[str] = None, impersonate: Optional[str
     files = query.order_by(FileMetadata.uploaded_at.desc()).all()
     
     lookback = current_user.get("data_lookback_days")
-    if lookback:
+    if lookback and not is_global:
         cutoff = (datetime.now() - timedelta(days=lookback)).isoformat()
         files = [f for f in files if f.uploaded_at >= cutoff]
 
@@ -247,7 +247,7 @@ async def get_aggregated_data(data_type: str = "CCF Data", impersonate: Optional
             query = query.filter(model_class.company.in_(user_companies))
             
     lookback = current_user.get("data_lookback_days")
-    if lookback:
+    if lookback and not is_global:
         cutoff = (datetime.now() - timedelta(days=lookback)).strftime("%Y-%m-%d")
         if data_type == "UniMate Data":
             query = query.filter(model_class.call_start_time >= cutoff)
@@ -295,7 +295,7 @@ async def get_data(filename: str, impersonate: Optional[str] = None, current_use
             query = query.filter(model_class.company.in_(user_companies))
             
     lookback = current_user.get("data_lookback_days")
-    if lookback:
+    if lookback and not is_global:
         cutoff = (datetime.now() - timedelta(days=lookback)).strftime("%Y-%m-%d")
         if file_meta.data_type == "UniMate Data":
             query = query.filter(model_class.call_start_time >= cutoff)
@@ -358,7 +358,7 @@ async def download_file(request: Request, filename: str, impersonate: Optional[s
             query = query.filter(model_class.company.in_(user_companies))
             
     lookback = current_user.get("data_lookback_days")
-    if lookback:
+    if lookback and not is_global:
         cutoff = (datetime.now() - timedelta(days=lookback)).strftime("%Y-%m-%d")
         if file_meta.data_type == "UniMate Data":
             query = query.filter(model_class.call_start_time >= cutoff)

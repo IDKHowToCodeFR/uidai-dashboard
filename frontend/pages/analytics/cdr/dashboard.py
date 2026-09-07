@@ -121,7 +121,7 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
         dbc.Col(make_kpi_card("Total Calls", f"{total_calls:,}"), width=True),
         dbc.Col(make_kpi_card("Avg Speed to Answer", f"{avg_hold:.1f}s", "bad" if avg_hold > 30 else "neutral"), width=True),
         dbc.Col(make_kpi_card("Avg Talk Time", f"{avg_talk:.1f}s"), width=True),
-        dbc.Col(make_kpi_card("Transfer Rate", f"{transfer_rate:.1f}%", "good" if transfer_rate < 10 else "neutral"), width=True),
+        dbc.Col(make_kpi_card("Transfer Rate", f"{transfer_rate:.1f}%", "bad" if transfer_rate > 15 else ("good" if transfer_rate < 10 else "neutral")), width=True),
     ]
 
     # Volume Trend
@@ -204,10 +204,10 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
         out_counts = outcome_df['Outcome'].value_counts().reset_index()
         out_counts.columns = ['Outcome', 'Count']
         
-        fig_out = px.pie(out_counts, names='Outcome', values='Count', template='plotly_white', hole=0.6,
-                         color_discrete_sequence=[COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING])
-        fig_out.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>%{label}</b><br>Count: %{value:,}<extra></extra>', marker=dict(line=dict(color='#ffffff', width=2)))
-        fig_out.update_layout(margin=dict(l=0, r=0, t=20, b=0), showlegend=False)
+        fig_out = px.bar(out_counts, x='Count', y='Outcome', orientation='h', template='plotly_white',
+                         color='Outcome', color_discrete_sequence=[COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING])
+        fig_out.update_traces(hovertemplate='<b>%{y}</b><br>Count: %{x:,}<extra></extra>')
+        fig_out.update_layout(margin=dict(l=0, r=0, t=20, b=0), showlegend=False, yaxis={'categoryorder':'total ascending'}, yaxis_title="")
         out_ui = dcc.Graph(figure=fig_out, config={'displayModeBar': False})
     else:
         out_ui = empty_ui
@@ -235,56 +235,36 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
 
     # Transfer Rate & Talktime by Language
     if 'Language' in df.columns and 'transferred' in df.columns and 'talktime' in df.columns:
-        from plotly.subplots import make_subplots
-        
         lang_grp = df.groupby('Language').agg(
             TransferRate=('transferred', lambda x: x.mean() * 100),
-            AvgTalktime=('talktime', 'mean')
+            AvgTalktime=('talktime', 'mean'),
+            Calls=('talktime', 'size')
         ).reset_index()
         
-        lang_grp = lang_grp.sort_values(by='TransferRate', ascending=False)
-        
-        fig_lang_metrics = make_subplots(specs=[[{"secondary_y": True}]])
-        
-        fig_lang_metrics.add_trace(go.Scatter(
-            x=lang_grp['Language'], y=lang_grp['TransferRate'],
-            name="Transfer Rate %", mode='lines+markers', line=dict(color=COLOR_WARNING, width=3, shape='spline'),
-            hovertemplate='<b>%{x}</b><br>Transfer Rate: %{y:.1f}%<extra></extra>'
-        ), secondary_y=False)
-        
-        fig_lang_metrics.add_trace(go.Scatter(
-            x=lang_grp['Language'], y=lang_grp['AvgTalktime'],
-            name="Avg Talktime (s)", mode='lines+markers', line=dict(color=COLOR_PRIMARY, width=3, shape='spline'),
-            hovertemplate='<b>%{x}</b><br>Avg Talktime: %{y:.1f}s<extra></extra>'
-        ), secondary_y=True)
-        
-        fig_lang_metrics.update_layout(
-            margin=dict(l=0, r=0, t=20, b=0),
-            plot_bgcolor='rgba(0,0,0,0)',
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        fig_lang_metrics = px.scatter(
+            lang_grp, x='AvgTalktime', y='TransferRate', size='Calls', color='Language',
+            hover_name='Language', template='plotly_white', size_max=40,
+            color_discrete_sequence=px.colors.qualitative.Pastel,
+            labels={'AvgTalktime': 'Avg Talk Time (s)', 'TransferRate': 'Transfer Rate %'}
         )
         
-        min_trans = lang_grp['TransferRate'].min()
-        max_trans = lang_grp['TransferRate'].max()
-        use_log_trans = should_use_log(min_trans, max_trans)
-        
-        min_talk = lang_grp['AvgTalktime'].min()
-        max_talk = lang_grp['AvgTalktime'].max()
-        use_log_talk = should_use_log(min_talk, max_talk)
-
-        fig_lang_metrics.update_yaxes(title_text="Transfer Rate %", showgrid=True, gridcolor='#f1f5f9', secondary_y=False)
-        if use_log_trans:
-            fig_lang_metrics.update_yaxes(type='log', secondary_y=False)
-        elif max_trans > 0:
-            fig_lang_metrics.update_yaxes(range=[0, max_trans * 1.1], secondary_y=False)
-
-        fig_lang_metrics.update_yaxes(title_text="Avg Talktime (s)", showgrid=False, secondary_y=True)
-        if use_log_talk:
-            fig_lang_metrics.update_yaxes(type='log', secondary_y=True)
-        elif max_talk > 0:
-            fig_lang_metrics.update_yaxes(range=[0, max_talk * 1.1], secondary_y=True)
+        # Add quadrant lines (median)
+        if len(lang_grp) > 0:
+            med_talk = lang_grp['AvgTalktime'].median()
+            med_trans = lang_grp['TransferRate'].median()
+            fig_lang_metrics.add_hline(y=med_trans, line_dash="dash", line_color="gray", opacity=0.5)
+            fig_lang_metrics.add_vline(x=med_talk, line_dash="dash", line_color="gray", opacity=0.5)
             
-        lang_metrics_ui = dcc.Graph(figure=fig_lang_metrics, config={'displayModeBar': False})
+        fig_lang_metrics.update_layout(
+            margin=dict(l=10, r=10, t=20, b=10),
+            plot_bgcolor='rgba(0,0,0,0)',
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        fig_lang_metrics.update_xaxes(showgrid=True, gridcolor='#f1f5f9')
+        fig_lang_metrics.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
+        
+        lang_metrics_ui = dcc.Graph(id='cdr-lang-metrics', figure=fig_lang_metrics, config={'displayModeBar': False})
     else:
         lang_metrics_ui = empty_ui
 

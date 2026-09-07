@@ -39,11 +39,8 @@ layout = html.Div([
 
     dbc.Row([
         dbc.Col([
-            wrap_chart_card('cdr-insights-hold', "Hold Time by Hour", "cdr-insights")
-        ], width=12, lg=6, className="mb-4"),
-        dbc.Col([
-            wrap_chart_card('cdr-insights-acw', "Wait (ACW) Time by Hour", "cdr-insights")
-        ], width=12, lg=6, className="mb-4")
+            wrap_chart_card('cdr-insights-hold', "Hold & ACW Time by Hour", "cdr-insights")
+        ], width=12, className="mb-4")
     ])
 ], className="container-fluid py-4")
 
@@ -51,7 +48,6 @@ layout = html.Div([
     Output('cdr-insights-kpi', 'children'),
     Output('cdr-insights-histogram-container', 'children'),
     Output('cdr-insights-hold-container', 'children'),
-    Output('cdr-insights-acw-container', 'children'),
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
@@ -64,7 +60,7 @@ def update_cdr_insights(data_ref, companies, languages, start_date, end_date, au
         return render_empty_state(graph_id=gid)
 
     empty_kpi = dbc.Col(html.Div(e_ui(), style={"height": "120px"}), width=12)
-    outs = [empty_kpi] + [e_ui(gid) for gid in ['cdr-insights-histogram', 'cdr-insights-hold', 'cdr-insights-acw']]
+    outs = [empty_kpi] + [e_ui(gid) for gid in ['cdr-insights-histogram', 'cdr-insights-hold']]
 
     if not data_ref or 'filename' not in data_ref: return outs
     token = auth_state.get('token') if auth_state else None
@@ -95,6 +91,10 @@ def update_cdr_insights(data_ref, companies, languages, start_date, end_date, au
     
     total_calls = len(df)
     
+    if 'acwtime' in df.columns: df['acwtime'] = pd.to_numeric(df['acwtime'], errors='coerce')
+    if 'ansholdtime' in df.columns: df['ansholdtime'] = pd.to_numeric(df['ansholdtime'], errors='coerce')
+    if 'talktime' in df.columns: df['talktime'] = pd.to_numeric(df['talktime'], errors='coerce')
+
     avg_acw = df['acwtime'].mean() if 'acwtime' in df.columns else 0
     avg_hold = df['ansholdtime'].mean() if 'ansholdtime' in df.columns else 0
     
@@ -129,37 +129,28 @@ def update_cdr_insights(data_ref, companies, languages, start_date, end_date, au
             for h in range(24):
                 if h not in hour_grp.index:
                     hour_grp.loc[h] = [0, 0]
-            hour_grp = hour_grp.sort_index()
+            hour_grp = hour_grp.sort_index().reset_index()
+            hour_grp['Time'] = hour_grp['Hour'].apply(lambda x: f"{int(x):02d}:00")
             
-            fig_hold = px.imshow(
-                hour_grp[['Avg_Hold']], 
-                labels=dict(x="Metric", y="Hour of Day", color="Seconds"),
-                y=[f"{h:02d}:00" for h in range(24)],
-                color_continuous_scale="rdbu_r",
-                aspect="auto",
-                text_auto='.1f'
+            fig_hold = go.Figure()
+            fig_hold.add_trace(go.Scatter(x=hour_grp['Time'], y=hour_grp['Avg_Hold'], mode='lines+markers', name='Avg Hold Time (s)', line=dict(color=COLOR_WARNING, width=3)))
+            fig_hold.add_trace(go.Scatter(x=hour_grp['Time'], y=hour_grp['Avg_ACW'], mode='lines+markers', name='Avg ACW Time (s)', line=dict(color=COLOR_SUCCESS, width=3)))
+            
+            fig_hold.update_layout(
+                template=get_plotly_template(), 
+                margin=dict(t=10, b=10, l=10, r=10), 
+                xaxis_title="Hour of Day", 
+                yaxis_title="Average Seconds",
+                hovermode='x unified',
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
-            fig_hold.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), yaxis_title="Hour")
             hold_ui = dcc.Graph(id='cdr-insights-hold', figure=fig_hold, config={'displayModeBar': False})
-            
-            fig_acw = px.imshow(
-                hour_grp[['Avg_ACW']], 
-                labels=dict(x="Metric", y="Hour of Day", color="Seconds"),
-                y=[f"{h:02d}:00" for h in range(24)],
-                color_continuous_scale="rdbu_r",
-                aspect="auto",
-                text_auto='.1f'
-            )
-            fig_acw.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), yaxis_title="Hour")
-            acw_ui = dcc.Graph(id='cdr-insights-acw', figure=fig_acw, config={'displayModeBar': False})
         else:
             hold_ui = e_ui('cdr-insights-hold')
-            acw_ui = e_ui('cdr-insights-acw')
     else:
         hold_ui = e_ui('cdr-insights-hold')
-        acw_ui = e_ui('cdr-insights-acw')
 
-    return kpis, hist_ui, hold_ui, acw_ui
+    return kpis, hist_ui, hold_ui
 
 
 # ---------------- EXPORT CALLBACKS ----------------
@@ -168,14 +159,13 @@ def update_cdr_insights(data_ref, companies, languages, start_date, end_date, au
     Input({'type': 'export-pdf-cdr-insights', 'index': dash.MATCH}, "n_clicks"),
     State('cdr-insights-histogram', 'figure'),
     State('cdr-insights-hold', 'figure'),
-    State('cdr-insights-acw', 'figure'),
     prevent_initial_call=True
 )
-def export_pdf(n_clicks, hist, hold, acw):
+def export_pdf(n_clicks, hist, hold):
     if not n_clicks: return dash.no_update
     index = ctx.triggered_id['index']
     
-    figures = {'cdr-insights-histogram': hist, 'cdr-insights-hold': hold, 'cdr-insights-acw': acw}
+    figures = {'cdr-insights-histogram': hist, 'cdr-insights-hold': hold}
     
     if index == 'cdr-insights':
         pdf_bytes = generate_dashboard_pdf(figures, "CDR Insights")
@@ -191,14 +181,13 @@ def export_pdf(n_clicks, hist, hold, acw):
     Input({'type': 'export-png-cdr-insights', 'index': dash.MATCH}, "n_clicks"),
     State('cdr-insights-histogram', 'figure'),
     State('cdr-insights-hold', 'figure'),
-    State('cdr-insights-acw', 'figure'),
     prevent_initial_call=True
 )
-def export_png(n_clicks, hist, hold, acw):
+def export_png(n_clicks, hist, hold):
     if not n_clicks: return dash.no_update
     index = ctx.triggered_id['index']
     
-    figures = {'cdr-insights-histogram': hist, 'cdr-insights-hold': hold, 'cdr-insights-acw': acw}
+    figures = {'cdr-insights-histogram': hist, 'cdr-insights-hold': hold}
     
     if index == 'cdr-insights':
         pdf_bytes = generate_dashboard_pdf(figures, "CDR Insights")
@@ -214,14 +203,13 @@ def export_png(n_clicks, hist, hold, acw):
     Input({'type': 'export-html-cdr-insights', 'index': dash.MATCH}, "n_clicks"),
     State('cdr-insights-histogram', 'figure'),
     State('cdr-insights-hold', 'figure'),
-    State('cdr-insights-acw', 'figure'),
     prevent_initial_call=True
 )
-def export_html(n_clicks, hist, hold, acw):
+def export_html(n_clicks, hist, hold):
     if not n_clicks: return dash.no_update
     index = ctx.triggered_id['index']
     
-    figures = {'cdr-insights-histogram': hist, 'cdr-insights-hold': hold, 'cdr-insights-acw': acw}
+    figures = {'cdr-insights-histogram': hist, 'cdr-insights-hold': hold}
     
     if index == 'cdr-insights':
         html_str = generate_dashboard_html(figures, "CDR Insights")
