@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 from frontend.shared.api_client import get_dataframe
-from frontend.shared.theme import get_plotly_template, make_export_dropdown, COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_NEUTRAL, COLOR_INFO
+from frontend.shared.theme import get_plotly_template, make_export_dropdown, should_use_log, COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_NEUTRAL, COLOR_INFO
 from frontend.components.cards import wrap_chart_card, make_kpi_card
 from frontend.components.empty_state import render_empty_state
 from frontend.shared.pdf_generator import generate_single_chart_pdf, generate_dashboard_pdf, generate_single_chart_png, generate_single_chart_html, generate_dashboard_html
@@ -162,17 +162,19 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
             mech_df = auth_df['Authentication Mechanism'].value_counts().reset_index()
             mech_df.columns = ['Mechanism', 'Count']
             
-            fig_mech = px.bar(mech_df, x='Mechanism', y='Count', color='Mechanism', color_discrete_sequence=px.colors.qualitative.Pastel)
+            min_val = mech_df['Count'].min()
+            max_val = mech_df['Count'].max()
+            use_log = should_use_log(min_val, max_val)
+            
+            fig_mech = px.bar(mech_df, x='Mechanism', y='Count', color='Mechanism', color_discrete_sequence=px.colors.qualitative.Pastel, log_y=use_log)
             fig_mech.update_traces(
                 hovertemplate='<b>%{x}</b><br>Count: %{y:,}<extra></extra>', 
                 marker_line_width=0, 
             )
             fig_mech.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False, bargap=0.15)
-            if not mech_df.empty and 'Count' in mech_df.columns:
-                min_val = mech_df['Count'].min()
-                max_val = mech_df['Count'].max()
+            if not mech_df.empty and 'Count' in mech_df.columns and not use_log:
                 if max_val > min_val:
-                    fig_mech.update_yaxes(range=[0 if min_val == 0 else min_val * 0.9, max_val * 1.1])
+                    fig_mech.update_yaxes(range=[0, max_val * 1.1])
             mech_ui = dcc.Graph(id='unimate-auth-mech', figure=fig_mech, config={'displayModeBar': False})
         else:
             mech_ui = e_ui('unimate-auth-mech')

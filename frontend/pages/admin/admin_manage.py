@@ -66,6 +66,12 @@ layout = html.Div([
                                     ),
                                 ], width=6)
                             ], className="row"),
+                            html.Div([
+                                dbc.Col([
+                                    dbc.Label("Data Lookback (Days)", className="small text-muted text-uppercase fw-bold"),
+                                    dbc.Input(id="offcanvas-lookback-days", type="number", placeholder="Unlimited", min=1, className="mb-3")
+                                ], width=12, className="mt-2")
+                            ], className="row"),
                             
                             dbc.Button("Save Permissions", id="offcanvas-btn-save", color="primary", size="sm", className="w-100 mb-2 mt-2"),
                             html.Div(id="offcanvas-save-status", className="small mt-2 mb-2"),
@@ -89,7 +95,7 @@ layout = html.Div([
                             dbc.Button("Deactivate User", id="offcanvas-btn-deactivate", color="danger", outline=True, size="sm", className="w-100"),
                         ], className="p-3 border border-top-0 rounded-bottom")
                     ]),
-                ])
+                ], id="admin-manage-tabs", active_tab="tab-0")
             ]),
             dbc.ModalFooter(
                 dbc.Button("Close", id="admin-manage-modal-close", color="secondary", outline=True)
@@ -278,6 +284,8 @@ def load_cards(auth_state, status):
     Output("offcanvas-btn-save", "disabled"),
     Output("offcanvas-btn-deactivate", "disabled"),
     Output("offcanvas-save-status", "children", allow_duplicate=True),
+    Output("admin-manage-tabs", "active_tab"),
+    Output("offcanvas-lookback-days", "value"),
     Input({"type": "manage-btn", "index": ALL}, "n_clicks"),
     Input("admin-manage-modal-close", "n_clicks"),
     State("auth-state", "data"),
@@ -286,14 +294,14 @@ def load_cards(auth_state, status):
 )
 def open_manage_modal(manage_clicks, close_clicks, auth_state, is_open):
     if not ctx.triggered_id:
-        return is_open, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
+        return is_open, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
     
     if ctx.triggered_id == "admin-manage-modal-close":
-        return False, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
+        return False, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
     
     # If all clicks are None (initial load of elements), do not open
     if not any(manage_clicks):
-        return is_open, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
+        return is_open, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
         
     username = ctx.triggered_id["index"]
     token = auth_state.get('token') if auth_state else None
@@ -301,6 +309,7 @@ def open_manage_modal(manage_clicks, close_clicks, auth_state, is_open):
     # Fetch specific user permissions
     perms = []
     companies = []
+    lookback = None
     try:
         response = api_get("users", token=token)
         if response.status_code == 200:
@@ -308,6 +317,7 @@ def open_manage_modal(manage_clicks, close_clicks, auth_state, is_open):
             if username in users:
                 perms = users[username].get("permissions", [])
                 companies = users[username].get("companies", [])
+                lookback = users[username].get("data_lookback_days")
     except:
         pass
 
@@ -315,7 +325,7 @@ def open_manage_modal(manage_clicks, close_clicks, auth_state, is_open):
     if is_admin:
         perms = ["can_download_files", "can_view_ccf", "can_view_unimate", "can_view_cdr", "can_manage_users", "can_view_logs", "can_edit_settings"]
 
-    return True, username, companies, is_admin, perms, perms, is_admin, is_admin, ""
+    return True, username, companies, is_admin, perms, perms, is_admin, is_admin, "", "tab-0", lookback
 
 @callback(
     Output("offcanvas-save-status", "children"),
@@ -325,16 +335,17 @@ def open_manage_modal(manage_clicks, close_clicks, auth_state, is_open):
     State("offcanvas-perms-data", "value"),
     State("offcanvas-perms-files", "value"),
     State("offcanvas-companies", "value"),
+    State("offcanvas-lookback-days", "value"),
     State("auth-state", "data"),
     prevent_initial_call=True
 )
-def save_perms(n_clicks, username, data_switches, file_switches, companies, auth_state):
+def save_perms(n_clicks, username, data_switches, file_switches, companies, lookback, auth_state):
     if not n_clicks: return no_update, no_update
     token = auth_state.get('token') if auth_state else None
     try:
         # Deduplicate all_perms using set
         all_perms = list(set((data_switches or []) + (file_switches or [])))
-        req_data = {"username": username, "permissions": all_perms, "companies": companies or []}
+        req_data = {"username": username, "permissions": all_perms, "companies": companies or [], "data_lookback_days": lookback}
         response = api_post("users/permissions", token=token, json=req_data)
         if response.status_code == 200:
             return html.Span("Permissions saved successfully.", className="text-success"), "reload"

@@ -80,3 +80,10 @@ def make_export_dropdown(page_id):
         size="sm",
         className="float-end dashboard-export-dropdown"
     )
+
+def should_use_log(min_val, max_val):
+    if max_val <= 10:
+        return False
+    safe_min = max(min_val, 0.1)
+    return (max_val / safe_min) > 20
+

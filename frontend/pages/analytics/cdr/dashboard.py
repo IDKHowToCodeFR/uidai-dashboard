@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 from frontend.shared.api_client import get_dataframe
-from frontend.shared.theme import COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_NEUTRAL, COLOR_INFO
+from frontend.shared.theme import COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_NEUTRAL, COLOR_INFO, should_use_log
 
 from frontend.components.cards import make_kpi_card, wrap_chart_card
 from frontend.components.empty_state import render_empty_state
@@ -45,11 +45,8 @@ layout = html.Div([
 
     dbc.Row([
         dbc.Col([
-            wrap_chart_card('cdr-transfer-language', "Transfer Rate by Language", "cdr")
-        ], width=12, lg=6, className="mb-4"),
-        dbc.Col([
-            wrap_chart_card('cdr-talktime-language', "Average Talktime by Language (Seconds)", "cdr")
-        ], width=12, lg=6, className="mb-4")
+            wrap_chart_card('cdr-lang-metrics', "Transfer Rate & Avg Talktime by Language", "cdr")
+        ], width=12, className="mb-4")
     ])
 ], className="container-fluid py-4")
 
@@ -60,8 +57,7 @@ layout = html.Div([
     Output('cdr-language-container', 'children'),
     Output('cdr-outcome-container', 'children'),
     Output('cdr-intraday-language-container', 'children'),
-    Output('cdr-transfer-language-container', 'children'),
-    Output('cdr-talktime-language-container', 'children'),
+    Output('cdr-lang-metrics-container', 'children'),
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
@@ -76,16 +72,16 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
     empty_kpi = dbc.Col(html.Div(empty_ui, style={"height": "120px"}), width=12)
 
     if not data_ref or 'filename' not in data_ref:
-        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
+        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
 
     token = auth_state.get('token') if auth_state else None
     if not token:
-        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
+        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
 
     df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
 
     if df is None or df.empty:
-        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
+        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
 
     if companies and 'Company' in df.columns:
         df = df[df['Company'].isin(companies)]
@@ -108,7 +104,7 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
             df = df[(df['Date'] >= pd.to_datetime(start_date).date()) & (df['Date'] <= pd.to_datetime(end_date).date())]
 
     if df.empty:
-        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
+        return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
 
     # KPIs
     total_calls = len(df)
@@ -150,7 +146,7 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
             min_val = vol_df['Calls'].min()
             max_val = vol_df['Calls'].max()
             if max_val > min_val:
-                fig_vol.update_yaxes(range=[0 if min_val == 0 else min_val * 0.9, max_val * 1.1])
+                fig_vol.update_yaxes(range=[0, max_val * 1.1])
         vol_ui = dcc.Graph(figure=fig_vol, config={'displayModeBar': False})
     else:
         vol_ui = empty_ui
@@ -165,11 +161,18 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
         name_map = {'talktime': 'Talk Time', 'ansholdtime': 'Hold Time', 'acwtime': 'ACW Time'}
         avg_metrics['Metric'] = avg_metrics['Metric'].map(name_map)
         
-        fig_breakdown = px.bar(avg_metrics, x='Metric', y='Seconds', template='plotly_white')
+        min_val = avg_metrics['Seconds'].min()
+        max_val = avg_metrics['Seconds'].max()
+        use_log = should_use_log(min_val, max_val)
+        
+        fig_breakdown = px.bar(avg_metrics, x='Metric', y='Seconds', template='plotly_white', log_y=use_log)
         colors = [COLOR_PRIMARY, COLOR_WARNING, COLOR_NEUTRAL]
         fig_breakdown.update_traces(marker_color=colors, hovertemplate='<b>%{x}:</b> %{y:.1f}s<extra></extra>')
         fig_breakdown.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)')
         fig_breakdown.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
+        if max_val > min_val and not use_log:
+            fig_breakdown.update_yaxes(range=[0, max_val * 1.1])
+            
         breakdown_ui = dcc.Graph(figure=fig_breakdown, config={'displayModeBar': False})
     else:
         breakdown_ui = empty_ui
@@ -230,44 +233,59 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
     else:
         intra_lang_ui = empty_ui
 
-    # Transfer Rate by Language
-    if 'Language' in df.columns and 'transferred' in df.columns:
-        transfer_lang = df.groupby('Language')['transferred'].mean().reset_index()
-        transfer_lang['Transfer Rate %'] = transfer_lang['transferred'] * 100
-        transfer_lang = transfer_lang.sort_values(by='Transfer Rate %', ascending=False)
+    # Transfer Rate & Talktime by Language
+    if 'Language' in df.columns and 'transferred' in df.columns and 'talktime' in df.columns:
+        from plotly.subplots import make_subplots
         
-        fig_trans_lang = px.bar(transfer_lang, x='Language', y='Transfer Rate %', template='plotly_white', color_discrete_sequence=[COLOR_WARNING])
-        fig_trans_lang.update_traces(hovertemplate='<b>%{x}</b><br>Transfer Rate: %{y:.1f}%<extra></extra>')
-        fig_trans_lang.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)')
-        fig_trans_lang.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
+        lang_grp = df.groupby('Language').agg(
+            TransferRate=('transferred', lambda x: x.mean() * 100),
+            AvgTalktime=('talktime', 'mean')
+        ).reset_index()
         
-        min_val = transfer_lang['Transfer Rate %'].min()
-        max_val = transfer_lang['Transfer Rate %'].max()
-        if max_val > min_val or max_val > 0:
-            fig_trans_lang.update_yaxes(range=[0 if min_val == 0 else min_val * 0.9, max_val * 1.1])
-            
-        transfer_lang_ui = dcc.Graph(figure=fig_trans_lang, config={'displayModeBar': False})
-    else:
-        transfer_lang_ui = empty_ui
+        lang_grp = lang_grp.sort_values(by='TransferRate', ascending=False)
+        
+        fig_lang_metrics = make_subplots(specs=[[{"secondary_y": True}]])
+        
+        fig_lang_metrics.add_trace(go.Scatter(
+            x=lang_grp['Language'], y=lang_grp['TransferRate'],
+            name="Transfer Rate %", mode='lines+markers', line=dict(color=COLOR_WARNING, width=3, shape='spline'),
+            hovertemplate='<b>%{x}</b><br>Transfer Rate: %{y:.1f}%<extra></extra>'
+        ), secondary_y=False)
+        
+        fig_lang_metrics.add_trace(go.Scatter(
+            x=lang_grp['Language'], y=lang_grp['AvgTalktime'],
+            name="Avg Talktime (s)", mode='lines+markers', line=dict(color=COLOR_PRIMARY, width=3, shape='spline'),
+            hovertemplate='<b>%{x}</b><br>Avg Talktime: %{y:.1f}s<extra></extra>'
+        ), secondary_y=True)
+        
+        fig_lang_metrics.update_layout(
+            margin=dict(l=0, r=0, t=20, b=0),
+            plot_bgcolor='rgba(0,0,0,0)',
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        
+        min_trans = lang_grp['TransferRate'].min()
+        max_trans = lang_grp['TransferRate'].max()
+        use_log_trans = should_use_log(min_trans, max_trans)
+        
+        min_talk = lang_grp['AvgTalktime'].min()
+        max_talk = lang_grp['AvgTalktime'].max()
+        use_log_talk = should_use_log(min_talk, max_talk)
 
-    # Avg Talktime by Language
-    if 'Language' in df.columns and 'talktime' in df.columns:
-        talk_lang = df.groupby('Language')['talktime'].mean().reset_index()
-        talk_lang.columns = ['Language', 'Avg Talktime']
-        talk_lang = talk_lang.sort_values(by='Avg Talktime', ascending=False)
-        
-        fig_talk_lang = px.bar(talk_lang, x='Language', y='Avg Talktime', template='plotly_white', color_discrete_sequence=[COLOR_PRIMARY])
-        fig_talk_lang.update_traces(hovertemplate='<b>%{x}</b><br>Avg Talktime: %{y:.1f}s<extra></extra>')
-        fig_talk_lang.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)')
-        fig_talk_lang.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
-        
-        min_val = talk_lang['Avg Talktime'].min()
-        max_val = talk_lang['Avg Talktime'].max()
-        if max_val > min_val or max_val > 0:
-            fig_talk_lang.update_yaxes(range=[0 if min_val == 0 else min_val * 0.9, max_val * 1.1])
-            
-        talk_lang_ui = dcc.Graph(figure=fig_talk_lang, config={'displayModeBar': False})
-    else:
-        talk_lang_ui = empty_ui
+        fig_lang_metrics.update_yaxes(title_text="Transfer Rate %", showgrid=True, gridcolor='#f1f5f9', secondary_y=False)
+        if use_log_trans:
+            fig_lang_metrics.update_yaxes(type='log', secondary_y=False)
+        elif max_trans > 0:
+            fig_lang_metrics.update_yaxes(range=[0, max_trans * 1.1], secondary_y=False)
 
-    return kpis, vol_ui, breakdown_ui, lang_ui, out_ui, intra_lang_ui, transfer_lang_ui, talk_lang_ui
+        fig_lang_metrics.update_yaxes(title_text="Avg Talktime (s)", showgrid=False, secondary_y=True)
+        if use_log_talk:
+            fig_lang_metrics.update_yaxes(type='log', secondary_y=True)
+        elif max_talk > 0:
+            fig_lang_metrics.update_yaxes(range=[0, max_talk * 1.1], secondary_y=True)
+            
+        lang_metrics_ui = dcc.Graph(figure=fig_lang_metrics, config={'displayModeBar': False})
+    else:
+        lang_metrics_ui = empty_ui
+
+    return kpis, vol_ui, breakdown_ui, lang_ui, out_ui, intra_lang_ui, lang_metrics_ui

@@ -57,7 +57,8 @@ def load_users(db: Session, current_user: dict = None) -> dict:
             "companies": user.companies,
             "permissions": permissions,
             "login_count": user.login_count,
-            "last_login": user.last_login
+            "last_login": user.last_login,
+            "data_lookback_days": user.data_lookback_days
         }
     return result
 
@@ -86,7 +87,7 @@ def add_user(db: Session, username: str, password: str, companies: list, permiss
     add_log(db, "USER_ADDED", "Admin", f"Added user '{username}' with companies {companies} and perms {permissions}", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
     return True, f"User '{username}' added."
 
-def update_permissions(db: Session, username: str, permissions: list, companies: list = None, ip_address: str = None, user_agent: str = None, endpoint: str = None):
+def update_permissions(db: Session, username: str, permissions: list, companies: list = None, data_lookback_days: int = None, ip_address: str = None, user_agent: str = None, endpoint: str = None):
     key = username.lower().strip()
     user = db.query(User).filter(User.username == key).first()
     if not user:
@@ -97,6 +98,8 @@ def update_permissions(db: Session, username: str, permissions: list, companies:
     
     if companies is not None:
         user.companies = companies
+        
+    user.data_lookback_days = data_lookback_days
         
     # Delete existing permissions
     db.query(UserPermission).filter(UserPermission.user_id == user.id).delete()
@@ -188,7 +191,7 @@ async def get_current_user(token: str = Security(oauth2_scheme), db: Session = D
         else:
             permissions = [p.permission_name for p in user.permissions]
         
-        return {"username": user.username, "role": role, "permissions": permissions, "companies": user.companies}
+        return {"username": user.username, "role": role, "permissions": permissions, "companies": user.companies, "data_lookback_days": user.data_lookback_days}
     except JWTError:
         raise credentials_exception
 

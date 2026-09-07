@@ -69,7 +69,7 @@ def update_agent_explorer(companies, languages, auth_state):
     df['AHT'] = df['AHT (sec)'].apply(format_seconds)
     
     display_cols = [
-        'Login ID', 'Agent Name', 'Score', 'Total ACD Calls', 'Calls Per Hour', 
+        'Login ID', 'Agent Name', 'Company', 'Score', 'Total ACD Calls', 'Calls Per Hour', 
         'Occupancy %', 'AHT', 'Staffed Time', 'ACD Time', 'ACW Time', 'Language'
     ]
 

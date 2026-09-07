@@ -216,10 +216,10 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             
             if show_text:
                 fig_sl = px.line(daily_grp, x='Date_Bucket', y='SL %', text='SL % text', render_mode='svg')
-                fig_sl.update_traces(textposition='top center', mode='lines+markers+text', hovertemplate='<b>Date:</b> %{x}<br><b>SL:</b> %{y:.2f}%<extra></extra>')
+                fig_sl.update_traces(textposition='top center', mode='lines+markers+text', line_shape='spline', hovertemplate='<b>Date:</b> %{x}<br><b>SL:</b> %{y:.2f}%<extra></extra>')
             else:
                 fig_sl = px.line(daily_grp, x='Date_Bucket', y='SL %', render_mode='svg')
-                fig_sl.update_traces(mode='lines+markers', hovertemplate='<b>Date:</b> %{x}<br><b>SL:</b> %{y:.2f}%<extra></extra>')
+                fig_sl.update_traces(mode='lines+markers', line_shape='spline', hovertemplate='<b>Date:</b> %{x}<br><b>SL:</b> %{y:.2f}%<extra></extra>')
                 
             fig_sl.update_layout(xaxis_title="Date")
             fig_sl.add_hline(y=85, line_dash="dash", line_color=COLOR_SUCCESS, annotation_text="85% Target")

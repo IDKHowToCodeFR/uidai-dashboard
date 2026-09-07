@@ -4,7 +4,7 @@ from dash_bootstrap_components import Container, Row, Col, Card, CardHeader, Car
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown
+from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, should_use_log
 from frontend.shared.api_client import get_dataframe
 import dash_bootstrap_components as dbc
 from frontend.components.cards import wrap_chart_card
@@ -220,9 +220,13 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
         
         lang_aban['Plot Value'] = lang_aban['ABAN Calls'] + 1
         
+        min_val = lang_aban['ABAN Calls'].min()
+        max_val = lang_aban['ABAN Calls'].max()
+        use_log = should_use_log(min_val, max_val)
+        
         fig_heat = px.bar(lang_aban, x='Plot Value', y='Language', orientation='h',
                           color='Language', color_discrete_sequence=px.colors.qualitative.Vivid,
-                          log_x=True,
+                          log_x=use_log,
                           hover_data={'Plot Value': False, 'ABAN Calls': True, 'Language': False},
                           labels={'ABAN Calls': 'Actual Abandoned Calls'})
         

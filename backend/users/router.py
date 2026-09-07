@@ -37,6 +37,7 @@ class PermissionsRequest(BaseModel):
     username: str
     permissions: List[str]
     companies: Optional[List[str]] = None
+    data_lookback_days: Optional[int] = None
 
 class ResetPasswordRequest(BaseModel):
     username: str
@@ -162,7 +163,7 @@ async def api_update_permissions(request: Request, req: PermissionsRequest, curr
     if current_user["role"] != "Admin":
         raise HTTPException(status_code=403, detail="Admin only")
     meta = extract_request_metadata(request)
-    ok, msg = update_permissions(db, req.username, req.permissions, req.companies, **meta)
+    ok, msg = update_permissions(db, req.username, req.permissions, req.companies, req.data_lookback_days, **meta)
     if not ok:
         raise HTTPException(status_code=400, detail=msg)
     return {"message": msg}

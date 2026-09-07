@@ -12,6 +12,7 @@ class User(Base):
     companies = Column(JSON, default=[])
     login_count = Column(Integer, default=0)
     last_login = Column(String, nullable=True)
+    data_lookback_days = Column(Integer, nullable=True)
 
     permissions = relationship("UserPermission", back_populates="user", cascade="all, delete-orphan")
 

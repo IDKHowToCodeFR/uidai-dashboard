@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 from frontend.shared.api_client import get_dataframe
-from frontend.shared.theme import get_plotly_template, make_export_dropdown, COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_NEUTRAL, COLOR_INFO
+from frontend.shared.theme import get_plotly_template, make_export_dropdown, should_use_log, COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_NEUTRAL, COLOR_INFO
 from frontend.components.cards import wrap_chart_card, make_kpi_card
 from frontend.components.empty_state import render_empty_state
 from frontend.shared.pdf_generator import generate_single_chart_pdf, generate_dashboard_pdf, generate_single_chart_png, generate_single_chart_html, generate_dashboard_html
@@ -107,7 +107,12 @@ def update_agent_performance(data_ref, companies, languages, start_date, end_dat
         dbc.Col(make_kpi_card("Avg Calls per Agent", f"{calls_per_agent:.1f}"), width=True),
     ]
 
-    agent_grp = df.groupby('anslogin').agg(
+    # Group by anslogin and Company
+    group_cols = ['anslogin']
+    if 'Company' in df.columns:
+        group_cols.append('Company')
+        
+    agent_grp = df.groupby(group_cols).agg(
         Calls=('call_id', 'count') if 'call_id' in df.columns else ('anslogin', 'size'),
         Avg_Talktime=('talktime', 'mean') if 'talktime' in df.columns else ('anslogin', lambda x: 0),
         Avg_Holdtime=('ansholdtime', 'mean') if 'ansholdtime' in df.columns else ('anslogin', lambda x: 0),
@@ -119,13 +124,17 @@ def update_agent_performance(data_ref, companies, languages, start_date, end_dat
     # Top 10 by Volume
     top_vol = agent_grp.sort_values(by='Calls', ascending=False).head(10)
     if not top_vol.empty:
-        fig_vol = px.bar(top_vol, x='Calls', y='anslogin', orientation='h', template='plotly_white', color_discrete_sequence=[COLOR_PRIMARY])
-        fig_vol.update_layout(yaxis={'categoryorder':'total ascending'}, margin=dict(t=10, b=10, l=10, r=10), yaxis_title="Agent ID")
-        
         min_val = top_vol['Calls'].min()
         max_val = top_vol['Calls'].max()
-        if max_val > min_val:
-            fig_vol.update_xaxes(range=[0 if min_val == 0 else min_val * 0.9, max_val * 1.1])
+        use_log = should_use_log(min_val, max_val)
+        
+        hover_data = ['Company'] if 'Company' in top_vol.columns else None
+        
+        fig_vol = px.bar(top_vol, x='Calls', y='anslogin', orientation='h', template='plotly_white', color_discrete_sequence=[COLOR_PRIMARY], log_x=use_log, hover_data=hover_data)
+        fig_vol.update_layout(yaxis={'categoryorder':'total ascending'}, margin=dict(t=10, b=10, l=10, r=10), yaxis_title="Agent ID")
+        
+        if max_val > min_val and not use_log:
+            fig_vol.update_xaxes(range=[0, max_val * 1.1])
             
         vol_ui = dcc.Graph(id='cdr-agent-volume', figure=fig_vol, config={'displayModeBar': False})
     else:
@@ -134,13 +143,17 @@ def update_agent_performance(data_ref, companies, languages, start_date, end_dat
     # Top 10 by Transfer Rate (min 5 calls)
     top_trans = agent_grp[agent_grp['Calls'] >= 5].sort_values(by='Transfer_Rate', ascending=False).head(10)
     if not top_trans.empty:
-        fig_trans = px.bar(top_trans, x='Transfer_Rate', y='anslogin', orientation='h', template='plotly_white', color_discrete_sequence=[COLOR_WARNING])
-        fig_trans.update_layout(yaxis={'categoryorder':'total ascending'}, margin=dict(t=10, b=10, l=10, r=10), xaxis_title="Transfer Rate %", yaxis_title="Agent ID")
-        
         min_val = top_trans['Transfer_Rate'].min()
         max_val = top_trans['Transfer_Rate'].max()
-        if max_val > min_val:
-            fig_trans.update_xaxes(range=[0 if min_val == 0 else min_val * 0.9, max_val * 1.1])
+        use_log = should_use_log(min_val, max_val)
+        
+        hover_data = ['Company'] if 'Company' in top_trans.columns else None
+        
+        fig_trans = px.bar(top_trans, x='Transfer_Rate', y='anslogin', orientation='h', template='plotly_white', color_discrete_sequence=[COLOR_WARNING], log_x=use_log, hover_data=hover_data)
+        fig_trans.update_layout(yaxis={'categoryorder':'total ascending'}, margin=dict(t=10, b=10, l=10, r=10), xaxis_title="Transfer Rate %", yaxis_title="Agent ID")
+        
+        if max_val > min_val and not use_log:
+            fig_trans.update_xaxes(range=[0, max_val * 1.1])
             
         trans_ui = dcc.Graph(id='cdr-agent-transfer', figure=fig_trans, config={'displayModeBar': False})
     else:

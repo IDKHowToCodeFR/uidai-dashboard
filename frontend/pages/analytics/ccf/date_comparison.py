@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown
+from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, should_use_log
 from frontend.shared.api_client import get_dataframe
 import dash_bootstrap_components as dbc
 from frontend.components.cards import make_kpi_card, wrap_chart_card
@@ -382,9 +382,13 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
         melted_flow['Stage'] = melted_flow['Stage'].map(stage_map)
         melted_flow = melted_flow.sort_values(by=['Stage', 'Date_Str'])
         
+        min_val = melted_flow['Calls'].min()
+        max_val = melted_flow['Calls'].max()
+        use_log = should_use_log(min_val, max_val)
+        
         fig_funnel = px.bar(
             melted_flow, x='Stage', y='Calls', color='Date_Str',
-            barmode='group', text='Calls', template=template
+            barmode='group', text='Calls', template=template, log_y=use_log
         )
         fig_funnel.update_traces(textposition='outside')
         fig_funnel.update_layout(xaxis_title="Call Flow Stage", yaxis_title="Number of Calls", legend_title="Date", margin=dict(l=20, r=20, t=20, b=20))

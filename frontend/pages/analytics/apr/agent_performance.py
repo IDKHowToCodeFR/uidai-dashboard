@@ -98,7 +98,7 @@ def update_agent_rankings(companies, languages, auth_state):
     numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
     df[numeric_cols] = df[numeric_cols].round(2)
     
-    display_cols = ['Login ID', 'Agent Name', 'Score', 'Total ACD Calls', 'Calls Per Hour', 'Occupancy %', 'AHT']
+    display_cols = ['Company', 'Login ID', 'Agent Name', 'Score', 'Total ACD Calls', 'Calls Per Hour', 'Occupancy %', 'AHT']
 
     tables = []
     for company in df['Company'].unique():

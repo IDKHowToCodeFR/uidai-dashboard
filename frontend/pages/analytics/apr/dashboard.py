@@ -162,7 +162,7 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
             min_val = vol_df['ACD Calls'].min()
             max_val = vol_df['ACD Calls'].max()
             if max_val > min_val:
-                fig_vol.update_yaxes(range=[0 if min_val == 0 else min_val * 0.9, max_val * 1.1])
+                fig_vol.update_yaxes(range=[0, max_val * 1.1])
                 
         vol_ui = dcc.Graph(figure=fig_vol, config={'displayModeBar': False})
     else:
@@ -187,7 +187,7 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
         trace_occ = go.Scatter(
             x=combo_df['Date'], y=combo_df['% Agent Occupancy with ACW'].round(1),
             name="Occupancy %", mode='lines+markers+text' if show_text else 'lines+markers',
-            line=dict(color=COLOR_WARNING, width=3),
+            line=dict(color=COLOR_WARNING, width=3, shape='spline'),
             hovertemplate='<b>Date:</b> %{x}<br><b>Occupancy:</b> %{y}%<extra></extra>'
         )
         if show_text:
@@ -205,7 +205,7 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
             min_val = combo_df['aht'].min()
             max_val = combo_df['aht'].max()
             if max_val > min_val:
-                fig_combo.update_yaxes(title_text="AHT (Seconds)", secondary_y=False, showgrid=False, range=[0 if min_val == 0 else min_val * 0.9, max_val * 1.1])
+                fig_combo.update_yaxes(title_text="AHT (Seconds)", secondary_y=False, showgrid=False, range=[0, max_val * 1.1])
             else:
                 fig_combo.update_yaxes(title_text="AHT (Seconds)", secondary_y=False, showgrid=False)
         else:
