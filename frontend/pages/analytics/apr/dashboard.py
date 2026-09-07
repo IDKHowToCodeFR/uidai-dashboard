@@ -39,6 +39,11 @@ layout = dbc.Container([
         dbc.Col([wrap_chart_card('apr-occ-aht', "Occupancy vs Average Handle Time", "apr")], width=12, className="mb-4")
     ]),
 
+    # dbc.Row([
+    #     dbc.Col([wrap_chart_card('apr-state-pie', "Agent State Distribution", "apr")], width=12, lg=6, className="mb-4"),
+    #     dbc.Col([wrap_chart_card('apr-lang-pie', "Calls by Language", "apr")], width=12, lg=6, className="mb-4")
+    # ]),
+
     dbc.Row([
         dbc.Col([wrap_chart_card('apr-state-pie', "Agent State Distribution", "apr")], width=12, lg=6, className="mb-4"),
         dbc.Col([wrap_chart_card('apr-lang-pie', "Calls by Language", "apr")], width=12, lg=6, className="mb-4")
@@ -162,7 +167,7 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
             min_val = vol_df['ACD Calls'].min()
             max_val = vol_df['ACD Calls'].max()
             if max_val > min_val:
-                fig_vol.update_yaxes(range=[0 if min_val == 0 else min_val * 0.9, max_val * 1.1])
+                fig_vol.update_yaxes(range=[0, max_val * 1.1])
                 
         vol_ui = dcc.Graph(figure=fig_vol, config={'displayModeBar': False})
     else:
@@ -187,7 +192,7 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
         trace_occ = go.Scatter(
             x=combo_df['Date'], y=combo_df['% Agent Occupancy with ACW'].round(1),
             name="Occupancy %", mode='lines+markers+text' if show_text else 'lines+markers',
-            line=dict(color=COLOR_WARNING, width=3),
+            line=dict(color=COLOR_WARNING, width=3, shape='spline'),
             hovertemplate='<b>Date:</b> %{x}<br><b>Occupancy:</b> %{y}%<extra></extra>'
         )
         if show_text:
@@ -200,12 +205,14 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
             template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
+        fig_combo.add_hline(y=240, line_dash="dash", line_color=COLOR_SUCCESS, annotation_text="Target AHT", secondary_y=False)
+        fig_combo.add_hline(y=80, line_dash="dash", line_color=COLOR_SUCCESS, annotation_text="Target Occ", secondary_y=True)
         
         if not combo_df.empty and 'aht' in combo_df.columns:
             min_val = combo_df['aht'].min()
             max_val = combo_df['aht'].max()
             if max_val > min_val:
-                fig_combo.update_yaxes(title_text="AHT (Seconds)", secondary_y=False, showgrid=False, range=[0 if min_val == 0 else min_val * 0.9, max_val * 1.1])
+                fig_combo.update_yaxes(title_text="AHT (Seconds)", secondary_y=False, showgrid=False, range=[0, max_val * 1.1])
             else:
                 fig_combo.update_yaxes(title_text="AHT (Seconds)", secondary_y=False, showgrid=False)
         else:
@@ -225,9 +232,18 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
     if all(c in df.columns for c in state_cols):
         state_vals = [df[c].sum() for c in state_cols]
         state_df = pd.DataFrame({'State': state_cols, 'Time (Sec)': state_vals})
-        fig_state = px.pie(state_df, names='State', values='Time (Sec)', hole=0.6, color_discrete_sequence=px.colors.qualitative.Pastel)
-        fig_state.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>%{label}</b><br>Seconds: %{value:,.0f}<extra></extra>', marker=dict(line=dict(color='#ffffff', width=2)))
-        fig_state.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
+        def format_sec(s):
+            h = int(s // 3600)
+            m = int((s % 3600) // 60)
+            sec = int(s % 60)
+            if h > 0: return f"{h}h {m:02d}m {sec:02d}s"
+            if m > 0: return f"{m}m {sec:02d}s"
+            return f"{sec}s"
+        state_df['Time_Fmt'] = state_df['Time (Sec)'].apply(format_sec)
+        
+        fig_state = px.bar(state_df, x='Time (Sec)', y='State', orientation='h', color='State', color_discrete_sequence=px.colors.qualitative.Pastel, custom_data=['Time_Fmt'])
+        fig_state.update_traces(hovertemplate='<b>%{y}</b><br>Time: %{customdata[0]}<extra></extra>')
+        fig_state.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), showlegend=False, yaxis={'categoryorder':'total ascending'}, yaxis_title="", xaxis_title="Total Time (Seconds)")
         state_ui = dcc.Graph(figure=fig_state, config={'displayModeBar': False})
     else:
         state_ui = e_ui('apr-state-pie')
@@ -243,7 +259,6 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
         lang_ui = e_ui('apr-lang-pie')
 
     return kpis, vol_ui, occ_aht_ui, state_ui, lang_ui
-
 # Exports
 @callback(
     Output({'type': 'download-data-apr', 'index': dash.MATCH}, "data"),

@@ -4,7 +4,7 @@ from dash_bootstrap_components import Container, Row, Col, Card, CardHeader, Car
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown
+from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, should_use_log
 from frontend.shared.api_client import get_dataframe
 import dash_bootstrap_components as dbc
 from frontend.components.cards import wrap_chart_card
@@ -72,10 +72,16 @@ layout = Container([
     Row([
         wrap_chart_card("intraday-chart", "Intraday Performance (Volume & Service Level)", "hourly")
     ]),
+
+    Row([
+        Col([wrap_chart_card("ccf-sl-heatmap", "Service Level Heatmap (Day vs Hour)", "hourly")], width=12, className="mb-4")
+    ]),
     
     Row([
-        Col([wrap_chart_card("hourly-heatmap", "Highest Abandonment by Language", "hourly")], width=12, lg=6, className="mb-4"),
-        Col([wrap_chart_card("aht-time-chart", "Average Handle Time (AHT) by Time of Day", "hourly")], width=12, lg=6, className="mb-4")
+        Col([wrap_chart_card("hourly-heatmap", "Highest Abandonment by Language", "hourly")], width=12, className="mb-4")
+    ]),
+    Row([
+        Col([wrap_chart_card("aht-time-chart", "Average Handle Time (AHT) by Time of Day", "hourly")], width=12, className="mb-4")
     ])
 ], fluid=True, className="px-4")
 
@@ -120,6 +126,7 @@ def set_date_picker(data_ref, auth_state):
 
 @callback(
     Output('intraday-chart-container', 'children'),
+    Output('ccf-sl-heatmap-container', 'children'),
     Output('hourly-heatmap-container', 'children'),
     Output('aht-time-chart-container', 'children'),
     Input('data-store', 'data'),
@@ -134,20 +141,20 @@ def set_date_picker(data_ref, auth_state):
 def update_hourly_insights(data_ref, company_filter, language_filter, start_date, end_date, time_start, time_end, auth_state):
 
     if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or not start_date or not end_date:
-        return e_ui('intraday-chart'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
+        return e_ui('intraday-chart'), e_ui('ccf-sl-heatmap'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
         
     token = auth_state.get('token') if auth_state else None
     if not token:
-        return e_ui('intraday-chart'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
+        return e_ui('intraday-chart'), e_ui('ccf-sl-heatmap'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
         
     df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
     
     if df is None or df.empty:
-        return e_ui('intraday-chart'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
+        return e_ui('intraday-chart'), e_ui('ccf-sl-heatmap'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
     
     date_col = 'Date' if 'Date' in df.columns else 'Timestamp' if 'Timestamp' in df.columns else None
     if not date_col:
-        return e_ui('intraday-chart'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
+        return e_ui('intraday-chart'), e_ui('ccf-sl-heatmap'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
 
     df['DateCol'] = pd.to_datetime(df[date_col])
     start_dt = pd.to_datetime(start_date)
@@ -171,7 +178,7 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
         df_current = df_current[df_current['Language'].isin(language_filter)]
         
     if df_current.empty or ts_col not in df_current.columns:
-        return e_ui('intraday-chart'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
+        return e_ui('intraday-chart'), e_ui('ccf-sl-heatmap'), e_ui('hourly-heatmap'), e_ui('aht-time-chart')
 
     df_current['Time'] = pd.to_datetime(df_current[ts_col]).dt.time
     df_current['TimeStr'] = df_current['Time'].astype(str)
@@ -213,6 +220,38 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
     )
     ui_intraday = dcc.Graph(id='intraday-chart', figure=fig_intraday, config={'displayModeBar': False}, style={'height': '400px'})
 
+    # Chart 1.5: SL% Heatmap (Day vs Hour)
+    df_current['Hour'] = pd.to_datetime(df_current[ts_col]).dt.hour
+    df_current['DayOfWeek'] = df_current['DateCol'].dt.day_name()
+    heat_grp = df_current.groupby(['DayOfWeek', 'Hour']).sum(numeric_only=True).reset_index()
+    denom_heat = heat_grp['Call Offered'] - heat_grp['ABAN Calls in 10 Sec']
+    heat_grp['SL %'] = (heat_grp['ACD Calls in 20 Sec'] / denom_heat * 100).fillna(0)
+    
+    # Pivot for heatmap
+    sl_pivot = heat_grp.pivot(index='DayOfWeek', columns='Hour', values='SL %').fillna(0)
+    days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    sl_pivot = sl_pivot.reindex(days_order).dropna(how='all')
+    
+    if not sl_pivot.empty:
+        hours_labels = [f"{h:02d}:00" for h in sl_pivot.columns]
+        fig_sl_heat = go.Figure(data=go.Heatmap(
+            z=sl_pivot.values,
+            x=hours_labels,
+            y=sl_pivot.index,
+            colorscale='RdYlGn',
+            zmin=0, zmax=100,
+            texttemplate="%{z:.0f}%",
+            hovertemplate="<b>%{y} at %{x}</b><br>SL: %{z:.1f}%<extra></extra>"
+        ))
+        fig_sl_heat.update_layout(
+            template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10),
+            xaxis_title="Hour of Day", yaxis_title=""
+        )
+        fig_sl_heat.update_yaxes(autorange="reversed")
+        ui_sl_heat = dcc.Graph(id='ccf-sl-heatmap', figure=fig_sl_heat, config={'displayModeBar': False}, style={'height': '400px'})
+    else:
+        ui_sl_heat = render_empty_state('ccf-sl-heatmap')
+
     # Chart 2: Highest Abandonment by Language (Bar Chart)
     if 'Language' in df_current.columns:
         lang_aban = df_current.groupby('Language')['ABAN Calls'].sum().reset_index()
@@ -220,9 +259,13 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
         
         lang_aban['Plot Value'] = lang_aban['ABAN Calls'] + 1
         
+        min_val = lang_aban['ABAN Calls'].min()
+        max_val = lang_aban['ABAN Calls'].max()
+        use_log = should_use_log(min_val, max_val)
+        
         fig_heat = px.bar(lang_aban, x='Plot Value', y='Language', orientation='h',
                           color='Language', color_discrete_sequence=px.colors.qualitative.Vivid,
-                          log_x=True,
+                          log_x=use_log,
                           hover_data={'Plot Value': False, 'ABAN Calls': True, 'Language': False},
                           labels={'ABAN Calls': 'Actual Abandoned Calls'})
         
@@ -241,11 +284,12 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
         aht_grp['Talk Time'] = (aht_grp['ACD Time'] / aht_grp['ACD Calls']).fillna(0)
         aht_grp['Wrap Time'] = (aht_grp['ACW Time'] / aht_grp['ACD Calls']).fillna(0)
         aht_grp['Hold Time Avg'] = (aht_grp['Hold Time'] / aht_grp['ACD Calls']).fillna(0)
+        aht_grp['Total AHT'] = aht_grp['Talk Time'] + aht_grp['Wrap Time'] + aht_grp['Hold Time Avg']
         
         fig_aht = go.Figure()
-        fig_aht.add_trace(go.Bar(x=aht_grp['TimeStr'], y=aht_grp['Talk Time'], name='Talk Time', marker_color='#4299E1'))
-        fig_aht.add_trace(go.Bar(x=aht_grp['TimeStr'], y=aht_grp['Wrap Time'], name='Wrap Time', marker_color='#48BB78'))
-        fig_aht.add_trace(go.Bar(x=aht_grp['TimeStr'], y=aht_grp['Hold Time Avg'], name='Hold Time', marker_color='#ED8936'))
+        fig_aht.add_trace(go.Bar(x=aht_grp['TimeStr'], y=aht_grp['Talk Time'], name='Talk Time', marker_color='#4299E1', customdata=aht_grp['Total AHT'], hovertemplate='Talk Time: %{y:.1f}s<br>Total AHT: %{customdata:.1f}s<extra></extra>'))
+        fig_aht.add_trace(go.Bar(x=aht_grp['TimeStr'], y=aht_grp['Wrap Time'], name='Wrap Time', marker_color='#48BB78', customdata=aht_grp['Total AHT'], hovertemplate='Wrap Time: %{y:.1f}s<br>Total AHT: %{customdata:.1f}s<extra></extra>'))
+        fig_aht.add_trace(go.Bar(x=aht_grp['TimeStr'], y=aht_grp['Hold Time Avg'], name='Hold Time', marker_color='#ED8936', customdata=aht_grp['Total AHT'], hovertemplate='Hold Time: %{y:.1f}s<br>Total AHT: %{customdata:.1f}s<extra></extra>'))
         
         fig_aht.update_layout(
             barmode='stack',
@@ -259,7 +303,7 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
     else:
         ui_aht = e_ui('aht-time-chart')
 
-    return ui_intraday, ui_heat, ui_aht
+    return ui_intraday, ui_sl_heat, ui_heat, ui_aht
 
 # CSV Export Callback
 @callback(
@@ -323,11 +367,12 @@ from frontend.shared.pdf_generator import generate_single_chart_pdf, generate_da
     Output({'type': 'download-data-hourly', 'index': dash.MATCH}, "data", allow_duplicate=True),
     Input({'type': 'export-pdf-hourly', 'index': dash.MATCH}, "n_clicks"),
     State('intraday-chart', 'figure'),
+    State('ccf-sl-heatmap', 'figure'),
     State('hourly-heatmap', 'figure'),
     State('aht-time-chart', 'figure'),
     prevent_initial_call=True
 )
-def export_pdf_hourly(n_clicks, intraday, heatmap, aht):
+def export_pdf_hourly(n_clicks, intraday, sl_heat, heatmap, aht):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
@@ -335,6 +380,7 @@ def export_pdf_hourly(n_clicks, intraday, heatmap, aht):
     
     figures = {
         'intraday-chart': intraday,
+        'ccf-sl-heatmap': sl_heat,
         'hourly-heatmap': heatmap,
         'aht-time-chart': aht
     }
@@ -353,11 +399,12 @@ def export_pdf_hourly(n_clicks, intraday, heatmap, aht):
     Output({'type': 'download-data-hourly', 'index': dash.MATCH}, "data", allow_duplicate=True),
     Input({'type': 'export-png-hourly', 'index': dash.MATCH}, "n_clicks"),
     State('intraday-chart', 'figure'),
+    State('ccf-sl-heatmap', 'figure'),
     State('hourly-heatmap', 'figure'),
     State('aht-time-chart', 'figure'),
     prevent_initial_call=True
 )
-def export_png_hourly(n_clicks, intraday, heatmap, aht):
+def export_png_hourly(n_clicks, intraday, sl_heat, heatmap, aht):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
@@ -365,6 +412,7 @@ def export_png_hourly(n_clicks, intraday, heatmap, aht):
     
     figures = {
         'intraday-chart': intraday,
+        'ccf-sl-heatmap': sl_heat,
         'hourly-heatmap': heatmap,
         'aht-time-chart': aht
     }
@@ -382,11 +430,12 @@ def export_png_hourly(n_clicks, intraday, heatmap, aht):
     Output({'type': 'download-data-hourly', 'index': dash.MATCH}, "data", allow_duplicate=True),
     Input({'type': 'export-html-hourly', 'index': dash.MATCH}, "n_clicks"),
     State('intraday-chart', 'figure'),
+    State('ccf-sl-heatmap', 'figure'),
     State('hourly-heatmap', 'figure'),
     State('aht-time-chart', 'figure'),
     prevent_initial_call=True
 )
-def export_html_hourly(n_clicks, intraday, heatmap, aht):
+def export_html_hourly(n_clicks, intraday, sl_heat, heatmap, aht):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
@@ -394,6 +443,7 @@ def export_html_hourly(n_clicks, intraday, heatmap, aht):
     
     figures = {
         'intraday-chart': intraday,
+        'ccf-sl-heatmap': sl_heat,
         'hourly-heatmap': heatmap,
         'aht-time-chart': aht
     }

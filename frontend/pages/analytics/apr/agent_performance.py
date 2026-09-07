@@ -4,8 +4,9 @@ import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
 import pandas as pd
 import numpy as np
+import plotly.express as px
 from frontend.shared.api_client import get_dataframe
-from frontend.shared.theme import COLOR_PRIMARY, COLOR_DANGER
+from frontend.shared.theme import COLOR_PRIMARY, COLOR_DANGER, COLOR_WARNING, get_plotly_template
 from frontend.components.empty_state import render_empty_state
 
 dash.register_page(__name__, path='/apr/agent-performance', name='Agent Performance')
@@ -98,9 +99,42 @@ def update_agent_rankings(companies, languages, auth_state):
     numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
     df[numeric_cols] = df[numeric_cols].round(2)
     
-    display_cols = ['Login ID', 'Agent Name', 'Score', 'Total ACD Calls', 'Calls Per Hour', 'Occupancy %', 'AHT']
+    display_cols = ['Company', 'Login ID', 'Agent Name', 'Score', 'Total ACD Calls', 'Calls Per Hour', 'Occupancy %', 'AHT']
 
-    tables = []
+    quadrant_chart = html.Div()
+    if not df.empty and 'AHT (sec)' in df.columns and 'Occupancy %' in df.columns:
+        valid_df = df[(df['AHT (sec)'] > 0) & (df['Occupancy %'] > 0)].copy()
+        if not valid_df.empty:
+            avg_aht = valid_df['AHT (sec)'].median()
+            avg_occ = valid_df['Occupancy %'].median()
+            
+            fig_quad = px.scatter(
+                valid_df, x='AHT (sec)', y='Occupancy %', 
+                color='Company', hover_name='Agent Name',
+                hover_data={'AHT (sec)': ':.0f', 'Occupancy %': ':.1f', 'Total ACD Calls': True, 'Company': False},
+                color_discrete_sequence=px.colors.qualitative.Vivid
+            )
+            
+            fig_quad.add_vline(x=avg_aht, line_dash="dash", line_color="gray", annotation_text="Median AHT")
+            fig_quad.add_hline(y=avg_occ, line_dash="dash", line_color="gray", annotation_text="Median Occ")
+            
+            min_aht = valid_df['AHT (sec)'].min()
+            max_aht = valid_df['AHT (sec)'].max()
+            min_occ = valid_df['Occupancy %'].min()
+            max_occ = valid_df['Occupancy %'].max()
+            
+            fig_quad.add_annotation(x=min_aht, y=max_occ, text="Burnout Risk (Fast & Busy)", showarrow=False, xanchor="left", yanchor="top", font=dict(color=COLOR_DANGER))
+            fig_quad.add_annotation(x=max_aht, y=max_occ, text="Needs Coaching (Slow & Busy)", showarrow=False, xanchor="right", yanchor="top", font=dict(color=COLOR_WARNING))
+            
+            fig_quad.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+            
+            quadrant_chart = html.Div([
+                html.H4("Agent Quadrant Analysis (AHT vs Occupancy)", className="mt-2 mb-1 text-primary"),
+                html.P("Identifies coaching opportunities and burnout risks.", className="text-muted small mb-3"),
+                dcc.Graph(figure=fig_quad, config={'displayModeBar': False}, style={'height': '450px'})
+            ], className="card p-4 shadow-sm mb-4")
+
+    tables = [quadrant_chart] if valid_df is not None and not valid_df.empty else []
     for company in df['Company'].unique():
         company_df = df[df['Company'] == company].sort_values('Score', ascending=False)
         top_20 = company_df.head(20).to_dict('records')

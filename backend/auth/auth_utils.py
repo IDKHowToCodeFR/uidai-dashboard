@@ -57,11 +57,12 @@ def load_users(db: Session, current_user: dict = None) -> dict:
             "companies": user.companies,
             "permissions": permissions,
             "login_count": user.login_count,
-            "last_login": user.last_login
+            "last_login": user.last_login,
+            "data_lookback_days": user.data_lookback_days
         }
     return result
 
-def add_user(db: Session, username: str, password: str, companies: list, permissions: list = None, ip_address: str = None, user_agent: str = None, endpoint: str = None):
+def add_user(db: Session, username: str, password: str, companies: list, permissions: list = None, actor: str = "Admin", ip_address: str = None, user_agent: str = None, endpoint: str = None):
     if permissions is None:
         permissions = []
     
@@ -83,10 +84,10 @@ def add_user(db: Session, username: str, password: str, companies: list, permiss
         db.add(UserPermission(user_id=new_user.id, permission_name=p))
         
     db.commit()
-    add_log(db, "USER_ADDED", "Admin", f"Added user '{username}' with companies {companies} and perms {permissions}", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
+    add_log(db, "USER_ADDED", actor, f"Added user '{username}' with companies {companies} and perms {permissions}", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
     return True, f"User '{username}' added."
 
-def update_permissions(db: Session, username: str, permissions: list, companies: list = None, ip_address: str = None, user_agent: str = None, endpoint: str = None):
+def update_permissions(db: Session, username: str, permissions: list, companies: list = None, data_lookback_days: int = None, actor: str = "Admin", ip_address: str = None, user_agent: str = None, endpoint: str = None):
     key = username.lower().strip()
     user = db.query(User).filter(User.username == key).first()
     if not user:
@@ -98,6 +99,8 @@ def update_permissions(db: Session, username: str, permissions: list, companies:
     if companies is not None:
         user.companies = companies
         
+    user.data_lookback_days = data_lookback_days
+        
     # Delete existing permissions
     db.query(UserPermission).filter(UserPermission.user_id == user.id).delete()
     
@@ -106,10 +109,10 @@ def update_permissions(db: Session, username: str, permissions: list, companies:
         db.add(UserPermission(user_id=user.id, permission_name=p))
         
     db.commit()
-    add_log(db, "PERMISSIONS_UPDATED", "Admin", f"Updated permissions & companies for '{username}'", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
+    add_log(db, "PERMISSIONS_UPDATED", actor, f"Updated permissions & companies for '{username}'", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
     return True, f"Permissions & companies updated for '{username}'."
 
-def reset_password(db: Session, username: str, new_password: str, ip_address: str = None, user_agent: str = None, endpoint: str = None):
+def reset_password(db: Session, username: str, new_password: str, actor: str = "Admin", ip_address: str = None, user_agent: str = None, endpoint: str = None):
     key = username.lower().strip()
     user = db.query(User).filter(User.username == key).first()
     if not user:
@@ -118,10 +121,10 @@ def reset_password(db: Session, username: str, new_password: str, ip_address: st
     hashed_password = get_password_hash(new_password)
     user.password_hash = hashed_password
     db.commit()
-    add_log(db, "PASSWORD_RESET", "Admin", f"Reset password for '{username}'", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
+    add_log(db, "PASSWORD_RESET", actor, f"Reset password for '{username}'", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
     return True, f"Password reset for '{username}'."
 
-def remove_user(db: Session, username: str, ip_address: str = None, user_agent: str = None, endpoint: str = None):
+def remove_user(db: Session, username: str, actor: str = "Admin", ip_address: str = None, user_agent: str = None, endpoint: str = None):
     key = username.lower().strip()
     user = db.query(User).filter(User.username == key).first()
     if not user:
@@ -131,7 +134,7 @@ def remove_user(db: Session, username: str, ip_address: str = None, user_agent: 
     
     db.delete(user)
     db.commit()
-    add_log(db, "USER_DEACTIVATED", "Admin", f"Deactivated account for ({username})", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
+    add_log(db, "USER_DEACTIVATED", actor, f"Deactivated account for ({username})", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
     return True, f"Account for '{username}' deactivated."
 
 def verify_and_upgrade_password(db: Session, db_user: User, plain_password: str) -> bool:
@@ -139,9 +142,8 @@ def verify_and_upgrade_password(db: Session, db_user: User, plain_password: str)
 
 def get_admin_permissions():
     return [
-        "can_download_files", 
-        "can_view_ccf", 
-        "can_view_unimate", "can_view_cdr", "can_view_apr",
+        "can_download_files", "can_view_global",
+        "can_view_ccf", "can_view_unimate", "can_view_cdr", "can_view_apr",
         "can_manage_users", "can_view_logs", "can_edit_settings"
     ]
 
@@ -188,7 +190,7 @@ async def get_current_user(token: str = Security(oauth2_scheme), db: Session = D
         else:
             permissions = [p.permission_name for p in user.permissions]
         
-        return {"username": user.username, "role": role, "permissions": permissions, "companies": user.companies}
+        return {"username": user.username, "role": role, "permissions": permissions, "companies": user.companies, "data_lookback_days": user.data_lookback_days}
     except JWTError:
         raise credentials_exception
 

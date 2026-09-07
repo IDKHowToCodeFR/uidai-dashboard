@@ -1,17 +1,24 @@
 import os
 import io
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from backend.auth.auth_utils import get_current_user, require_permission
 from backend.audit.audit_logger import add_log, extract_request_metadata
 from backend.database.database import get_db
 from backend.database.models import FileMetadata, CCFData, UniMateData, CDRData
 from backend.data_ingestion.websockets import process_file_background
+
+def check_data_permission(data_type: str, is_global: bool, permissions: list):
+    if is_global: return
+    reqs = {"CCF Data": "can_view_ccf", "UniMate Data": "can_view_unimate", "CDR Data": "can_view_cdr", "APR Data": "can_view_apr"}
+    if reqs.get(data_type) and reqs[data_type] not in permissions:
+        raise HTTPException(status_code=403, detail=f"Access denied for {data_type}.")
 
 def serialize_data(metrics, data_type):
     if data_type == "UniMate Data":
@@ -151,7 +158,11 @@ async def get_history(data_type: Optional[str] = None, impersonate: Optional[str
     
     query = db.query(FileMetadata)
     if data_type:
+        check_data_permission(data_type, is_global, permissions)
         query = query.filter(FileMetadata.data_type == data_type)
+    elif not is_global:
+        allowed = [k for k, v in {"CCF Data": "can_view_ccf", "UniMate Data": "can_view_unimate", "CDR Data": "can_view_cdr", "APR Data": "can_view_apr"}.items() if v in permissions]
+        query = query.filter(FileMetadata.data_type.in_(allowed))
     
     target_company = None
     if is_global:
@@ -187,6 +198,11 @@ async def get_history(data_type: Optional[str] = None, impersonate: Optional[str
             
     files = query.order_by(FileMetadata.uploaded_at.desc()).all()
     
+    lookback = current_user.get("data_lookback_days")
+    if lookback and not is_global:
+        cutoff = (datetime.now() - timedelta(days=lookback)).isoformat()
+        files = [f for f in files if f.uploaded_at >= cutoff]
+
     file_times = []
     for f in files:
         file_times.append({
@@ -217,6 +233,7 @@ async def get_aggregated_data(data_type: str = "CCF Data", impersonate: Optional
     user_companies = current_user.get("companies", [])
     permissions = current_user.get("permissions", [])
     is_global = current_user.get("role") == "Admin" or "can_view_global" in permissions
+    check_data_permission(data_type, is_global, permissions)
     
     if is_global:
         if impersonate:
@@ -228,6 +245,16 @@ async def get_aggregated_data(data_type: str = "CCF Data", impersonate: Optional
             query = query.filter(model_class.company == impersonate)
         else:
             query = query.filter(model_class.company.in_(user_companies))
+            
+    lookback = current_user.get("data_lookback_days")
+    if lookback and not is_global:
+        cutoff = (datetime.now() - timedelta(days=lookback)).strftime("%Y-%m-%d")
+        if data_type == "UniMate Data":
+            query = query.filter(model_class.call_start_time >= cutoff)
+        elif data_type == "CDR Data":
+            query = query.filter(func.substr(model_class.segstart, 7, 4) + "-" + func.substr(model_class.segstart, 4, 2) + "-" + func.substr(model_class.segstart, 1, 2) >= cutoff)
+        else:
+            query = query.filter(model_class.date_logged >= cutoff)
             
     metrics = query.all()
     return serialize_data(metrics, data_type)
@@ -254,6 +281,7 @@ async def get_data(filename: str, impersonate: Optional[str] = None, current_use
     user_companies = current_user.get("companies", [])
     permissions = current_user.get("permissions", [])
     is_global = current_user.get("role") == "Admin" or "can_view_global" in permissions
+    check_data_permission(file_meta.data_type, is_global, permissions)
     
     if is_global:
         if impersonate:
@@ -266,6 +294,16 @@ async def get_data(filename: str, impersonate: Optional[str] = None, current_use
         else:
             query = query.filter(model_class.company.in_(user_companies))
             
+    lookback = current_user.get("data_lookback_days")
+    if lookback and not is_global:
+        cutoff = (datetime.now() - timedelta(days=lookback)).strftime("%Y-%m-%d")
+        if file_meta.data_type == "UniMate Data":
+            query = query.filter(model_class.call_start_time >= cutoff)
+        elif file_meta.data_type == "CDR Data":
+            query = query.filter(func.substr(model_class.segstart, 7, 4) + "-" + func.substr(model_class.segstart, 4, 2) + "-" + func.substr(model_class.segstart, 1, 2) >= cutoff)
+        else:
+            query = query.filter(model_class.date_logged >= cutoff)
+
     metrics = query.all()
     return serialize_data(metrics, file_meta.data_type)
     
@@ -279,6 +317,11 @@ async def download_file(request: Request, filename: str, impersonate: Optional[s
     user_companies = current_user.get("companies", [])
     permissions = current_user.get("permissions", [])
     is_global = current_user.get("role") == "Admin" or "can_view_global" in permissions
+    
+    if not is_global and "can_download_files" not in permissions:
+        raise HTTPException(status_code=403, detail="File download permission required.")
+        
+    check_data_permission(file_meta.data_type, is_global, permissions)
     
     # Restrict raw file downloads to global viewers only
     if not impersonate and is_global:
@@ -313,6 +356,16 @@ async def download_file(request: Request, filename: str, impersonate: Optional[s
             query = query.filter(model_class.company == impersonate)
         else:
             query = query.filter(model_class.company.in_(user_companies))
+            
+    lookback = current_user.get("data_lookback_days")
+    if lookback and not is_global:
+        cutoff = (datetime.now() - timedelta(days=lookback)).strftime("%Y-%m-%d")
+        if file_meta.data_type == "UniMate Data":
+            query = query.filter(model_class.call_start_time >= cutoff)
+        elif file_meta.data_type == "CDR Data":
+            query = query.filter(func.substr(model_class.segstart, 7, 4) + "-" + func.substr(model_class.segstart, 4, 2) + "-" + func.substr(model_class.segstart, 1, 2) >= cutoff)
+        else:
+            query = query.filter(model_class.date_logged >= cutoff)
             
     metrics = query.all()
     if not metrics:
