@@ -122,25 +122,39 @@ async def startup_event():
     # 1. Safely create all missing tables (handles "already exists" cleanly)
     Base.metadata.create_all(bind=engine)
     
-    # 2. Tell Alembic the DB is fully up to date to prevent migration crashes
+    # 2. Tell Alembic to run migrations, or stamp if it's a new/old database
     try:
         from alembic import command
         from alembic.config import Config
+        from sqlalchemy import inspect
         alembic_cfg = Config("alembic.ini")
-        command.stamp(alembic_cfg, "head")
-    except Exception as e:
-        print(f"Warning: Failed to stamp alembic head: {e}")
-        if "Can't locate revision identified by" in str(e):
-            print("Attempting to recover by dropping alembic_version table...")
-            try:
-                from sqlalchemy import text
-                with engine.connect() as connection:
-                    connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
-                    connection.commit()
+        
+        inspector = inspect(engine)
+        has_alembic = inspector.has_table("alembic_version")
+        has_users = inspector.has_table("users")
+        
+        # Determine if database needs a stamp before upgrade
+        if has_users and not has_alembic:
+            # Legacy database that existed before Alembic tracking
+            cols = [c['name'] for c in inspector.get_columns('users')]
+            if 'data_lookback_days' in cols:
+                # Fully up to date manually
                 command.stamp(alembic_cfg, "head")
-                print("Successfully recovered alembic version.")
-            except Exception as e2:
-                print(f"Failed to recover alembic version: {e2}")
+                print("Stamped legacy database to head.")
+            else:
+                # Stamp to the previous migration so upgrade() applies data_lookback_days
+                command.stamp(alembic_cfg, "62a625ae6135")
+                print("Stamped legacy database to 62a625ae6135 (pre-lookback days).")
+        elif not has_users:
+            # Brand new database. create_all() already handled creation.
+            command.stamp(alembic_cfg, "head")
+            print("Stamped new database to head.")
+            
+        # Run migrations automatically
+        command.upgrade(alembic_cfg, "head")
+        print("Database schema is fully up to date.")
+    except Exception as e:
+        print(f"Warning: Failed to run alembic migrations: {e}")
 
     # Initialize DB session for startup tasks
     db = SessionLocal()
