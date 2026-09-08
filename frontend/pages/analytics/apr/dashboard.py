@@ -36,7 +36,8 @@ layout = dbc.Container([
     ]),
 
     dbc.Row([
-        dbc.Col([wrap_chart_card('apr-occ-aht', "Occupancy vs Average Handle Time", "apr")], width=12, className="mb-4")
+        dbc.Col([wrap_chart_card('apr-occ', "Agent Occupancy (%)", "apr")], width=12, lg=6, className="mb-4"),
+        dbc.Col([wrap_chart_card('apr-aht', "Average Handle Time (s)", "apr")], width=12, lg=6, className="mb-4")
     ]),
 
     # dbc.Row([
@@ -45,17 +46,18 @@ layout = dbc.Container([
     # ]),
 
     dbc.Row([
-        dbc.Col([wrap_chart_card('apr-state-pie', "Agent State Distribution", "apr")], width=12, lg=6, className="mb-4"),
-        dbc.Col([wrap_chart_card('apr-lang-pie', "Calls by Language", "apr")], width=12, lg=6, className="mb-4")
+        dbc.Col([wrap_chart_card('apr-state-bar', "Agent State Distribution", "apr")], width=12, lg=6, className="mb-4"),
+        dbc.Col([wrap_chart_card('apr-lang-bar', "Calls by Language", "apr")], width=12, lg=6, className="mb-4")
     ])
 ])
 
 @callback(
     Output('apr-kpi-row', 'children'),
     Output('apr-volume-container', 'children'),
-    Output('apr-occ-aht-container', 'children'),
-    Output('apr-state-pie-container', 'children'),
-    Output('apr-lang-pie-container', 'children'),
+    Output('apr-occ-container', 'children'),
+    Output('apr-aht-container', 'children'),
+    Output('apr-state-bar-container', 'children'),
+    Output('apr-lang-bar-container', 'children'),
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
@@ -73,16 +75,16 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
         return render_empty_state(graph_id=gid)
 
     if not data_ref or 'filename' not in data_ref:
-        return empty_kpi, e_ui('apr-vol'), e_ui('apr-occ-aht'), e_ui('apr-state-pie'), e_ui('apr-lang-pie')
+        return empty_kpi, e_ui('apr-vol'), e_ui('apr-occ'), e_ui('apr-aht'), e_ui('apr-state-bar'), e_ui('apr-lang-bar')
 
     token = auth_state.get('token') if auth_state else None
     if not token:
-        return empty_kpi, e_ui('apr-vol'), e_ui('apr-occ-aht'), e_ui('apr-state-pie'), e_ui('apr-lang-pie')
+        return empty_kpi, e_ui('apr-vol'), e_ui('apr-occ'), e_ui('apr-aht'), e_ui('apr-state-bar'), e_ui('apr-lang-bar')
 
     df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
 
     if df is None or df.empty:
-        return empty_kpi, e_ui('apr-vol'), e_ui('apr-occ-aht'), e_ui('apr-state-pie'), e_ui('apr-lang-pie')
+        return empty_kpi, e_ui('apr-vol'), e_ui('apr-occ'), e_ui('apr-aht'), e_ui('apr-state-bar'), e_ui('apr-lang-bar')
 
     def parse_time(val):
         if pd.isna(val): return 0
@@ -114,7 +116,7 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
             df = df[(df['Date'] >= pd.to_datetime(start_date).date()) & (df['Date'] <= pd.to_datetime(end_date).date())]
 
     if df.empty:
-        return empty_kpi, e_ui('apr-vol'), e_ui('apr-occ-aht'), e_ui('apr-state-pie'), e_ui('apr-lang-pie')
+        return empty_kpi, e_ui('apr-vol'), e_ui('apr-occ-aht'), e_ui('apr-state-bar'), e_ui('apr-lang-bar')
 
     if '% Agent Occupancy with ACW' in df.columns:
         df['% Agent Occupancy with ACW'] = df['% Agent Occupancy with ACW'].apply(lambda x: min(x, 100) if pd.notnull(x) else x)
@@ -139,9 +141,9 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
     
     kpis = [
         dbc.Col(make_kpi_card("Total ACD Calls", f"{int(total_acd_calls):,}"), width=True),
-        dbc.Col(make_kpi_card("Avg Occupancy", f"{avg_occ:.1f}%", "good" if avg_occ > 70 else "neutral"), width=True),
-        dbc.Col(make_kpi_card("Utilization (No ACW)", f"{avg_util:.1f}%", "good" if avg_util > 60 else "neutral"), width=True),
-        dbc.Col(make_kpi_card("Avg Handle Time", f"{avg_aht:.0f}s", "bad" if avg_aht > 240 else "good"), width=True),
+        dbc.Col(make_kpi_card("Avg Occupancy", f"{avg_occ:.1f}%", "good" if avg_occ > 70 else "neutral", sla_text="Target > 70%"), width=True),
+        dbc.Col(make_kpi_card("Utilization (No ACW)", f"{avg_util:.1f}%", "good" if avg_util > 60 else "neutral", sla_text="Target > 60%"), width=True),
+        dbc.Col(make_kpi_card("Avg Handle Time", f"{avg_aht:.0f}s", "bad" if avg_aht > 240 else "good", sla_text="Target ≤ 240s"), width=True),
     ]
 
     # Volume
@@ -173,22 +175,13 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
     else:
         vol_ui = e_ui('apr-volume')
 
-    # Combined Occupancy & AHT
+    # Occupancy & AHT separate
     if 'Date' in df.columns and not df['Date'].isna().all() and '% Agent Occupancy with ACW' in df.columns and 'aht' in df.columns:
-        from plotly.subplots import make_subplots
         combo_df = df.groupby('Date').agg({'% Agent Occupancy with ACW': 'mean', 'aht': 'mean'}).reset_index()
         show_text = len(combo_df) <= 15
         
-        fig_combo = make_subplots(specs=[[{"secondary_y": True}]])
-        
-        # AHT (Bar)
-        trace_aht = go.Bar(
-            x=combo_df['Date'], y=combo_df['aht'].round(0),
-            name="AHT (s)", marker_color=COLOR_NEUTRAL, opacity=0.7,
-            hovertemplate='<b>Date:</b> %{x}<br><b>AHT:</b> %{y}s<extra></extra>'
-        )
-        
-        # Occupancy (Line)
+        # Occupancy
+        fig_occ = go.Figure()
         trace_occ = go.Scatter(
             x=combo_df['Date'], y=combo_df['% Agent Occupancy with ACW'].round(1),
             name="Occupancy %", mode='lines+markers+text' if show_text else 'lines+markers',
@@ -197,37 +190,36 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
         )
         if show_text:
             trace_occ.update(text=combo_df['% Agent Occupancy with ACW'].round(1).astype(str) + '%', textposition='top center')
-            
-        fig_combo.add_trace(trace_aht, secondary_y=False)
-        fig_combo.add_trace(trace_occ, secondary_y=True)
-        
-        fig_combo.update_layout(
-            template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
-        fig_combo.add_hline(y=240, line_dash="dash", line_color=COLOR_SUCCESS, annotation_text="Target AHT", secondary_y=False)
-        fig_combo.add_hline(y=80, line_dash="dash", line_color=COLOR_SUCCESS, annotation_text="Target Occ", secondary_y=True)
-        
-        if not combo_df.empty and 'aht' in combo_df.columns:
-            min_val = combo_df['aht'].min()
-            max_val = combo_df['aht'].max()
-            if max_val > min_val:
-                fig_combo.update_yaxes(title_text="AHT (Seconds)", secondary_y=False, showgrid=False, range=[0, max_val * 1.1])
-            else:
-                fig_combo.update_yaxes(title_text="AHT (Seconds)", secondary_y=False, showgrid=False)
-        else:
-            fig_combo.update_yaxes(title_text="AHT (Seconds)", secondary_y=False, showgrid=False)
-            
+        fig_occ.add_trace(trace_occ)
+        fig_occ.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), showlegend=False)
+        fig_occ.add_hline(y=80, line_dash="dash", line_color=COLOR_SUCCESS, annotation_text="Target")
         if sl_scale and 1 in sl_scale:
-            fig_combo.update_yaxes(title_text="Occupancy %", secondary_y=True, showgrid=False)
+            fig_occ.update_yaxes(showgrid=False)
         else:
-            fig_combo.update_yaxes(title_text="Occupancy %", secondary_y=True, showgrid=False, range=[0, 105])
+            fig_occ.update_yaxes(showgrid=False, range=[0, 105])
+        occ_ui = dcc.Graph(id='apr-occ', figure=fig_occ, config={'displayModeBar': False})
         
-        occ_aht_ui = dcc.Graph(figure=fig_combo, config={'displayModeBar': False})
+        # AHT
+        fig_aht = go.Figure()
+        trace_aht = go.Bar(
+            x=combo_df['Date'], y=combo_df['aht'].round(0),
+            name="AHT (s)", marker_color=COLOR_NEUTRAL, opacity=0.7,
+            hovertemplate='<b>Date:</b> %{x}<br><b>AHT:</b> %{y}s<extra></extra>'
+        )
+        fig_aht.add_trace(trace_aht)
+        fig_aht.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), showlegend=False)
+        fig_aht.add_hline(y=240, line_dash="dash", line_color=COLOR_SUCCESS, annotation_text="Target")
+        if not combo_df.empty:
+            max_val = combo_df['aht'].max()
+            fig_aht.update_yaxes(showgrid=False, range=[0, max_val * 1.1])
+        else:
+            fig_aht.update_yaxes(showgrid=False)
+        aht_ui = dcc.Graph(id='apr-aht', figure=fig_aht, config={'displayModeBar': False})
     else:
-        occ_aht_ui = e_ui('apr-occ-aht')
+        occ_ui = e_ui('apr-occ')
+        aht_ui = e_ui('apr-aht')
 
-    # Agent State Pie
+    # Agent State Bar
     state_cols = ['ACD Time', 'ACW Time', 'Avail Time', 'AUX Time', 'Agent Ring Time']
     if all(c in df.columns for c in state_cols):
         state_vals = [df[c].sum() for c in state_cols]
@@ -246,19 +238,18 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
         fig_state.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), showlegend=False, yaxis={'categoryorder':'total ascending'}, yaxis_title="", xaxis_title="Total Time (Seconds)")
         state_ui = dcc.Graph(figure=fig_state, config={'displayModeBar': False})
     else:
-        state_ui = e_ui('apr-state-pie')
+        state_ui = e_ui('apr-state-bar')
         
-    # Language Pie
+    # Language Bar
     if 'Language' in df.columns and 'ACD Calls' in df.columns:
-        lang_grp = df.groupby('Language')['ACD Calls'].sum().reset_index()
-        fig_lang = px.pie(lang_grp, names='Language', values='ACD Calls', hole=0.6, color_discrete_sequence=px.colors.qualitative.Pastel)
-        fig_lang.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>%{label}</b><br>Count: %{value:,}<extra></extra>', marker=dict(line=dict(color='#ffffff', width=2)))
+        lang_grp = df.groupby('Language')['ACD Calls'].sum().reset_index().sort_values('ACD Calls', ascending=True)
+        fig_lang = px.bar(lang_grp, y='Language', x='ACD Calls', orientation='h', color_discrete_sequence=[COLOR_PRIMARY])
         fig_lang.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
         lang_ui = dcc.Graph(figure=fig_lang, config={'displayModeBar': False})
     else:
-        lang_ui = e_ui('apr-lang-pie')
+        lang_ui = e_ui('apr-lang-bar')
 
-    return kpis, vol_ui, occ_aht_ui, state_ui, lang_ui
+    return kpis, vol_ui, occ_ui, aht_ui, state_ui, lang_ui
 # Exports
 @callback(
     Output({'type': 'download-data-apr', 'index': dash.MATCH}, "data"),
@@ -287,16 +278,17 @@ def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, st
     Output({'type': 'download-data-apr', 'index': dash.MATCH}, "data", allow_duplicate=True),
     Input({'type': 'export-pdf-apr', 'index': dash.MATCH}, "n_clicks"),
     State('apr-volume', 'figure'),
-    State('apr-occ-aht', 'figure'),
-    State('apr-state-pie', 'figure'),
-    State('apr-lang-pie', 'figure'),
+    State('apr-occ', 'figure'),
+    State('apr-aht', 'figure'),
+    State('apr-state-bar', 'figure'),
+    State('apr-lang-bar', 'figure'),
     prevent_initial_call=True
 )
-def export_pdf_dashboard(n_clicks, vol, occ_aht, state, lang):
+def export_pdf_dashboard(n_clicks, vol, occ, aht, state, lang):
     if not n_clicks: return dash.no_update
     triggered_id = ctx.triggered_id
     index = triggered_id['index']
-    figures = {'apr-volume': vol, 'apr-occ-aht': occ_aht, 'apr-state-pie': state, 'apr-lang-pie': lang}
+    figures = {'apr-volume': vol, 'apr-occ': occ, 'apr-aht': aht, 'apr-state-bar': state, 'apr-lang-bar': lang}
     if index == 'apr':
         pdf_bytes = generate_dashboard_pdf(figures, "APR Dashboard")
         return dcc.send_bytes(pdf_bytes, "apr_dashboard_export.pdf")
@@ -310,16 +302,17 @@ def export_pdf_dashboard(n_clicks, vol, occ_aht, state, lang):
     Output({'type': 'download-data-apr', 'index': dash.MATCH}, "data", allow_duplicate=True),
     Input({'type': 'export-png-apr', 'index': dash.MATCH}, "n_clicks"),
     State('apr-volume', 'figure'),
-    State('apr-occ-aht', 'figure'),
-    State('apr-state-pie', 'figure'),
-    State('apr-lang-pie', 'figure'),
+    State('apr-occ', 'figure'),
+    State('apr-aht', 'figure'),
+    State('apr-state-bar', 'figure'),
+    State('apr-lang-bar', 'figure'),
     prevent_initial_call=True
 )
-def export_png_dashboard(n_clicks, vol, occ_aht, state, lang):
+def export_png_dashboard(n_clicks, vol, occ, aht, state, lang):
     if not n_clicks: return dash.no_update
     triggered_id = ctx.triggered_id
     index = triggered_id['index']
-    figures = {'apr-volume': vol, 'apr-occ-aht': occ_aht, 'apr-state-pie': state, 'apr-lang-pie': lang}
+    figures = {'apr-volume': vol, 'apr-occ': occ, 'apr-aht': aht, 'apr-state-bar': state, 'apr-lang-bar': lang}
     if index == 'apr':
         pdf_bytes = generate_dashboard_pdf(figures, "APR Dashboard")
         return dcc.send_bytes(pdf_bytes, "apr_dashboard_export.pdf")
@@ -333,16 +326,17 @@ def export_png_dashboard(n_clicks, vol, occ_aht, state, lang):
     Output({'type': 'download-data-apr', 'index': dash.MATCH}, "data", allow_duplicate=True),
     Input({'type': 'export-html-apr', 'index': dash.MATCH}, "n_clicks"),
     State('apr-volume', 'figure'),
-    State('apr-occ-aht', 'figure'),
-    State('apr-state-pie', 'figure'),
-    State('apr-lang-pie', 'figure'),
+    State('apr-occ', 'figure'),
+    State('apr-aht', 'figure'),
+    State('apr-state-bar', 'figure'),
+    State('apr-lang-bar', 'figure'),
     prevent_initial_call=True
 )
-def export_html_dashboard(n_clicks, vol, occ_aht, state, lang):
+def export_html_dashboard(n_clicks, vol, occ, aht, state, lang):
     if not n_clicks: return dash.no_update
     triggered_id = ctx.triggered_id
     index = triggered_id['index']
-    figures = {'apr-volume': vol, 'apr-occ-aht': occ_aht, 'apr-state-pie': state, 'apr-lang-pie': lang}
+    figures = {'apr-volume': vol, 'apr-occ': occ, 'apr-aht': aht, 'apr-state-bar': state, 'apr-lang-bar': lang}
     if index == 'apr':
         html_str = generate_dashboard_html(figures, "APR Dashboard")
         return dcc.send_string(html_str, "apr_dashboard_export.html")

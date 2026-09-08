@@ -33,11 +33,16 @@ layout = html.Div([
 
     dbc.Row([
         dbc.Col([
-            wrap_chart_card('unimate-vol-auth-trend', "Auth Rate vs Volume Trend", "unimate-dash")
+            wrap_chart_card('unimate-vol-trend', "Call Volume Trend", "unimate-dash")
         ], width=12, lg=6, className="mb-4"),
         dbc.Col([
-            wrap_chart_card('unimate-containment-trend', "Bot Containment Rate Trend", "unimate-dash")
+            wrap_chart_card('unimate-auth-trend', "Authentication Rate Trend", "unimate-dash")
         ], width=12, lg=6, className="mb-4")
+    ]),
+    dbc.Row([
+        dbc.Col([
+            wrap_chart_card('unimate-containment-trend', "Bot Containment Rate Trend", "unimate-dash")
+        ], width=12, className="mb-4")
     ]),
 
     dbc.Row([
@@ -73,7 +78,8 @@ layout = html.Div([
 
 @callback(
     Output('unimate-kpi-row', 'children'),
-    Output('unimate-vol-auth-trend-container', 'children'),
+    Output('unimate-vol-trend-container', 'children'),
+    Output('unimate-auth-trend-container', 'children'),
     Output('unimate-containment-trend-container', 'children'),
     Output('unimate-termination-container', 'children'),
     Output('unimate-language-container', 'children'),
@@ -96,7 +102,7 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
 
     empty_kpi = dbc.Col(html.Div(e_ui(), style={"height": "120px"}), width=12)
     outs = [empty_kpi] + [e_ui(gid) for gid in [
-        'unimate-vol-auth-trend', 'unimate-containment-trend', 'unimate-termination', 'unimate-language', 
+        'unimate-vol-trend', 'unimate-auth-trend', 'unimate-containment-trend', 'unimate-termination', 'unimate-language', 
         'unimate-duration-hist', 'unimate-sunburst', 
         'unimate-intraday-language', 'unimate-term-language'
     ]]
@@ -150,8 +156,8 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
     kpis = [
         dbc.Col(make_kpi_card("Total Calls", f"{total_calls:,}"), width=True),
         dbc.Col(make_kpi_card("Avg Duration", f"{avg_duration:.1f}s"), width=True),
-        dbc.Col(make_kpi_card("Auth Rate", f"{auth_rate:.1f}%", "good" if auth_rate > 50 else "neutral"), width=True),
-        dbc.Col(make_kpi_card("System Drops", f"{system_term:.1f}%", "bad" if system_term > 10 else "neutral"), width=True),
+        dbc.Col(make_kpi_card("Auth Rate", f"{auth_rate:.1f}%", "good" if auth_rate > 50 else "neutral", sla_text="Target > 50%"), width=True),
+        dbc.Col(make_kpi_card("System Drops", f"{system_term:.1f}%", "bad" if system_term > 10 else "neutral", sla_text="Target ≤ 10%"), width=True),
     ]
 
     # Time Bucketing
@@ -170,7 +176,7 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
     else:
         df['Date_Bucket'] = pd.NaT
 
-    # 1. Dual-Axis Vol Auth Trend
+    # 1. Separated Vol & Auth Trend
     if date_col and 'Authentication' in df.columns:
         trend_grp = df.groupby('Date_Bucket').agg(
             Calls=('Authentication', 'size'),
@@ -178,33 +184,33 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         ).reset_index()
         trend_grp['Auth %'] = np.where(trend_grp['Calls'] == 0, 0, (trend_grp['Auths'] / trend_grp['Calls']) * 100)
         
-        from plotly.subplots import make_subplots
-        fig_dual = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_dual.add_trace(go.Bar(
+        # Volume Chart
+        fig_vol = go.Figure()
+        fig_vol.add_trace(go.Bar(
             x=trend_grp['Date_Bucket'], y=trend_grp['Calls'], name="Volume", 
             marker_color=COLOR_INFO, opacity=0.85, 
             hovertemplate='<b>Date:</b> %{x}<br><b>Volume:</b> %{y:,}<extra></extra>'
-        ), secondary_y=False)
+        ))
+        fig_vol.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), showlegend=False, yaxis_title="Volume")
         
-        fig_dual.add_trace(go.Scatter(
+        # Auth Chart
+        fig_auth = go.Figure()
+        fig_auth.add_trace(go.Scatter(
             x=trend_grp['Date_Bucket'], y=trend_grp['Auth %'], name="Auth %", 
-            mode='lines+markers', line=dict(color=COLOR_SUCCESS, width=3, shape='spline'), 
+            mode='lines+markers', line=dict(color=COLOR_SUCCESS, width=3, shape='spline'), fill='tozeroy', fillcolor=f'rgba(16, 185, 129, 0.1)',
             hovertemplate='<b>Date:</b> %{x}<br><b>Auth %:</b> %{y:.2f}%<extra></extra>'
-        ), secondary_y=True)
-        
-        fig_dual.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-        fig_dual.update_yaxes(title_text="Volume", secondary_y=False, showgrid=False)
-        if not trend_grp.empty and "Calls" in trend_grp.columns:
-            min_v, max_v = trend_grp["Calls"].min(), trend_grp["Calls"].max()
-            if max_v > min_v:
-                fig_dual.update_yaxes(secondary_y=False, range=[0 if min_v == 0 else min_v * 0.9, max_v * 1.1])
+        ))
+        fig_auth.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), showlegend=False, yaxis_title="Auth %")
         if sl_scale and 1 in sl_scale:
-            fig_dual.update_yaxes(title_text="Auth %", secondary_y=True, showgrid=False, range=[max(0, min(trend_grp['Auth %'].min() - 2, 80)), min(100, trend_grp['Auth %'].max() + 2)])
+            fig_auth.update_yaxes(range=[max(0, min(trend_grp['Auth %'].min() - 2, 80)), min(100, trend_grp['Auth %'].max() + 2)])
         else:
-            fig_dual.update_yaxes(title_text="Auth %", secondary_y=True, showgrid=False, range=[0, 100])
-        ui_vol_auth = dcc.Graph(id='unimate-vol-auth-trend', figure=fig_dual, config={'displayModeBar': False})
+            fig_auth.update_yaxes(range=[0, 100])
+            
+        ui_vol = dcc.Graph(id='unimate-vol-trend', figure=fig_vol, config={'displayModeBar': False})
+        ui_auth = dcc.Graph(id='unimate-auth-trend', figure=fig_auth, config={'displayModeBar': False})
     else:
-        ui_vol_auth = e_ui('unimate-vol-auth-trend')
+        ui_vol = e_ui('unimate-vol-trend')
+        ui_auth = e_ui('unimate-auth-trend')
 
     # 1.5 Bot Containment Trend
     if date_col and 'Termination Type' in df.columns:
@@ -228,24 +234,24 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
     else:
         ui_containment = e_ui('unimate-containment-trend')
 
-    # 2. Language Pie
+    # 2. Language Donut
     if 'Language' in df.columns:
         lang_df = df['Language'].value_counts().reset_index()
         lang_df.columns = ['Language', 'Count']
-        fig_lang = px.pie(lang_df, names='Language', values='Count', hole=0.6, color_discrete_sequence=px.colors.qualitative.Pastel)
-        fig_lang.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>%{label}</b><br>Count: %{value:,}<extra></extra>', marker=dict(line=dict(color='#ffffff', width=2)))
+        fig_lang = px.pie(lang_df, names='Language', values='Count', hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
+        fig_lang.update_traces(hovertemplate='<b>%{label}</b><br>Calls: %{value:,} (%{percent})<extra></extra>', textinfo='label+percent', textposition='inside')
         fig_lang.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
         ui_lang = dcc.Graph(id='unimate-language', figure=fig_lang, config={'displayModeBar': False})
     else:
         ui_lang = e_ui('unimate-language')
 
-    # 3. Termination Chart
+    # 3. Termination Chart Treemap
     if 'Termination Reason' in df.columns:
         term_df = df['Termination Reason'].value_counts().reset_index()
         term_df.columns = ['Reason', 'Count']
-        fig_term = px.pie(term_df, names='Reason', values='Count', hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
-        fig_term.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>Reason:</b> %{label}<br><b>Count:</b> %{value:,}<extra></extra>', marker=dict(line=dict(color='#ffffff', width=2)))
-        fig_term.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
+        fig_term = px.treemap(term_df, path=[px.Constant("Total Terminations"), 'Reason'], values='Count', color='Count', color_continuous_scale='Blues')
+        fig_term.update_traces(hovertemplate='<b>%{label}</b><br>Count: %{value:,}<extra></extra>')
+        fig_term.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10))
         ui_term = dcc.Graph(id='unimate-termination', figure=fig_term, config={'displayModeBar': False})
     else:
         ui_term = e_ui('unimate-termination')
@@ -312,9 +318,9 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
             y_title = "Average Volume (Calls)"
             hover = '<b>%{data.name}</b>: %{y:d}<extra></extra>'
         
-        fig_intra = px.line(avg_intra, x='TimeStr', y=y_col, color='Language', color_discrete_sequence=px.colors.qualitative.Vivid)
+        fig_intra = px.area(avg_intra, x='TimeStr', y=y_col, color='Language', color_discrete_sequence=px.colors.qualitative.Pastel)
         fig_intra.update_xaxes(categoryorder='category ascending')
-        fig_intra.update_traces(mode='lines', line_shape='spline', hovertemplate=hover)
+        fig_intra.update_traces(line_shape='spline', hovertemplate=hover, line=dict(width=1))
         fig_intra.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), xaxis_title="Time of Day", yaxis_title=y_title, hovermode='x unified')
             
         ui_intra = dcc.Graph(id='unimate-intraday-language', figure=fig_intra, config={'displayModeBar': False})
@@ -348,7 +354,7 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
     else:
         ui_term_lang = e_ui('unimate-term-language')
 
-    return kpis, ui_vol_auth, ui_containment, ui_term, ui_lang, ui_hist, ui_sun, ui_intra, ui_term_lang
+    return kpis, ui_vol, ui_auth, ui_containment, ui_term, ui_lang, ui_hist, ui_sun, ui_intra, ui_term_lang
 
 
 # ---------------- EXPORT CALLBACKS ----------------
@@ -392,7 +398,8 @@ def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, st
 @callback(
     Output({'type': 'download-data-unimate-dash', 'index': dash.MATCH}, "data", allow_duplicate=True),
     Input({'type': 'export-pdf-unimate-dash', 'index': dash.MATCH}, "n_clicks"),
-    State('unimate-vol-auth-trend', 'figure'),
+    State('unimate-vol-trend', 'figure'),
+    State('unimate-auth-trend', 'figure'),
     State('unimate-containment-trend', 'figure'),
     State('unimate-termination', 'figure'),
     State('unimate-language', 'figure'),
@@ -402,14 +409,14 @@ def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, st
     State('unimate-term-language', 'figure'),
     prevent_initial_call=True
 )
-def export_pdf_unimate_dash(n_clicks, vol_auth, cont_trend, term, lang, hist, sun, intra, term_lang):
+def export_pdf_unimate_dash(n_clicks, vol, auth, cont_trend, term, lang, hist, sun, intra, term_lang):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
     index = triggered_id['index']
     
     figures = {
-        'unimate-vol-auth-trend': vol_auth, 'unimate-containment-trend': cont_trend, 'unimate-termination': term,
+        'unimate-vol-trend': vol, 'unimate-auth-trend': auth, 'unimate-containment-trend': cont_trend, 'unimate-termination': term,
         'unimate-language': lang, 'unimate-duration-hist': hist, 'unimate-sunburst': sun,
         'unimate-intraday-language': intra, 'unimate-term-language': term_lang
     }
@@ -427,7 +434,8 @@ def export_pdf_unimate_dash(n_clicks, vol_auth, cont_trend, term, lang, hist, su
 @callback(
     Output({'type': 'download-data-unimate-dash', 'index': dash.MATCH}, "data", allow_duplicate=True),
     Input({'type': 'export-png-unimate-dash', 'index': dash.MATCH}, "n_clicks"),
-    State('unimate-vol-auth-trend', 'figure'),
+    State('unimate-vol-trend', 'figure'),
+    State('unimate-auth-trend', 'figure'),
     State('unimate-containment-trend', 'figure'),
     State('unimate-termination', 'figure'),
     State('unimate-language', 'figure'),
@@ -437,14 +445,14 @@ def export_pdf_unimate_dash(n_clicks, vol_auth, cont_trend, term, lang, hist, su
     State('unimate-term-language', 'figure'),
     prevent_initial_call=True
 )
-def export_png_unimate_dash(n_clicks, vol_auth, cont_trend, term, lang, hist, sun, intra, term_lang):
+def export_png_unimate_dash(n_clicks, vol, auth, cont_trend, term, lang, hist, sun, intra, term_lang):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
     index = triggered_id['index']
     
     figures = {
-        'unimate-vol-auth-trend': vol_auth, 'unimate-containment-trend': cont_trend, 'unimate-termination': term,
+        'unimate-vol-trend': vol, 'unimate-auth-trend': auth, 'unimate-containment-trend': cont_trend, 'unimate-termination': term,
         'unimate-language': lang, 'unimate-duration-hist': hist, 'unimate-sunburst': sun,
         'unimate-intraday-language': intra, 'unimate-term-language': term_lang
     }
@@ -461,7 +469,8 @@ def export_png_unimate_dash(n_clicks, vol_auth, cont_trend, term, lang, hist, su
 @callback(
     Output({'type': 'download-data-unimate-dash', 'index': dash.MATCH}, "data", allow_duplicate=True),
     Input({'type': 'export-html-unimate-dash', 'index': dash.MATCH}, "n_clicks"),
-    State('unimate-vol-auth-trend', 'figure'),
+    State('unimate-vol-trend', 'figure'),
+    State('unimate-auth-trend', 'figure'),
     State('unimate-containment-trend', 'figure'),
     State('unimate-termination', 'figure'),
     State('unimate-language', 'figure'),
@@ -471,14 +480,14 @@ def export_png_unimate_dash(n_clicks, vol_auth, cont_trend, term, lang, hist, su
     State('unimate-term-language', 'figure'),
     prevent_initial_call=True
 )
-def export_html_unimate_dash(n_clicks, vol_auth, cont_trend, term, lang, hist, sun, intra, term_lang):
+def export_html_unimate_dash(n_clicks, vol, auth, cont_trend, term, lang, hist, sun, intra, term_lang):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
     index = triggered_id['index']
     
     figures = {
-        'unimate-vol-auth-trend': vol_auth, 'unimate-containment-trend': cont_trend, 'unimate-termination': term,
+        'unimate-vol-trend': vol, 'unimate-auth-trend': auth, 'unimate-containment-trend': cont_trend, 'unimate-termination': term,
         'unimate-language': lang, 'unimate-duration-hist': hist, 'unimate-sunburst': sun,
         'unimate-intraday-language': intra, 'unimate-term-language': term_lang
     }

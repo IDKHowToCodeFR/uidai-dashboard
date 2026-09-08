@@ -295,9 +295,9 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
         
         kpis = [
             Col(make_kpi_card("Total Volume (Selected)", f"{int(total_vol):,}"), className="col-12 col-md-6 col-lg-3 mb-3 mb-lg-0"),
-            Col(make_kpi_card("Avg Service Level", f"{avg_sl:.1f}%", sl_status), className="col-12 col-md-6 col-lg-3 mb-3 mb-lg-0"),
-            Col(make_kpi_card("Avg AHT", f"{avg_aht:.0f}s", aht_status), className="col-12 col-md-6 col-lg-3 mb-3 mb-lg-0"),
-            Col(make_kpi_card("Avg Abandon Rate", f"{avg_aban:.1f}%", "Neutral"), className="col-12 col-md-6 col-lg-3"),
+            Col(make_kpi_card("Avg Service Level", f"{avg_sl:.1f}%", sl_status, sla_text="Target ≥ 80%"), className="col-12 col-md-6 col-lg-3 mb-3 mb-lg-0"),
+            Col(make_kpi_card("Avg AHT", f"{avg_aht:.0f}s", aht_status, sla_text="Target ≤ 240s"), className="col-12 col-md-6 col-lg-3 mb-3 mb-lg-0"),
+            Col(make_kpi_card("Avg Abandon Rate", f"{avg_aban:.1f}%", "Neutral", sla_text="Target < 5%"), className="col-12 col-md-6 col-lg-3"),
         ]
 
     # --- 1. Company Performance (Dual-Axis Combo Chart) ---
@@ -392,12 +392,11 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
     else:
         ui_funnel = e_ui('compare-funnel-chart')
         
-    # --- 4. Language breakdown (Pie Chart) ---
+    # --- 4. Language breakdown ---
     if has_lang:
         lang_grp = df.groupby('Language').size().reset_index(name='Volume')
-        fig_lang = px.pie(lang_grp, values='Volume', names='Language', hole=0.4, template=template)
-        fig_lang.update_traces(textinfo='percent+label', textposition='inside', hoverinfo='label+percent+value')
-        fig_lang.update_layout(margin=dict(t=20, b=20, l=20, r=20))
+        fig_lang = px.bar(lang_grp.sort_values('Volume', ascending=True), y='Language', x='Volume', orientation='h', template=template)
+        fig_lang.update_layout(margin=dict(t=30, b=10, l=10, r=10))
         ui_lang = dcc.Graph(id='compare-lang-chart', figure=fig_lang, config={'displayModeBar': False}, style={'height': '450px'})
     else:
         ui_lang = e_ui('compare-lang-chart')

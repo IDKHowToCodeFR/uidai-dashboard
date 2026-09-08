@@ -119,9 +119,9 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
 
     kpis = [
         dbc.Col(make_kpi_card("Total Calls", f"{total_calls:,}"), width=True),
-        dbc.Col(make_kpi_card("Avg Speed to Answer", f"{avg_hold:.1f}s", "bad" if avg_hold > 30 else "neutral"), width=True),
+        dbc.Col(make_kpi_card("Avg Speed to Answer", f"{avg_hold:.1f}s", "bad" if avg_hold > 30 else "neutral", sla_text="Target ≤ 30s"), width=True),
         dbc.Col(make_kpi_card("Avg Talk Time", f"{avg_talk:.1f}s"), width=True),
-        dbc.Col(make_kpi_card("Transfer Rate", f"{transfer_rate:.1f}%", "bad" if transfer_rate > 15 else ("good" if transfer_rate < 10 else "neutral")), width=True),
+        dbc.Col(make_kpi_card("Transfer Rate", f"{transfer_rate:.1f}%", "bad" if transfer_rate > 15 else ("good" if transfer_rate < 10 else "neutral"), sla_text="Target < 15%"), width=True),
     ]
 
     # Volume Trend
@@ -140,8 +140,8 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
         vol_df.rename(columns={'Date_Bucket': 'Date'}, inplace=True)
         fig_vol = px.area(vol_df, x='Date', y='Calls', template='plotly_white', color_discrete_sequence=[COLOR_PRIMARY])
         fig_vol.update_traces(hovertemplate='<b>Date:</b> %{x}<br><b>Calls:</b> %{y:,}<extra></extra>', line=dict(width=3, shape='spline'), fill='tozeroy')
-        fig_vol.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)')
-        fig_vol.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
+        fig_vol.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)', xaxis_title="Date", yaxis_title="Calls")
+        fig_vol.update_yaxes(showgrid=False)
         if not vol_df.empty and 'Calls' in vol_df.columns:
             min_val = vol_df['Calls'].min()
             max_val = vol_df['Calls'].max()
@@ -169,7 +169,7 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
         colors = [COLOR_PRIMARY, COLOR_WARNING, COLOR_NEUTRAL]
         fig_breakdown.update_traces(marker_color=colors, hovertemplate='<b>%{x}:</b> %{y:.1f}s<extra></extra>')
         fig_breakdown.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)')
-        fig_breakdown.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
+        fig_breakdown.update_yaxes(showgrid=False)
         if max_val > min_val and not use_log:
             fig_breakdown.update_yaxes(range=[0, max_val * 1.1])
             
@@ -181,10 +181,9 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
     if 'Language' in df.columns:
         lang_df = df['Language'].value_counts().reset_index()
         lang_df.columns = ['Language', 'Count']
-        fig_lang = px.pie(lang_df, names='Language', values='Count', template='plotly_white', hole=0.6,
-                         color_discrete_sequence=px.colors.qualitative.Vivid)
-        fig_lang.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>%{label}</b><br>Count: %{value:,}<extra></extra>', marker=dict(line=dict(color='#ffffff', width=2)))
+        fig_lang = px.bar(lang_df.sort_values('Count', ascending=True), y='Language', x='Count', orientation='h', template='plotly_white', color_discrete_sequence=[COLOR_PRIMARY])
         fig_lang.update_layout(margin=dict(l=0, r=0, t=20, b=0), showlegend=False)
+        fig_lang.update_xaxes(showgrid=False)
         lang_ui = dcc.Graph(figure=fig_lang, config={'displayModeBar': False})
     else:
         lang_ui = empty_ui
@@ -208,6 +207,7 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
                          color='Outcome', color_discrete_sequence=[COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING])
         fig_out.update_traces(hovertemplate='<b>%{y}</b><br>Count: %{x:,}<extra></extra>')
         fig_out.update_layout(margin=dict(l=0, r=0, t=20, b=0), showlegend=False, yaxis={'categoryorder':'total ascending'}, yaxis_title="")
+        fig_out.update_xaxes(showgrid=False)
         out_ui = dcc.Graph(figure=fig_out, config={'displayModeBar': False})
     else:
         out_ui = empty_ui
@@ -228,7 +228,7 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
         fig_intra = px.line(avg_intra, x='TimeStr', y='Calls', color='Language', template='plotly_white', color_discrete_sequence=px.colors.qualitative.Vivid)
         fig_intra.update_traces(mode='lines', line_shape='spline', hovertemplate='<b>Time:</b> %{x}<br><b>Language:</b> %{data.name}<br><b>Calls:</b> %{y:d}<extra></extra>')
         fig_intra.update_layout(margin=dict(l=0, r=0, t=20, b=0), plot_bgcolor='rgba(0,0,0,0)', xaxis_title="Time of Day", yaxis_title="Average Volume")
-        fig_intra.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
+        fig_intra.update_yaxes(showgrid=False)
         intra_lang_ui = dcc.Graph(figure=fig_intra, config={'displayModeBar': False})
     else:
         intra_lang_ui = empty_ui
@@ -261,8 +261,8 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
             showlegend=True,
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
-        fig_lang_metrics.update_xaxes(showgrid=True, gridcolor='#f1f5f9')
-        fig_lang_metrics.update_yaxes(showgrid=True, gridcolor='#f1f5f9')
+        fig_lang_metrics.update_xaxes(showgrid=False)
+        fig_lang_metrics.update_yaxes(showgrid=False)
         
         lang_metrics_ui = dcc.Graph(id='cdr-lang-metrics', figure=fig_lang_metrics, config={'displayModeBar': False})
     else:

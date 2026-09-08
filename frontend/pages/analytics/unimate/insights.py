@@ -121,10 +121,13 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
     kpis = []
     if 'Termination Type' in df.columns:
         resolved = df[~df['Termination Type'].astype(str).str.lower().isin(['transfer', 'transferred'])].shape[0]
-        resolution_rate = (resolved / total_calls * 100) if total_calls > 0 else 0
-        kpis.append(dbc.Col(make_kpi_card("Overall Resolution Rate", f"{resolution_rate:.1f}%", "good" if resolution_rate > 60 else "neutral"), width=True))
+        if total_calls > 0:
+            resolution_rate = resolved / total_calls * 100
+            kpis.append(dbc.Col(make_kpi_card("Overall Resolution Rate", f"{resolution_rate:.1f}%", "good" if resolution_rate > 60 else "neutral", sla_text="Target > 60%"), width=True))
+        else:
+            kpis.append(dbc.Col(make_kpi_card("Overall Resolution Rate", "0.0%", "neutral", sla_text="Target > 60%"), width=True))
     else:
-        kpis.append(dbc.Col(make_kpi_card("Overall Resolution Rate", "N/A", "neutral"), width=True))
+        kpis.append(dbc.Col(make_kpi_card("Overall Resolution Rate", "N/A", "neutral", sla_text="Target > 60%"), width=True))
 
     # Time Bucketing
     if date_col:
@@ -272,11 +275,13 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
     # Termination Type vs Reason
     if 'Termination Type' in df.columns and 'Termination Reason' in df.columns:
         term_grp = df.groupby(['Termination Type', 'Termination Reason']).size().reset_index(name='Count')
-        fig_term = px.bar(
-            term_grp, x='Termination Type', y='Count', color='Termination Reason', barmode='stack',
-            template=get_plotly_template(), color_discrete_sequence=px.colors.qualitative.Pastel
+        fig_term = px.treemap(
+            term_grp, path=[px.Constant("Total Terminations"), 'Termination Type', 'Termination Reason'], values='Count',
+            color='Count', color_continuous_scale='Blues',
+            template=get_plotly_template()
         )
-        fig_term.update_layout(margin=dict(t=10, b=10, l=10, r=10), yaxis_title="Count")
+        fig_term.update_traces(hovertemplate='<b>%{label}</b><br>Count: %{value:,}<extra></extra>')
+        fig_term.update_layout(margin=dict(t=10, b=10, l=10, r=10))
         term_ui = dcc.Graph(id='unimate-term-reason', figure=fig_term, config={'displayModeBar': False})
     else:
         term_ui = e_ui('unimate-term-reason')
