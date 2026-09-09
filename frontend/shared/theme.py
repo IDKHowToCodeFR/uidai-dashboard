@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 # Semantic Color Palette
 COLOR_PRIMARY = '#2563eb' # Blue
 COLOR_SUCCESS = '#10b981' # Green
-COLOR_WARNING = '#f59e0b' # Amber
+COLOR_WARNING = '#d97706' # Amber (updated for better contrast on white)
 COLOR_DANGER = '#ef4444' # Red
 COLOR_NEUTRAL = '#64748b' # Slate
 COLOR_INFO = '#0ea5e9' # Light Blue
@@ -23,10 +23,7 @@ def get_plotly_template():
     
     # Grid lines - Subtle & Structured
     template.layout.xaxis.showgrid = False       # Remove vertical grid lines for cleaner look
-    template.layout.yaxis.showgrid = True
-    template.layout.yaxis.gridcolor = 'rgba(226, 232, 240, 0.6)'  # Very faint #e2e8f0
-    template.layout.yaxis.gridwidth = 1
-    template.layout.yaxis.griddash = 'dash'      # Dashed grid lines
+    template.layout.yaxis.showgrid = False       # Remove horizontal grid lines
     
     template.layout.xaxis.zeroline = True
     template.layout.xaxis.zerolinecolor = '#cbd5e1'
@@ -43,7 +40,7 @@ def get_plotly_template():
     )
     
     # Premium Palette aligned with CSS variables
-    template.layout.colorway = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
+    template.layout.colorway = ['#2563eb', '#10b981', '#d97706', '#ef4444', '#8b5cf6', '#06b6d4']
     
     return template
 def make_header_with_download(title, graph_id, page_id="dashboard"):

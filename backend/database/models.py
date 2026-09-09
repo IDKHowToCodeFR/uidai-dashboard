@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime, Float, UniqueConstraint
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime, Float, UniqueConstraint, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from backend.database.database import Base
@@ -9,20 +9,28 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
-    companies = Column(JSON, default=[])
     login_count = Column(Integer, default=0)
     last_login = Column(String, nullable=True)
-    data_lookback_days = Column(Integer, nullable=True)
 
-    permissions = relationship("UserPermission", back_populates="user", cascade="all, delete-orphan")
+    permissions = relationship("UserPermission", back_populates="user", cascade="all, delete-orphan", uselist=False)
 
 
 class UserPermission(Base):
     __tablename__ = "user_permissions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    permission_name = Column(String, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    is_admin = Column(Boolean, default=False)
+    data_lookback_days = Column(Integer, nullable=True)
+    
+    company_digitech = Column(Boolean, default=False)
+    company_nsb = Column(Boolean, default=False)
+    
+    can_view_ccf = Column(Boolean, default=False)
+    can_view_unimate = Column(Boolean, default=False)
+    can_view_cdr = Column(Boolean, default=False)
+    can_view_apr = Column(Boolean, default=False)
+    can_download_files = Column(Boolean, default=False)
 
     user = relationship("User", back_populates="permissions")
 

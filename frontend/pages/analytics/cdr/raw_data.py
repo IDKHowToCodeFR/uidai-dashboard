@@ -46,6 +46,7 @@ def update_table(data_ref, companies, languages, start_date, end_date, auth_stat
     if languages and 'Language' in df.columns:
         df = df[df['Language'].isin(languages)]
 
+    if start_date and not end_date: end_date = start_date
     if start_date and end_date:
         date_col = None
         if 'segstart' in df.columns:
@@ -56,11 +57,10 @@ def update_table(data_ref, companies, languages, start_date, end_date, auth_stat
             date_col = 'Date'
 
         if date_col in df.columns:
-            # segstart is formatted as dd-mm-YYYY HH:MM:SS
-            temp_date = pd.to_datetime(df[date_col], format='%d-%m-%Y %H:%M:%S', errors='coerce').dt.date
-            # Fallback to general parsing if it fails
-            if temp_date.isna().all():
-                temp_date = pd.to_datetime(df[date_col], errors='coerce').dt.date
+            parsed_dates = pd.to_datetime(df[date_col], dayfirst=True, errors='coerce')
+            # Bridge to show the standard format in the UI table
+            df[date_col] = parsed_dates.dt.strftime('%Y-%m-%d %H:%M:%S').fillna(df[date_col])
+            temp_date = parsed_dates.dt.date
                 
             valid_mask = temp_date.notna()
             df = df[valid_mask]
@@ -74,6 +74,12 @@ def update_table(data_ref, companies, languages, start_date, end_date, auth_stat
     # Round numeric columns for cleaner display
     numeric_cols = df.select_dtypes(include=[np.number]).columns
     df[numeric_cols] = df[numeric_cols].round(2)
+    
+    # Format all possible date columns for the UI bridge
+    for col in ['segstart', 'segstop', 'segstartutc', 'segstoputc', 'Date']:
+        if col in df.columns:
+            # Reformat so YYYY-MM-DD HH:MM:SS is strictly displayed to user
+            df[col] = pd.to_datetime(df[col], dayfirst=True, errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S').fillna(df[col])
 
     return dag.AgGrid(
         rowData=df.to_dict("records"),

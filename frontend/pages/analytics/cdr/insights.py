@@ -69,9 +69,7 @@ def update_cdr_insights(data_ref, companies, languages, start_date, end_date, au
     if df is None or df.empty: return outs
 
     if 'segstart' in df.columns:
-        df['Date'] = pd.to_datetime(df['segstart'], format='%d-%m-%Y %H:%M:%S', errors='coerce')
-        if df['Date'].isna().all():
-            df['Date'] = pd.to_datetime(df['segstart'], errors='coerce')
+        df['Date'] = pd.to_datetime(df['segstart'], dayfirst=True, errors='coerce')
     else:
         df['Date'] = pd.NaT
 
@@ -81,6 +79,7 @@ def update_cdr_insights(data_ref, companies, languages, start_date, end_date, au
     if languages and 'Language' in df.columns:
         mask = mask & df['Language'].isin(languages)
 
+    if start_date and not end_date: end_date = start_date
     if start_date and end_date and not df['Date'].isna().all():
         s = pd.to_datetime(start_date)
         e = pd.to_datetime(end_date) + pd.Timedelta(days=1)
@@ -133,8 +132,8 @@ def update_cdr_insights(data_ref, companies, languages, start_date, end_date, au
             hour_grp['Time'] = hour_grp['Hour'].apply(lambda x: f"{int(x):02d}:00")
             
             fig_hold = go.Figure()
-            fig_hold.add_trace(go.Scatter(x=hour_grp['Time'], y=hour_grp['Avg_Hold'], mode='lines+markers', name='Avg Hold Time (s)', line=dict(color=COLOR_WARNING, width=3)))
-            fig_hold.add_trace(go.Scatter(x=hour_grp['Time'], y=hour_grp['Avg_ACW'], mode='lines+markers', name='Avg ACW Time (s)', line=dict(color=COLOR_SUCCESS, width=3)))
+            fig_hold.add_trace(go.Scatter(x=hour_grp['Time'], y=hour_grp['Avg_ACW'], mode='lines', name='Avg ACW Time (s)', line=dict(color=COLOR_NEUTRAL, width=2, shape='spline'), stackgroup='one'))
+            fig_hold.add_trace(go.Scatter(x=hour_grp['Time'], y=hour_grp['Avg_Hold'], mode='lines', name='Avg Hold Time (s)', line=dict(color=COLOR_WARNING, width=2, shape='spline'), stackgroup='one'))
             
             fig_hold.update_layout(
                 template=get_plotly_template(), 

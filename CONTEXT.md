@@ -10,6 +10,7 @@
   - `Admin`: Single protected administrator account (`admin`) managing users, permissions, global settings, and audit logs. Protected against self-deactivation and privilege removal.
   - `User`: Standard user with scoped capabilities governed by assigned permissions and company restrictions.
 - **CCF Data (Contact Center Facility)**: High-volume interval metrics capturing queue telephony (Offered, Answered, Abandoned, Talk Time, Hold Time, Wrap Time, SLA %).
+- **Hourly Volume (Heatmap)**: Represents the total true customer demand (**Call Offered**) plotted by hour of day and date, explicitly ignoring whether calls were answered or abandoned. Used to visualize peak "rush hours" vs "quiet hours".
 - **UniMate Data (IVR & Journey Telemetry)**: Granular call-level telemetry records tracking citizen journey stages through the interactive voice response system.
 - **UCID (Universal Call Identifier)**: Unique identifier for an individual call interaction within UniMate telemetry, serving as the primary idempotency key.
 - **DNIS Company Resolution**: Automated vendor attribution for UniMate call streams derived from the Dialed Number Identification Service prefix (`56*` &rarr; Digitech, `57*` &rarr; NSB).

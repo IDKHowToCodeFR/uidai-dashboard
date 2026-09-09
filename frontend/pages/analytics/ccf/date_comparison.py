@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, should_use_log
+from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, should_use_log, COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_NEUTRAL, COLOR_INFO
 from frontend.shared.api_client import get_dataframe
 import dash_bootstrap_components as dbc
 from frontend.components.cards import make_kpi_card, wrap_chart_card
@@ -79,7 +79,7 @@ layout = Container([
 
     # Charts Row 2: Hourly Trends
     Row([
-        Col([wrap_chart_card("compare-hourly-chart", "Hourly Volume Trends", "compare")], width=12, className="mb-4"),
+        Col([wrap_chart_card("compare-hourly-chart", "Volume by Business Shift", "compare")], width=12, className="mb-4"),
     ]),
 
     # Charts Row 3: Funnel
@@ -295,9 +295,9 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
         
         kpis = [
             Col(make_kpi_card("Total Volume (Selected)", f"{int(total_vol):,}"), className="col-12 col-md-6 col-lg-3 mb-3 mb-lg-0"),
-            Col(make_kpi_card("Avg Service Level", f"{avg_sl:.1f}%", sl_status), className="col-12 col-md-6 col-lg-3 mb-3 mb-lg-0"),
-            Col(make_kpi_card("Avg AHT", f"{avg_aht:.0f}s", aht_status), className="col-12 col-md-6 col-lg-3 mb-3 mb-lg-0"),
-            Col(make_kpi_card("Avg Abandon Rate", f"{avg_aban:.1f}%", "Neutral"), className="col-12 col-md-6 col-lg-3"),
+            Col(make_kpi_card("Avg Service Level", f"{avg_sl:.1f}%", sl_status, sla_text="Target ≥ 80%"), className="col-12 col-md-6 col-lg-3 mb-3 mb-lg-0"),
+            Col(make_kpi_card("Avg AHT", f"{avg_aht:.0f}s", aht_status, sla_text="Target ≤ 240s"), className="col-12 col-md-6 col-lg-3 mb-3 mb-lg-0"),
+            Col(make_kpi_card("Avg Abandon Rate", f"{avg_aban:.1f}%", "Neutral", sla_text="Target < 5%"), className="col-12 col-md-6 col-lg-3"),
         ]
 
     # --- 1. Company Performance (Dual-Axis Combo Chart) ---
@@ -348,56 +348,68 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
     else:
         ui_vol = e_ui('compare-volume-chart')
 
-    # --- 2. Hourly Volume Trends (Multi-Line Chart) ---
-    if 'Call Timestamp' in df.columns:
+    # --- 2. Volume by Business Shift ---
+    if 'Call Timestamp' in df.columns and 'Call Offered' in df.columns:
         df['Hour'] = pd.to_datetime(df['Call Timestamp']).dt.hour
-        heat_grp = df.groupby(['Date_Str', 'Hour']).size().reset_index(name='Volume')
         
-        fig_heat = px.line(
-            heat_grp, x='Hour', y='Volume', color='Date_Str',
-            markers=True, template=template, render_mode='svg'
+        def assign_shift(h):
+            if 6 <= h < 12: return 'Morning (06:00-12:00)'
+            elif 12 <= h < 18: return 'Afternoon (12:00-18:00)'
+            else: return 'Night (18:00-06:00)'
+                
+        df['Shift'] = df['Hour'].apply(assign_shift)
+        shift_grp = df.groupby(['Date_Str', 'Shift'])['Call Offered'].sum().reset_index()
+        
+        shift_order = ['Morning (06:00-12:00)', 'Afternoon (12:00-18:00)', 'Night (18:00-06:00)']
+        
+        fig_shift = px.bar(
+            shift_grp, 
+            x="Date_Str", 
+            y="Call Offered", 
+            color="Shift",
+            barmode="group",
+            category_orders={"Shift": shift_order},
+            template=template,
+            color_discrete_sequence=[COLOR_INFO, COLOR_PRIMARY, COLOR_NEUTRAL],
+            labels={"Date_Str": "Date", "Call Offered": "Total Calls"}
         )
-        # Apply spline smoothing to all traces
-        fig_heat.update_traces(line_shape='spline')
-        fig_heat.update_layout(xaxis_title="Hour of Day", yaxis_title="Call Volume", legend_title="Date", margin=dict(l=20, r=20, t=20, b=20), xaxis=dict(tickmode='linear', tick0=0, dtick=1))
-        ui_heat = dcc.Graph(id='compare-hourly-chart', figure=fig_heat, config={'displayModeBar': False})
+        fig_shift.update_layout(margin=dict(l=20, r=20, t=20, b=20), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+        ui_heat = dcc.Graph(id='compare-hourly-chart', figure=fig_shift, config={'displayModeBar': False})
     else:
         ui_heat = e_ui('compare-hourly-chart')
 
-    # --- 3. Abandonment Flow (Grouped Bar Chart) ---
-    if all(c in grouped.columns for c in ['Call Offered', 'ACD Calls in 20 Sec', 'ABAN Calls']):
-        # Prepare data for grouped bar chart
+    # --- 3. Abandonment Composition (100% Stacked Bar Chart) ---
+    if all(c in grouped.columns for c in ['Call Offered', 'ACD Calls', 'ABAN Calls']):
+        grouped['Other Calls'] = grouped['Call Offered'] - (grouped['ACD Calls'] + grouped['ABAN Calls'])
+        
         melted_flow = grouped.melt(
-            id_vars=['Date_Str'], 
-            value_vars=['Call Offered', 'ACD Calls in 20 Sec', 'ABAN Calls'],
-            var_name='Stage', value_name='Calls'
+            id_vars=['Date_Str'],
+            value_vars=['ACD Calls', 'ABAN Calls', 'Other Calls'],
+            var_name='Outcome', value_name='Calls'
         )
         
-        # Rename stages for UI
-        stage_map = {
-            'Call Offered': '1. Offered',
-            'ACD Calls in 20 Sec': '2. Answered (20s)',
-            'ABAN Calls': '3. Abandoned'
-        }
-        melted_flow['Stage'] = melted_flow['Stage'].map(stage_map)
-        melted_flow = melted_flow.sort_values(by=['Stage', 'Date_Str'])
-        
-        fig_funnel = px.area(
-            melted_flow, x='Stage', y='Calls', color='Date_Str',
-            template=template, line_shape='spline'
+        fig_funnel = px.bar(
+            melted_flow, x='Date_Str', y='Calls', color='Outcome',
+            template=template,
+            color_discrete_map={'ACD Calls': COLOR_SUCCESS, 'ABAN Calls': COLOR_DANGER, 'Other Calls': COLOR_NEUTRAL}
         )
-        fig_funnel.update_traces(mode='lines+markers', marker=dict(size=8), fill='tozeroy', opacity=0.6)
-        fig_funnel.update_layout(xaxis_title="Call Flow Stage", yaxis_title="Number of Calls", legend_title="Date", margin=dict(l=20, r=20, t=20, b=20))
+        
+        fig_funnel.update_layout(
+            barmode='stack', barnorm='percent',
+            xaxis_title="Date", yaxis_title="Percentage (%)",
+            margin=dict(l=20, r=20, t=20, b=20),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        fig_funnel.update_traces(hovertemplate='<b>%{x}</b><br>%{data.name}: %{y}<extra></extra>')
         ui_funnel = dcc.Graph(id='compare-funnel-chart', figure=fig_funnel, config={'displayModeBar': False}, style={'height': '450px'})
     else:
         ui_funnel = e_ui('compare-funnel-chart')
         
-    # --- 4. Language breakdown (Pie Chart) ---
+    # --- 4. Language breakdown ---
     if has_lang:
         lang_grp = df.groupby('Language').size().reset_index(name='Volume')
-        fig_lang = px.pie(lang_grp, values='Volume', names='Language', hole=0.4, template=template)
-        fig_lang.update_traces(textinfo='percent+label', textposition='inside', hoverinfo='label+percent+value')
-        fig_lang.update_layout(margin=dict(t=20, b=20, l=20, r=20))
+        fig_lang = px.bar(lang_grp.sort_values('Volume', ascending=True), y='Language', x='Volume', orientation='h', template=template)
+        fig_lang.update_layout(margin=dict(t=30, b=10, l=10, r=10))
         ui_lang = dcc.Graph(id='compare-lang-chart', figure=fig_lang, config={'displayModeBar': False}, style={'height': '450px'})
     else:
         ui_lang = e_ui('compare-lang-chart')

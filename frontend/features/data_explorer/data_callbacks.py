@@ -55,6 +55,17 @@ def register_data_callbacks(app):
         if not df['ParsedDate'].isna().all():
             min_date = df['ParsedDate'].min().date()
             max_date = df['ParsedDate'].max().date()
+            
+            from datetime import timedelta
+            lookback = auth_state.get('data_lookback_days')
+            role = auth_state.get('role', '')
+            
+            if lookback is not None and role != 'Admin':
+                try:
+                    min_date = max(min_date, max_date - timedelta(days=int(lookback)))
+                except (ValueError, TypeError):
+                    pass
+                
             start_date = min_date
             end_date = max_date
 

@@ -69,7 +69,7 @@ layout = html.Div([
                             html.Div([
                                 dbc.Col([
                                     dbc.Label("Data Lookback (Days)", className="small text-muted text-uppercase fw-bold"),
-                                    dbc.Input(id="offcanvas-lookback-days", type="number", placeholder="Unlimited", min=1, className="mb-3")
+                                    dbc.Input(id="offcanvas-lookback-days", type="number", placeholder="90", min=1, className="mb-3")
                                 ], width=12, className="mt-2")
                             ], className="row"),
                             
@@ -137,6 +137,10 @@ layout = html.Div([
                 switch=True,
                 className="mb-3"
             ),
+            
+            dbc.Label("Data Lookback (Days)", className="small text-muted text-uppercase fw-bold"),
+            dbc.Input(id="page-new-company-lookback", placeholder="90", type="number", min=1, value=90, className="mb-3"),
+            
             html.Div(id="page-add-company-status", className="small mt-2")
         ]),
         dbc.ModalFooter([
@@ -160,7 +164,7 @@ layout = html.Div([
     ], id="admin-deactivate-modal", is_open=False)
 ])
 
-def create_card(username, companies, perms, login_count=0, last_login="Never"):
+def create_card(username, companies, perms, login_count=0, last_login="Never", lookback_days=None):
     initials = username[:2].upper()
     
     if last_login is None:
@@ -224,21 +228,31 @@ def create_card(username, companies, perms, login_count=0, last_login="Never"):
         badge_rows = [html.Span("No Access", className="small text-muted mb-3 d-block")]
 
     return dbc.Col([
-        html.Div([
-            html.Div([
-                html.Div(initials, className="initials-bubble mx-auto mb-3"),
-                html.H5(username, className="fw-bold mb-3", style={"color": "var(--color-text-heading)", "textTransform": "capitalize"}),
-                
-                html.Div([
-                    html.Span(f"Logins: ", className="text-muted small"),
-                    html.Span(f"{login_count}", className="fw-bold small me-3"),
-                    html.Span(f"Last: ", className="text-muted small"),
-                    html.Span(f"{last_login}", className="fw-bold small"),
-                ], className="mb-3"),
-
-                html.Div(badge_rows, className="mb-4"),
-                dbc.Button("Manage", id={"type": "manage-btn", "index": username}, color="primary", outline=True, size="sm", className="w-100 fw-bold")
-            ], className="card-body text-center p-4")
+        dbc.Card([
+            dbc.CardBody([
+                dbc.Row([
+                    dbc.Col([
+                        html.Div(initials, className="initials-bubble mx-auto mb-3 d-flex align-items-center justify-content-center display-6 shadow-sm"),
+                        html.H5(username, className="text-center fw-bold text-dark mb-1", style={"textTransform": "capitalize"}),
+                    ], width=12, className="border-bottom border-light pb-2 mb-3"),
+                    dbc.Col([
+                        html.Div([
+                            html.Strong("Lookback: ", className="small text-muted me-2"),
+                            html.Span(f"{lookback_days if lookback_days else 90} Days", className="fw-medium text-dark")
+                        ], className="mb-2 small"),
+                        html.Div([
+                            html.Strong("Logins: ", className="small text-muted me-2"),
+                            html.Span(login_count, className="fw-medium text-dark")
+                        ], className="mb-2 small"),
+                        html.Div([
+                            html.Strong("Last: ", className="small text-muted me-2"),
+                            html.Span(last_login, className="fw-medium text-dark")
+                        ], className="mb-2 small"),
+                        html.Div(badge_rows, className="mt-3")
+                    ], width=12)
+                ]),
+                dbc.Button("Manage", id={"type": "manage-btn", "index": username}, color="primary", outline=True, size="sm", className="w-100 fw-bold mt-3")
+            ])
         ], className="custom-card shadow-sm h-100 hover-lift")
     ], xs=12, sm=6, md=4, lg=3)
 
@@ -267,7 +281,8 @@ def load_cards(auth_state, status):
                 perms = data.get("permissions", [])
                 login_count = data.get("login_count", 0)
                 last_login = data.get("last_login", "Never")
-                cards.append(create_card(username, companies, perms, login_count, last_login))
+                lookback = data.get("data_lookback_days", 90)
+                cards.append(create_card(username, companies, perms, login_count, last_login, lookback))
             return cards
     except:
         pass
@@ -492,10 +507,11 @@ def toggle_modal(btn1, btn2, btn3, is_open, name, user, pwd):
     State("page-new-company-username", "value"),
     State("page-new-company-password", "value"),
     State("page-new-company-perms", "value"),
+    State("page-new-company-lookback", "value"),
     State("auth-state", "data"),
     prevent_initial_call=True
 )
-def add_company(n_clicks, company_name, username, password, perms, auth_state):
+def add_company(n_clicks, company_name, username, password, perms, lookback, auth_state):
     if not n_clicks: return no_update, no_update
     if not company_name or not username or not password:
         return html.Span("All fields required.", className="text-danger"), no_update
@@ -504,7 +520,7 @@ def add_company(n_clicks, company_name, username, password, perms, auth_state):
     
     token = auth_state.get('token') if auth_state else None
     try:
-        req_data = {"username": username, "password": password, "companies": companies, "permissions": perms or []}
+        req_data = {"username": username, "password": password, "companies": companies, "permissions": perms or [], "data_lookback_days": lookback if lookback else 90}
         response = api_post("users/add", token=token, json=req_data)
         if response.status_code == 200:
             return "", "reload"

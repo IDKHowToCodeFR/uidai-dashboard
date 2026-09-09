@@ -38,22 +38,19 @@ layout = Container([
     ]),
 
     Row([
-        Col([wrap_chart_card("aht-line-chart", "Company KPI Radar (Monthly Median)")], width=12, lg=6, className="mb-4"),
+        Col([wrap_chart_card("company-kpi-bar", "Company KPI Overview")], width=12, lg=6, className="mb-4"),
         Col([wrap_chart_card("aht-lang-bar", "AHT Composition Sunburst")], width=12, lg=6, className="mb-4"),
     ]),
 
+
     Row([
-        Col([wrap_chart_card("talk-hist", "Talk Time Distribution (s)")], width=12, lg=4, className="mb-4"),
-        Col([wrap_chart_card("wrap-hist", "Wrap Time (ACW) Distribution (s)")], width=12, lg=4, className="mb-4"),
-        Col([wrap_chart_card("hold-hist", "Hold Time Distribution (s)")], width=12, lg=4, className="mb-4")
+        Col([wrap_chart_card("ccf-intra-vol", "Average Intraday Volume")], width=12, lg=6, className="mb-4"),
+        Col([wrap_chart_card("ccf-intra-sl", "Average Intraday SL (%)")], width=12, lg=6, className="mb-4")
     ]),
 
     Row([
-        Col([wrap_chart_card("intraday-chart-overall", "Average Intraday Performance (Volume & SL)")], width=12, className="mb-4")
-    ]),
-
-    Row([
-        Col([wrap_chart_card("vol-aban-trend", "Volume vs Abandonment Trend")], width=12, className="mb-4"),
+        Col([wrap_chart_card("ccf-vol-trend", "Call Volume Trend")], width=12, lg=6, className="mb-4"),
+        Col([wrap_chart_card("ccf-aban-trend", "Abandonment % Trend")], width=12, lg=6, className="mb-4")
     ]),
     
     Row([
@@ -66,12 +63,11 @@ layout = Container([
     Output('kpi-row', 'children'),
     Output('sl-trend-container', 'children'),
     Output('lang-pie-container', 'children'),
-    Output('talk-hist-container', 'children'),
-    Output('wrap-hist-container', 'children'),
-    Output('hold-hist-container', 'children'),
-    Output('intraday-chart-overall-container', 'children'),
-    Output('aht-line-chart-container', 'children'),
-    Output('vol-aban-trend-container', 'children'),
+    Output('ccf-intra-vol-container', 'children'),
+    Output('ccf-intra-sl-container', 'children'),
+    Output('company-kpi-bar-container', 'children'),
+    Output('ccf-vol-trend-container', 'children'),
+    Output('ccf-aban-trend-container', 'children'),
     Output('aht-lang-bar-container', 'children'),
     Output('ccf-ans-funnel-container', 'children'),
     Output('offered-ans-bar-container', 'children'),
@@ -90,16 +86,20 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             return render_empty_state(graph_id=gid)
     
         if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref:
-            return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('ccf-ans-funnel'), e_ui('offered-ans-bar')
+            return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('ccf-intra-vol'), e_ui('ccf-intra-sl'), e_ui('company-kpi-bar'), e_ui('ccf-vol-trend'), e_ui('ccf-aban-trend'), e_ui('aht-lang-bar'), e_ui('ccf-ans-funnel'), e_ui('offered-ans-bar')
 
             
         token = auth_state.get('token') if auth_state else None
         if not token:
-            return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('ccf-ans-funnel'), e_ui('offered-ans-bar')
+            return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('ccf-intra-vol'), e_ui('ccf-intra-sl'), e_ui('company-kpi-bar'), e_ui('ccf-vol-trend'), e_ui('ccf-aban-trend'), e_ui('aht-lang-bar'), e_ui('ccf-ans-funnel'), e_ui('offered-ans-bar')
             
-        df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
+        companies_tuple = tuple(company_filter) if company_filter else None
+        languages_tuple = tuple(language_filter) if language_filter else None
+        df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'),
+                           companies=companies_tuple, languages=languages_tuple,
+                           start_date=start_date, end_date=end_date)
         if df is None or df.empty:
-            return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('ccf-ans-funnel'), e_ui('offered-ans-bar')
+            return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('ccf-intra-vol'), e_ui('ccf-intra-sl'), e_ui('company-kpi-bar'), e_ui('ccf-vol-trend'), e_ui('ccf-aban-trend'), e_ui('aht-lang-bar'), e_ui('ccf-ans-funnel'), e_ui('offered-ans-bar')
     
         date_candidates = ['Timestamp', 'Call Timestamp', 'Date', 'Call Start Time']
         df['Date'] = pd.NaT
@@ -128,6 +128,7 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             mask = mask & df['Company'].isin(company_filter)
         if language_filter and 'Language' in df.columns:
             mask = mask & df['Language'].isin(language_filter)
+        if start_date and not end_date: end_date = start_date
         if start_date and end_date and date_col:
             start_dt = pd.to_datetime(start_date)
             end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1)
@@ -136,7 +137,7 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
         df_current = df[mask].copy()
     
         if df_current.empty:
-            return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('offered-ans-bar')
+            return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('intraday-chart-overall'), e_ui('company-kpi-bar'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('offered-ans-bar')
     
         # Dynamic Time Bucketing
         if 'Date' in df_current.columns and not df_current['Date'].isna().all():
@@ -201,10 +202,10 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
         kpis = [
             Col(make_kpi_card("Total Calls", f"{int(total_calls_raw):,}"), className="col-4 col-lg mb-4"),
             Col(make_kpi_card("Answer Rate", f"{ans_rate:.1f}%"), className="col-4 col-lg mb-4"),
-            Col(make_kpi_card("Abandon Rate", f"{aban_rate:.1f}%"), className="col-4 col-lg mb-4"),
-            Col(make_kpi_card("Service Level", f"{overall_sl:.1f}%", sl_status), className="col-4 col-lg mb-4"),
-            Col(make_kpi_card("AHT", f"{overall_aht:.0f}s", aht_status), className="col-4 col-lg mb-4"),
-            Col(make_kpi_card("Avg Hold Time", f"{overall_hold:.0f}s", "bad" if overall_hold > 20 else "good"), className="col-4 col-lg mb-4"),
+            Col(make_kpi_card("Abandon Rate", f"{aban_rate:.1f}%", sla_text="Target < 5%"), className="col-4 col-lg mb-4"),
+            Col(make_kpi_card("Service Level", f"{overall_sl:.1f}%", sl_status, sla_text="Target ≥ 80%"), className="col-4 col-lg mb-4"),
+            Col(make_kpi_card("AHT", f"{overall_aht:.0f}s", aht_status, sla_text="Target ≤ 240s"), className="col-4 col-lg mb-4"),
+            Col(make_kpi_card("Avg Hold Time", f"{overall_hold:.0f}s", "bad" if overall_hold > 20 else "good", sla_text="Target ≤ 20s"), className="col-4 col-lg mb-4"),
         ]
     
         # Chart 1: SL Trend (using shared daily_grp)
@@ -238,11 +239,11 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
         else:
             ui_sl = e_ui('sl-trend')
     
-        # Chart 2: Language Pie
+        # Chart 2: Language Donut
         if 'Language' in df_current.columns and 'Call Offered' in df_current.columns:
-            lang_grp = df_current.groupby('Language')['Call Offered'].sum().reset_index()
-            fig_lang = px.pie(lang_grp, names='Language', values='Call Offered', hole=0.6, color_discrete_sequence=px.colors.qualitative.Pastel)
-            fig_lang.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>%{label}</b><br>Count: %{value:,}<extra></extra>', marker=dict(line=dict(color='#ffffff', width=2)))
+            lang_grp = df_current.groupby('Language')['Call Offered'].sum().reset_index().sort_values('Call Offered', ascending=True)
+            fig_lang = px.pie(lang_grp, names='Language', values='Call Offered', hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
+            fig_lang.update_traces(hovertemplate='<b>%{label}</b><br>Volume: %{value:,} (%{percent})<extra></extra>', textinfo='label+percent', textposition='inside')
             fig_lang.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
             ui_lang = dcc.Graph(id='lang-pie', figure=fig_lang, config={'displayModeBar': False})
         else:
@@ -264,35 +265,8 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
         else:
             ui_funnel = e_ui('ccf-ans-funnel')
 
-        # Chart 3, 4, 5: Histograms
-        if all(c in df_current.columns for c in ['ACD Time', 'ACW Time', 'Hold Time', 'ACD Calls']):
-            df_valid = df_current[df_current['ACD Calls'] > 0].copy()
-            den_hist = df_valid['ACD Calls']
-            
-            df_valid['Talk Time'] = np.where(den_hist == 0, 0, df_valid['ACD Time'] / den_hist)
-            df_valid['Wrap Time'] = np.where(den_hist == 0, 0, df_valid['ACW Time'] / den_hist)
-            df_valid['Hold Time Avg'] = np.where(den_hist == 0, 0, df_valid['Hold Time'] / den_hist)
-            
-            fig_talk = px.histogram(df_valid, x='Talk Time', nbins=30, color_discrete_sequence=[COLOR_PRIMARY])
-            fig_talk.update_traces(hovertemplate='<b>Talk Time:</b> %{x}s<br><b>Frequency:</b> %{y}<extra></extra>')
-            fig_talk.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False, yaxis_title="Frequency")
-            ui_talk = dcc.Graph(id='talk-hist', figure=fig_talk, config={'displayModeBar': False})
-            
-            fig_wrap = px.histogram(df_valid, x='Wrap Time', nbins=30, color_discrete_sequence=[COLOR_NEUTRAL])
-            fig_wrap.update_traces(hovertemplate='<b>Wrap Time:</b> %{x}s<br><b>Frequency:</b> %{y}<extra></extra>')
-            fig_wrap.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False, yaxis_title="")
-            ui_wrap = dcc.Graph(id='wrap-hist', figure=fig_wrap, config={'displayModeBar': False})
-            
-            fig_hold = px.histogram(df_valid, x='Hold Time Avg', nbins=30, color_discrete_sequence=[COLOR_WARNING])
-            fig_hold.update_traces(hovertemplate='<b>Hold Time:</b> %{x}s<br><b>Frequency:</b> %{y}<extra></extra>')
-            fig_hold.update_layout(template=get_plotly_template(), margin=dict(t=10, b=30, l=10, r=10), showlegend=False, yaxis_title="")
-            ui_hold = dcc.Graph(id='hold-hist', figure=fig_hold, config={'displayModeBar': False})
-        else:
-            ui_talk = e_ui('talk-hist')
-            ui_wrap = e_ui('wrap-hist')
-            ui_hold = e_ui('hold-hist')
-    
-        # Chart 6: Intraday
+
+        # Chart 6: Intraday (Separated)
         if 'Date' in df_current.columns and not df_current['Date'].isna().all() and all(c in df_current.columns for c in ['Call Offered', 'ABAN Calls in 10 Sec', 'ACD Calls in 20 Sec']):
             df_current['Time'] = df_current['Date'].dt.floor('30min').dt.time
             df_current['True_Day'] = df_current['Date'].dt.floor('D')
@@ -303,25 +277,30 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             den_intra = avg_intraday['Call Offered'] - avg_intraday['ABAN Calls in 10 Sec']
             avg_intraday['SL %'] = np.where(den_intra == 0, 0, (avg_intraday['ACD Calls in 20 Sec'] / den_intra * 100))
             
-            fig_intra = go.Figure()
-            fig_intra.add_trace(go.Bar(
+            # Intraday Volume
+            fig_intra_vol = go.Figure()
+            fig_intra_vol.add_trace(go.Bar(
                 x=avg_intraday['TimeStr'], y=avg_intraday['Call Offered'].round(2), 
-                name='Avg Volume', marker_color=COLOR_NEUTRAL, opacity=0.7, yaxis='y',
+                name='Avg Volume', marker_color=COLOR_INFO, opacity=0.85,
                 hovertemplate='<b>Time:</b> %{x}<br><b>Volume:</b> %{y}<extra></extra>'
             ))
-            fig_intra.add_trace(go.Scatter(
+            fig_intra_vol.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), xaxis_title='Time of Day', yaxis_title='Avg Volume', showlegend=False)
+            ui_intra_vol = dcc.Graph(id='ccf-intra-vol', figure=fig_intra_vol, config={'displayModeBar': False})
+            
+            # Intraday SL
+            fig_intra_sl = go.Figure()
+            fig_intra_sl.add_trace(go.Scatter(
                 x=avg_intraday['TimeStr'], y=avg_intraday['SL %'].round(2), 
-                name='Avg SL %', mode='lines+markers', line=dict(color=COLOR_SUCCESS, width=2), yaxis='y2',
+                name='Avg SL %', mode='lines+markers', line=dict(color=COLOR_SUCCESS, width=3, shape='spline'), fill='tozeroy', fillcolor=f'rgba(16, 185, 129, 0.1)',
                 hovertemplate='<b>Time:</b> %{x}<br><b>SL:</b> %{y:.2f}%<extra></extra>'
             ))
-            fig_intra.update_layout(
-                template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), xaxis=dict(title='Time of Day'),
-                yaxis=dict(title='Avg Volume', side='left', showgrid=False), yaxis2=dict(title='Avg SL %', side='right', overlaying='y', range=[0, 105], showgrid=False),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-            )
-            ui_intra = dcc.Graph(id='intraday-chart-overall', figure=fig_intra, config={'displayModeBar': False}, style={'height': '400px'})
+            fig_intra_sl.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), xaxis_title='Time of Day', yaxis_title='Avg SL %', showlegend=False)
+            fig_intra_sl.update_yaxes(range=[0, 105])
+            ui_intra_sl = dcc.Graph(id='ccf-intra-sl', figure=fig_intra_sl, config={'displayModeBar': False})
+            
         else:
-            ui_intra = e_ui('intraday-chart-overall')
+            ui_intra_vol = e_ui('ccf-intra-vol')
+            ui_intra_sl = e_ui('ccf-intra-sl')
     
         # Chart 7: Company KPI Radar
         if all(c in df_current.columns for c in ['Company', 'Call Offered', 'ABAN Calls', 'ACD Time', 'ACW Time', 'Hold Time', 'ACD Calls', 'ACD Calls in 20 Sec', 'ABAN Calls in 10 Sec']):
@@ -353,39 +332,37 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             melted = comp_grp.melt(id_vars='Company', value_vars=kpi_cols, var_name='KPI', value_name='Score')
             fig_agent = px.bar(melted, x='Score', y='KPI', color='Company', barmode='group', orientation='h', template=get_plotly_template(), color_discrete_sequence=px.colors.qualitative.Vivid)
             fig_agent.update_layout(margin=dict(t=10, b=10, l=10, r=10), xaxis=dict(range=[0, 100], title="Score"), yaxis_title="")
-            ui_agent = dcc.Graph(id='aht-line-chart', figure=fig_agent, config={'displayModeBar': False})
+            ui_agent = dcc.Graph(id='company-kpi-bar', figure=fig_agent, config={'displayModeBar': False})
         else:
-            ui_agent = e_ui('aht-line-chart')
+            ui_agent = e_ui('company-kpi-bar')
     
-        # Vol vs Abandonment Trend (using shared daily_grp)
+        # Vol vs Abandonment Trend (Separated)
         if not daily_grp.empty and all(c in daily_grp.columns for c in ['Call Offered', 'ABAN Calls']):
             daily_grp['Aban %'] = np.where(daily_grp['Call Offered'] == 0, 0, (daily_grp['ABAN Calls'] / daily_grp['Call Offered'] * 100))
             
-            show_text = len(daily_grp) <= 15
-            from plotly.subplots import make_subplots
-            fig_vol = make_subplots(specs=[[{"secondary_y": True}]])
+            # Volume Chart
+            fig_vol = go.Figure()
+            fig_vol.add_trace(go.Bar(
+                x=daily_grp['Date_Bucket'], y=daily_grp['Call Offered'].round(2), 
+                name="Volume", marker_color=COLOR_INFO, opacity=0.85, 
+                hovertemplate='<b>Date:</b> %{x}<br><b>Volume:</b> %{y}<extra></extra>'
+            ))
+            fig_vol.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), showlegend=False, xaxis_title="Date", yaxis_title="Volume")
             
-            vol_trace = go.Bar(x=daily_grp['Date_Bucket'], y=daily_grp['Call Offered'].round(2), name="Volume", marker_color=COLOR_INFO, opacity=0.85, hovertemplate='<b>Date:</b> %{x}<br><b>Volume:</b> %{y}<extra></extra>')
-            if show_text:
-                vol_trace.update(text=daily_grp['Call Offered'].round(2), textposition='auto')
-                
-            aban_trace = go.Scatter(x=daily_grp['Date_Bucket'], y=daily_grp['Aban %'].round(2), name="Abandon %", mode='lines+markers+text' if show_text else 'lines+markers', line=dict(color=COLOR_DANGER, width=3), hovertemplate='<b>Date:</b> %{x}<br><b>Abandon %:</b> %{y:.2f}%<extra></extra>')
-            if show_text:
-                aban_trace.update(text=daily_grp['Aban %'].round(2), textposition='top center')
-                
-            fig_vol.add_trace(vol_trace, secondary_y=False)
-            fig_vol.add_trace(aban_trace, secondary_y=True)
-            fig_vol.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-            fig_vol.update_xaxes(title_text="Date")
-            fig_vol.update_yaxes(title_text="Volume", secondary_y=False, showgrid=False)
-            if not daily_grp.empty and "Call Offered" in daily_grp.columns:
-                min_v, max_v = daily_grp["Call Offered"].min(), daily_grp["Call Offered"].max()
-                if max_v > min_v:
-                    fig_vol.update_yaxes(secondary_y=False, range=[0 if min_v == 0 else min_v * 0.9, max_v * 1.1])
-            fig_vol.update_yaxes(title_text="Abandon Rate %", secondary_y=True, showgrid=False)
-            ui_vol = dcc.Graph(id='vol-aban-trend', figure=fig_vol, config={'displayModeBar': False})
+            # Abandon Chart
+            fig_aban = go.Figure()
+            fig_aban.add_trace(go.Scatter(
+                x=daily_grp['Date_Bucket'], y=daily_grp['Aban %'].round(2), 
+                name="Abandon %", mode='lines+markers', line=dict(color=COLOR_DANGER, width=3, shape='spline'), fill='tozeroy', fillcolor=f'rgba(239, 68, 68, 0.1)',
+                hovertemplate='<b>Date:</b> %{x}<br><b>Abandon %:</b> %{y:.2f}%<extra></extra>'
+            ))
+            fig_aban.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), showlegend=False, xaxis_title="Date", yaxis_title="Abandon %")
+            
+            ui_vol = dcc.Graph(id='ccf-vol-trend', figure=fig_vol, config={'displayModeBar': False})
+            ui_aban = dcc.Graph(id='ccf-aban-trend', figure=fig_aban, config={'displayModeBar': False})
         else:
-            ui_vol = e_ui('vol-aban-trend')
+            ui_vol = e_ui('ccf-vol-trend')
+            ui_aban = e_ui('ccf-aban-trend')
     
         # AHT Breakdown by Language (Sunburst)
         if all(c in df_current.columns for c in ['Language', 'ACD Time', 'ACW Time', 'Hold Time', 'ACD Calls']):
@@ -436,13 +413,13 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
         else:
             ui_off_ans = e_ui('offered-ans-bar')
     
-        return kpis, ui_sl, ui_lang, ui_talk, ui_wrap, ui_hold, ui_intra, ui_agent, ui_vol, ui_aht_lang, ui_funnel, ui_off_ans
+        return kpis, ui_sl, ui_lang, ui_intra_vol, ui_intra_sl, ui_agent, ui_vol, ui_aban, ui_aht_lang, ui_funnel, ui_off_ans
     
     except Exception as e:
         print(f"Error in ccf update_dashboard: {e}")
         import traceback
         traceback.print_exc()
-        return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('talk-hist'), e_ui('wrap-hist'), e_ui('hold-hist'), e_ui('intraday-chart-overall'), e_ui('aht-line-chart'), e_ui('vol-aban-trend'), e_ui('aht-lang-bar'), e_ui('ccf-ans-funnel'), e_ui('offered-ans-bar')
+        return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('ccf-intra-vol'), e_ui('ccf-intra-sl'), e_ui('company-kpi-bar'), e_ui('ccf-vol-trend'), e_ui('ccf-aban-trend'), e_ui('aht-lang-bar'), e_ui('ccf-ans-funnel'), e_ui('offered-ans-bar')
 # CSV Export Callback
 @callback(
     Output({'type': 'download-data-dashboard', 'index': dash.MATCH}, "data"),
@@ -468,7 +445,11 @@ def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, st
     if not token:
         return dash.no_update
         
-    df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
+    companies_tuple = tuple(company_filter) if company_filter else None
+    languages_tuple = tuple(language_filter) if language_filter else None
+    df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'),
+                       companies=companies_tuple, languages=languages_tuple,
+                       start_date=start_date, end_date=end_date)
     if df.empty:
         return dash.no_update
 
@@ -487,6 +468,7 @@ def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, st
     if language_filter and 'Language' in df.columns:
         df = df[df['Language'].isin(language_filter)]
 
+    if start_date and not end_date: end_date = start_date
     if start_date and end_date and date_col:
         start_dt, end_dt = pd.to_datetime(start_date), pd.to_datetime(end_date)
         df = df[(df['Date'] >= start_dt) & (df['Date'] <= end_dt)]
@@ -505,27 +487,26 @@ from frontend.shared.pdf_generator import generate_single_chart_pdf, generate_da
     Input({'type': 'export-pdf-dashboard', 'index': dash.MATCH}, "n_clicks"),
     State('sl-trend', 'figure'),
     State('lang-pie', 'figure'),
-    State('talk-hist', 'figure'),
-    State('wrap-hist', 'figure'),
-    State('hold-hist', 'figure'),
-    State('intraday-chart-overall', 'figure'),
-    State('aht-line-chart', 'figure'),
-    State('vol-aban-trend', 'figure'),
+    State('ccf-intra-vol', 'figure'),
+    State('ccf-intra-sl', 'figure'),
+    State('company-kpi-bar', 'figure'),
+    State('ccf-vol-trend', 'figure'),
+    State('ccf-aban-trend', 'figure'),
     State('aht-lang-bar', 'figure'),
     State('offered-ans-bar', 'figure'),
     State('ccf-ans-funnel', 'figure'),
     prevent_initial_call=True
 )
-def export_pdf_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_line, vol, aht_bar, offered, funnel):
+def export_pdf_dashboard(n_clicks, sl, lang, intra_vol, intra_sl, aht_line, vol, aban, aht_bar, offered, funnel):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
     index = triggered_id['index']
     
     figures = {
-        'sl-trend': sl, 'lang-pie': lang, 'talk-hist': talk, 'wrap-hist': wrap,
-        'hold-hist': hold, 'intraday-chart-overall': intraday, 'aht-line-chart': aht_line,
-        'vol-aban-trend': vol, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered,
+        'sl-trend': sl, 'lang-pie': lang, 
+        'ccf-intra-vol': intra_vol, 'ccf-intra-sl': intra_sl, 'company-kpi-bar': aht_line,
+        'ccf-vol-trend': vol, 'ccf-aban-trend': aban, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered,
         'ccf-ans-funnel': funnel
     }
     
@@ -544,27 +525,26 @@ def export_pdf_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_lin
     Input({'type': 'export-png-dashboard', 'index': dash.MATCH}, "n_clicks"),
     State('sl-trend', 'figure'),
     State('lang-pie', 'figure'),
-    State('talk-hist', 'figure'),
-    State('wrap-hist', 'figure'),
-    State('hold-hist', 'figure'),
-    State('intraday-chart-overall', 'figure'),
-    State('aht-line-chart', 'figure'),
-    State('vol-aban-trend', 'figure'),
+    State('ccf-intra-vol', 'figure'),
+    State('ccf-intra-sl', 'figure'),
+    State('company-kpi-bar', 'figure'),
+    State('ccf-vol-trend', 'figure'),
+    State('ccf-aban-trend', 'figure'),
     State('aht-lang-bar', 'figure'),
     State('offered-ans-bar', 'figure'),
     State('ccf-ans-funnel', 'figure'),
     prevent_initial_call=True
 )
-def export_png_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_line, vol, aht_bar, offered, funnel):
+def export_png_dashboard(n_clicks, sl, lang, intra_vol, intra_sl, aht_line, vol, aban, aht_bar, offered, funnel):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
     index = triggered_id['index']
     
     figures = {
-        'sl-trend': sl, 'lang-pie': lang, 'talk-hist': talk, 'wrap-hist': wrap,
-        'hold-hist': hold, 'intraday-chart-overall': intraday, 'aht-line-chart': aht_line,
-        'vol-aban-trend': vol, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered,
+        'sl-trend': sl, 'lang-pie': lang, 
+        'ccf-intra-vol': intra_vol, 'ccf-intra-sl': intra_sl, 'company-kpi-bar': aht_line,
+        'ccf-vol-trend': vol, 'ccf-aban-trend': aban, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered,
         'ccf-ans-funnel': funnel
     }
     
@@ -582,27 +562,26 @@ def export_png_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_lin
     Input({'type': 'export-html-dashboard', 'index': dash.MATCH}, "n_clicks"),
     State('sl-trend', 'figure'),
     State('lang-pie', 'figure'),
-    State('talk-hist', 'figure'),
-    State('wrap-hist', 'figure'),
-    State('hold-hist', 'figure'),
-    State('intraday-chart-overall', 'figure'),
-    State('aht-line-chart', 'figure'),
-    State('vol-aban-trend', 'figure'),
+    State('ccf-intra-vol', 'figure'),
+    State('ccf-intra-sl', 'figure'),
+    State('company-kpi-bar', 'figure'),
+    State('ccf-vol-trend', 'figure'),
+    State('ccf-aban-trend', 'figure'),
     State('aht-lang-bar', 'figure'),
     State('offered-ans-bar', 'figure'),
     State('ccf-ans-funnel', 'figure'),
     prevent_initial_call=True
 )
-def export_html_dashboard(n_clicks, sl, lang, talk, wrap, hold, intraday, aht_line, vol, aht_bar, offered, funnel):
+def export_html_dashboard(n_clicks, sl, lang, intra_vol, intra_sl, aht_line, vol, aban, aht_bar, offered, funnel):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
     index = triggered_id['index']
     
     figures = {
-        'sl-trend': sl, 'lang-pie': lang, 'talk-hist': talk, 'wrap-hist': wrap,
-        'hold-hist': hold, 'intraday-chart-overall': intraday, 'aht-line-chart': aht_line,
-        'vol-aban-trend': vol, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered,
+        'sl-trend': sl, 'lang-pie': lang, 
+        'ccf-intra-vol': intra_vol, 'ccf-intra-sl': intra_sl, 'company-kpi-bar': aht_line,
+        'ccf-vol-trend': vol, 'ccf-aban-trend': aban, 'aht-lang-bar': aht_bar, 'offered-ans-bar': offered,
         'ccf-ans-funnel': funnel
     }
     

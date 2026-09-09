@@ -1,18 +1,22 @@
 from dash import html
 import dash_bootstrap_components as dbc
 
-def make_kpi_card(title, value, status="neutral"):
+def make_kpi_card(title, value, status="neutral", sla_text=None):
     color_class = "text-primary"
     if status == "good":
         color_class = "text-success"
     elif status == "bad":
         color_class = "text-danger"
         
+    children = [
+        html.H6(title, className="text-muted text-uppercase mb-2", style={"fontSize": "11px", "letterSpacing": "0.5px"}),
+        html.H3(str(value), className=f"mb-0 {color_class}", style={"fontWeight": "600"})
+    ]
+    if sla_text:
+        children.append(html.Small(sla_text, className="text-muted mt-2 d-block", style={"fontSize": "10px"}))
+        
     return dbc.Card(
-        dbc.CardBody([
-            html.H6(title, className="text-muted text-uppercase mb-2", style={"fontSize": "11px", "letterSpacing": "0.5px"}),
-            html.H3(str(value), className=f"mb-0 {color_class}", style={"fontWeight": "600"})
-        ]),
+        dbc.CardBody(children),
         className="custom-card shadow-sm border-0 h-100",
         style={"borderRadius": "12px", "padding": "0.5rem"}
     )

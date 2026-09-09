@@ -115,19 +115,24 @@ def register_routing_callbacks(app, content_div):
                             break
             
             sidebar = get_sidebar(user_role, token, permissions, nav_content, opts, val)
-            topbar = get_topbar(user_role, permissions, pathname)
+            lookback = auth_state.get('data_lookback_days')
+            topbar = get_topbar(user_role, permissions, pathname, lookback_days=lookback)
             
             try:
                 api_post("logs/page_view", token=token, json={"pathname": pathname})
             except:
                 pass
             
+            main_class_name = ""
+            if not has_permission(permissions, 'can_download_files'):
+                main_class_name = "no-download-permission"
+            
             return html.Div([
                 topbar,
                 sidebar,
                 filter_drawer,
                 page_container_div
-            ], style={"backgroundColor": "var(--color-background)", "minHeight": "100vh"}), dash.no_update
+            ], className=main_class_name, style={"backgroundColor": "var(--color-background)", "minHeight": "100vh"}), dash.no_update
             
         return html.Div(), dash.no_update
 

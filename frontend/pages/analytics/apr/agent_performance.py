@@ -52,20 +52,23 @@ def hhmmss_to_seconds(time_str):
     Output('apr-ranking-content', 'children'),
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
+    Input('date-picker-range', 'start_date'),
+    Input('date-picker-range', 'end_date'),
     State('auth-state', 'data')
 )
-def update_agent_rankings(companies, languages, auth_state):
+def update_agent_rankings(companies, languages, start_date, end_date, auth_state):
     empty_ui = render_empty_state()
     
     token = auth_state.get('token') if auth_state else None
     if not token:
         return empty_ui
 
-    # Note: Currently impersonate is not available in agent_performance view directly,
-    # but we can pass it if we add it to the state.
     from frontend.shared.api_client import api_get
     try:
-        response = api_get('dashboards/apr/agents', token=token)
+        params = {}
+        if start_date: params['start_date'] = start_date
+        if end_date: params['end_date'] = end_date
+        response = api_get('dashboards/apr/agents', token=token, params=params)
         agents = response.json()
     except Exception:
         return empty_ui

@@ -93,7 +93,8 @@ def get_history_options(token, user_role=None, permissions=None, impersonate=Non
             try:
                 mtime = datetime.fromisoformat(time_str)
             except ValueError:
-                continue # Skip invalid dates gracefully
+                # Fallback to current time so the file still appears in the list
+                mtime = datetime.now()
                 
         date = mtime.date()
         age_days = (today - date).days
@@ -143,11 +144,23 @@ def get_all_companies(token: str = None):
         print(f"Error fetching companies: {e}")
     return ["Digitech", "NSB"]
 
-@lru_cache(maxsize=16)
-def get_dataframe(token: str, filename: str, impersonate: str = None) -> pd.DataFrame:
+@lru_cache(maxsize=32)
+def get_dataframe(token: str, filename: str, impersonate: str = None, 
+                  companies: tuple = None, languages: tuple = None, 
+                  start_date: str = None, end_date: str = None) -> pd.DataFrame:
     """Fetches data from backend and caches it in Dash server memory as a DataFrame."""
     try:
-        response = api_get(f"data/{filename}", token=token, params={"impersonate": impersonate})
+        params = {"impersonate": impersonate}
+        if companies:
+            params["companies"] = ",".join(companies)
+        if languages:
+            params["languages"] = ",".join(languages)
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+            
+        response = api_get(f"data/{filename}", token=token, params=params)
         if response.status_code == 200:
             return pd.DataFrame(response.json())
         return pd.DataFrame()

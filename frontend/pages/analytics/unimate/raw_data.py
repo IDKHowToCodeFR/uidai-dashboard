@@ -61,6 +61,7 @@ def update_table(data_ref, companies, languages, start_date, end_date, auth_stat
 
     if date_col in df.columns:
         df['Temp_Date'] = pd.to_datetime(df[date_col], errors='coerce')
+        if start_date and not end_date: end_date = start_date
         if start_date and end_date and not df['Temp_Date'].isna().all():
             s = pd.to_datetime(start_date)
             e = pd.to_datetime(end_date) + pd.Timedelta(days=1)

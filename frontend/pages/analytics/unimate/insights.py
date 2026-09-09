@@ -18,7 +18,7 @@ layout = html.Div([
         dbc.Col([
             html.Div([
                 html.H3("Operational Insights", className="display-xl mb-0"),
-                html.P("Deep dive into UniMate call resolution, containment, and system errors.", className="text-muted mb-0 mt-2"),
+                html.P("Deep dive into UniMate call resolution, non-transferred calls, and system errors.", className="text-muted mb-0 mt-2"),
             ])
         ], width=8),
         dbc.Col([
@@ -106,6 +106,7 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
     if languages and 'Language' in df.columns:
         mask = mask & df['Language'].isin(languages)
 
+    if start_date and not end_date: end_date = start_date
     if start_date and end_date and not df['Date'].isna().all():
         s = pd.to_datetime(start_date)
         e = pd.to_datetime(end_date) + pd.Timedelta(days=1)
@@ -121,10 +122,13 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
     kpis = []
     if 'Termination Type' in df.columns:
         resolved = df[~df['Termination Type'].astype(str).str.lower().isin(['transfer', 'transferred'])].shape[0]
-        resolution_rate = (resolved / total_calls * 100) if total_calls > 0 else 0
-        kpis.append(dbc.Col(make_kpi_card("Overall Resolution Rate", f"{resolution_rate:.1f}%", "good" if resolution_rate > 60 else "neutral"), width=True))
+        if total_calls > 0:
+            resolution_rate = resolved / total_calls * 100
+            kpis.append(dbc.Col(make_kpi_card("Overall Resolution Rate", f"{resolution_rate:.1f}%", "good" if resolution_rate > 60 else "neutral", sla_text="Target > 60%"), width=True))
+        else:
+            kpis.append(dbc.Col(make_kpi_card("Overall Resolution Rate", "0.0%", "neutral", sla_text="Target > 60%"), width=True))
     else:
-        kpis.append(dbc.Col(make_kpi_card("Overall Resolution Rate", "N/A", "neutral"), width=True))
+        kpis.append(dbc.Col(make_kpi_card("Overall Resolution Rate", "N/A", "neutral", sla_text="Target > 60%"), width=True))
 
     # Time Bucketing
     if date_col:
@@ -272,12 +276,16 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
     # Termination Type vs Reason
     if 'Termination Type' in df.columns and 'Termination Reason' in df.columns:
         term_grp = df.groupby(['Termination Type', 'Termination Reason']).size().reset_index(name='Count')
+        term_grp = term_grp.sort_values(by='Count', ascending=True)
         fig_term = px.bar(
-            term_grp, x='Termination Type', y='Count', color='Termination Reason', barmode='stack',
-            template=get_plotly_template(), color_discrete_sequence=px.colors.qualitative.Pastel
+            term_grp, x='Count', y='Termination Reason', color='Termination Type', orientation='h',
+            template=get_plotly_template(), barmode='stack'
         )
-        fig_term.update_layout(margin=dict(t=10, b=10, l=10, r=10), yaxis_title="Count")
-        term_ui = dcc.Graph(id='unimate-term-reason', figure=fig_term, config={'displayModeBar': False})
+        fig_term.update_layout(
+            margin=dict(t=10, b=10, l=10, r=10),
+            yaxis={'title': '', 'categoryorder': 'total ascending'}
+        )
+        term_ui = dcc.Graph(id='unimate-term-reason', figure=fig_term, config={'displayModeBar': False}, style={'height': '400px'})
     else:
         term_ui = e_ui('unimate-term-reason')
 
@@ -313,6 +321,7 @@ def export_csv_insights(n_clicks, data_ref, company_filter, language_filter, sta
 
     if 'Call Start Time' in df.columns:
         df['Date'] = pd.to_datetime(df['Call Start Time'], errors='coerce')
+        if start_date and not end_date: end_date = start_date
         if start_date and end_date and not df['Date'].isna().all():
             start_dt, end_dt = pd.to_datetime(start_date), pd.to_datetime(end_date) + pd.Timedelta(days=1)
             df = df[(df['Date'] >= start_dt) & (df['Date'] < end_dt)]

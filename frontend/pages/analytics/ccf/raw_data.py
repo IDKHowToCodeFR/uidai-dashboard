@@ -46,6 +46,7 @@ def update_table(data_ref, companies, languages, start_date, end_date, auth_stat
     if languages and 'Language' in df.columns:
         df = df[df['Language'].isin(languages)]
 
+    if start_date and not end_date: end_date = start_date
     if start_date and end_date:
         date_col = None
         if 'Timestamp' in df.columns:
@@ -74,7 +75,7 @@ def update_table(data_ref, companies, languages, start_date, end_date, auth_stat
     if 'Date' in df.columns:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.strftime('%Y-%m-%d')
     if 'Call Timestamp' in df.columns:
-        df['Call Timestamp'] = pd.to_datetime(df['Call Timestamp'], errors='coerce').dt.strftime('%H:%M:%S')
+        df['Call Timestamp'] = pd.to_datetime(df['Call Timestamp'], errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S')
 
     return dag.AgGrid(
         rowData=df.to_dict("records"),

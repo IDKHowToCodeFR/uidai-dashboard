@@ -158,6 +158,7 @@ def register_auth_callbacks(app):
                     'refresh_token': data.get('refresh_token'),
                     'permissions': data.get('permissions', []),
                     'companies': data.get('companies', []),
+                    'data_lookback_days': data.get('data_lookback_days'),
                     'server_run_id': SERVER_RUN_ID
                 }
                 if remember:
