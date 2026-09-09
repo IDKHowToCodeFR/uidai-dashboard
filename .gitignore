@@ -1,16 +1,44 @@
+# Python
 __pycache__/
-*.py[oc]
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
 build/
+develop-eggs/
 dist/
-wheels/
-*.egg-info
-.venv
-.idea
-uv.lock
-pyproject.toml
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+.venv/
+ENV/
+
+# Database
 uidai.db
 uidai.db-shm
 uidai.db-wal
-uidai_data
-.pytest_cache
-system_logs.txt
+uidai.db.old
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
+server.log
+uidai_data/
+scratch/
+test_*.py

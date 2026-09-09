@@ -4,6 +4,7 @@ from dash_bootstrap_components import Container, Row, Col, Card, CardHeader, Car
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, should_use_log, COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_NEUTRAL, COLOR_INFO
 from frontend.shared.api_client import get_dataframe
 import dash_bootstrap_components as dbc
@@ -70,8 +71,7 @@ layout = Container([
     ]),
 
     Row([
-        Col([wrap_chart_card("ccf-hour-vol", "Intraday Volume", "hourly")], width=12, lg=6, className="mb-4"),
-        Col([wrap_chart_card("ccf-hour-sl", "Intraday Service Level (%)", "hourly")], width=12, lg=6, className="mb-4")
+        Col([wrap_chart_card("ccf-hour-vol", "Intraday Volume & Service Level", "hourly")], width=12, className="mb-4")
     ]),
 
     Row([
@@ -137,7 +137,6 @@ def set_date_picker(data_ref, auth_state):
 
 @callback(
     Output('ccf-hour-vol-container', 'children'),
-    Output('ccf-hour-sl-container', 'children'),
     Output('ccf-sl-heatmap-container', 'children'),
     Output('hourly-aban-bar-container', 'children'),
     Output('aht-time-chart-container', 'children'),
@@ -152,7 +151,7 @@ def set_date_picker(data_ref, auth_state):
 )
 def update_hourly_insights(data_ref, company_filter, language_filter, start_date, end_date, time_start, time_end, auth_state):
 
-    outs = [e_ui('ccf-hour-vol'), e_ui('ccf-hour-sl'), e_ui('ccf-sl-heatmap'), e_ui('hourly-aban-bar'), e_ui('aht-time-chart')]
+    outs = [e_ui('ccf-hour-vol'), e_ui('ccf-sl-heatmap'), e_ui('hourly-aban-bar'), e_ui('aht-time-chart')]
     if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or not start_date:
         return tuple(outs)
         
@@ -173,7 +172,7 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
     if start_date and not end_date: end_date = start_date
     start_dt = pd.to_datetime(start_date)
     end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1)
-    df_current = df[(df['DateCol'] >= start_dt) & (df['DateCol'] < end_dt)].copy()
+    df_current = df[(df['DateCol'].dt.date >= start_dt) & (df['DateCol'] < end_dt)].copy()
     
     # Filter by time range (HH:MM:SS)
     ts_col = 'Call Timestamp' if 'Call Timestamp' in df_current.columns else date_col
@@ -197,26 +196,35 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
     df_current['Time'] = pd.to_datetime(df_current[ts_col]).dt.time
     df_current['TimeStr'] = df_current['Time'].astype(str)
 
-    # Chart 1: Intraday Vol & SL (Separated)
+    # Chart 1: Intraday Vol & SL (Combined)
     hourly_grp = df_current.groupby('TimeStr').sum(numeric_only=True).reset_index()
     
     denom = hourly_grp['Call Offered'] - hourly_grp['ABAN Calls in 10 Sec']
     hourly_grp['SL %'] = (hourly_grp['ACD Calls in 20 Sec'] / denom * 100).fillna(0)
     
-    fig_vol = go.Figure()
-    fig_vol.add_trace(go.Scatter(
-        x=hourly_grp['TimeStr'], y=hourly_grp['Call Offered'], name='Call Volume', mode='lines+markers', line=dict(color='#3182ce', width=3, shape='spline'), fill='tozeroy', fillcolor=f'rgba(49, 130, 206, 0.1)', hovertemplate='<b>Time:</b> %{x}<br><b>Volume:</b> %{y}<extra></extra>'
-    ))
-    fig_vol.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), showlegend=False, xaxis_title='Time of Day', yaxis_title='Call Volume')
-    ui_vol = dcc.Graph(id='ccf-hour-vol', figure=fig_vol, config={'displayModeBar': False})
+    fig_vol = make_subplots(specs=[[{"secondary_y": True}]])
     
-    fig_sl = go.Figure()
-    fig_sl.add_trace(go.Scatter(
-        x=hourly_grp['TimeStr'], y=hourly_grp['SL %'], name='Service Level %', mode='lines+markers', line=dict(color='#38a169', width=3, shape='spline'), fill='tozeroy', fillcolor=f'rgba(56, 161, 105, 0.1)', hovertemplate='<b>Time:</b> %{x}<br><b>SL:</b> %{y:.1f}%<extra></extra>'
-    ))
-    fig_sl.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), showlegend=False, xaxis_title='Time of Day', yaxis_title='Service Level %')
-    fig_sl.update_yaxes(range=[0, 105])
-    ui_sl = dcc.Graph(id='ccf-hour-sl', figure=fig_sl, config={'displayModeBar': False})
+    fig_vol.add_trace(go.Bar(
+        x=hourly_grp['TimeStr'], y=hourly_grp['Call Offered'], name='Call Volume', 
+        marker_color='#3182ce', opacity=0.7,
+        hovertemplate='<b>Time:</b> %{x}<br><b>Volume:</b> %{y}<extra></extra>'
+    ), secondary_y=False)
+    
+    fig_vol.add_trace(go.Scatter(
+        x=hourly_grp['TimeStr'], y=hourly_grp['SL %'], name='Service Level %', 
+        mode='lines+markers', line=dict(color='#38a169', width=3, shape='spline'),
+        hovertemplate='<b>Time:</b> %{x}<br><b>SL:</b> %{y:.1f}%<extra></extra>'
+    ), secondary_y=True)
+    
+    fig_vol.update_layout(
+        template=get_plotly_template(), margin=dict(t=30, b=20, l=10, r=10), 
+        showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        xaxis_title='Time of Day'
+    )
+    fig_vol.update_yaxes(title_text="Call Volume", secondary_y=False)
+    fig_vol.update_yaxes(title_text="Service Level %", range=[0, 105], secondary_y=True)
+    
+    ui_vol = dcc.Graph(id='ccf-hour-vol', figure=fig_vol, config={'displayModeBar': False})
 
     # Chart 1.5: SL% Heatmap (Day vs Hour)
     df_current['Hour'] = pd.to_datetime(df_current[ts_col]).dt.hour
@@ -255,20 +263,14 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
         lang_aban = df_current.groupby('Language')['ABAN Calls'].sum().reset_index()
         lang_aban = lang_aban.sort_values('ABAN Calls', ascending=True)
         
-        # Avoid log(0) issues by adding tiny epsilon if log is used
         min_val = lang_aban['ABAN Calls'].min()
         max_val = lang_aban['ABAN Calls'].max()
         use_log = should_use_log(min_val, max_val)
-        if use_log:
-            lang_aban['Plot Value'] = lang_aban['ABAN Calls'].replace(0, 0.1)
-        else:
-            lang_aban['Plot Value'] = lang_aban['ABAN Calls']
         
-        fig_heat = px.bar(lang_aban, x='Plot Value', y='Language', orientation='h',
+        fig_heat = px.bar(lang_aban, x='ABAN Calls', y='Language', orientation='h',
                           color='Language', color_discrete_sequence=px.colors.qualitative.Vivid,
                           log_x=use_log,
-                          hover_data={'Plot Value': False, 'ABAN Calls': True, 'Language': False},
-                          labels={'ABAN Calls': 'Actual Abandoned Calls', 'Plot Value': 'Abandoned Calls'})
+                          labels={'ABAN Calls': 'Abandoned Calls'})
         
         fig_heat.update_layout(
             template=get_plotly_template(),
@@ -304,7 +306,7 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
     else:
         ui_aht = e_ui('aht-time-chart')
 
-    return ui_vol, ui_sl, ui_sl_heat, ui_heat, ui_aht
+    return ui_vol, ui_sl_heat, ui_heat, ui_aht
 
 # CSV Export Callback
 @callback(
@@ -339,7 +341,7 @@ def export_csv_hourly(n_clicks, data_ref, company_filter, language_filter, start
     if date_col:
         df['DateCol'] = pd.to_datetime(df[date_col])
         if start_date and not end_date: end_date = start_date
-        df = df[(df['DateCol'] >= pd.to_datetime(start_date)) & (df['DateCol'] <= pd.to_datetime(end_date))]
+        df = df[(df['DateCol'].dt.date >= pd.to_datetime(start_date).date()) & (df['DateCol'].dt.date <= pd.to_datetime(end_date).date())]
 
     ts_col = 'Call Timestamp' if 'Call Timestamp' in df.columns else date_col
     if ts_col and ts_col in df.columns and time_start and time_end:
@@ -369,13 +371,12 @@ from frontend.shared.pdf_generator import generate_single_chart_pdf, generate_da
     Output({'type': 'download-data-hourly', 'index': dash.MATCH}, "data", allow_duplicate=True),
     Input({'type': 'export-pdf-hourly', 'index': dash.MATCH}, "n_clicks"),
     State('ccf-hour-vol', 'figure'),
-    State('ccf-hour-sl', 'figure'),
     State('ccf-sl-heatmap', 'figure'),
     State('hourly-aban-bar', 'figure'),
     State('aht-time-chart', 'figure'),
     prevent_initial_call=True
 )
-def export_pdf_hourly(n_clicks, intra_vol, intra_sl, sl_heat, heatmap, aht):
+def export_pdf_hourly(n_clicks, intra_vol, sl_heat, heatmap, aht):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
@@ -383,7 +384,6 @@ def export_pdf_hourly(n_clicks, intra_vol, intra_sl, sl_heat, heatmap, aht):
     
     figures = {
         'ccf-hour-vol': intra_vol,
-        'ccf-hour-sl': intra_sl,
         'ccf-sl-heatmap': sl_heat,
         'hourly-aban-bar': heatmap,
         'aht-time-chart': aht
@@ -403,13 +403,12 @@ def export_pdf_hourly(n_clicks, intra_vol, intra_sl, sl_heat, heatmap, aht):
     Output({'type': 'download-data-hourly', 'index': dash.MATCH}, "data", allow_duplicate=True),
     Input({'type': 'export-png-hourly', 'index': dash.MATCH}, "n_clicks"),
     State('ccf-hour-vol', 'figure'),
-    State('ccf-hour-sl', 'figure'),
     State('ccf-sl-heatmap', 'figure'),
     State('hourly-aban-bar', 'figure'),
     State('aht-time-chart', 'figure'),
     prevent_initial_call=True
 )
-def export_png_hourly(n_clicks, intra_vol, intra_sl, sl_heat, heatmap, aht):
+def export_png_hourly(n_clicks, intra_vol, sl_heat, heatmap, aht):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
@@ -417,7 +416,6 @@ def export_png_hourly(n_clicks, intra_vol, intra_sl, sl_heat, heatmap, aht):
     
     figures = {
         'ccf-hour-vol': intra_vol,
-        'ccf-hour-sl': intra_sl,
         'ccf-sl-heatmap': sl_heat,
         'hourly-aban-bar': heatmap,
         'aht-time-chart': aht
@@ -436,13 +434,12 @@ def export_png_hourly(n_clicks, intra_vol, intra_sl, sl_heat, heatmap, aht):
     Output({'type': 'download-data-hourly', 'index': dash.MATCH}, "data", allow_duplicate=True),
     Input({'type': 'export-html-hourly', 'index': dash.MATCH}, "n_clicks"),
     State('ccf-hour-vol', 'figure'),
-    State('ccf-hour-sl', 'figure'),
     State('ccf-sl-heatmap', 'figure'),
     State('hourly-aban-bar', 'figure'),
     State('aht-time-chart', 'figure'),
     prevent_initial_call=True
 )
-def export_html_hourly(n_clicks, intra_vol, intra_sl, sl_heat, heatmap, aht):
+def export_html_hourly(n_clicks, intra_vol, sl_heat, heatmap, aht):
     if not n_clicks: return dash.no_update
     
     triggered_id = ctx.triggered_id
@@ -450,7 +447,6 @@ def export_html_hourly(n_clicks, intra_vol, intra_sl, sl_heat, heatmap, aht):
     
     figures = {
         'ccf-hour-vol': intra_vol,
-        'ccf-hour-sl': intra_sl,
         'ccf-sl-heatmap': sl_heat,
         'hourly-aban-bar': heatmap,
         'aht-time-chart': aht

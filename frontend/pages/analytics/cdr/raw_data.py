@@ -57,7 +57,7 @@ def update_table(data_ref, companies, languages, start_date, end_date, auth_stat
             date_col = 'Date'
 
         if date_col in df.columns:
-            parsed_dates = pd.to_datetime(df[date_col], dayfirst=True, errors='coerce')
+            parsed_dates = pd.to_datetime(df[date_col], errors='coerce')
             # Bridge to show the standard format in the UI table
             df[date_col] = parsed_dates.dt.strftime('%Y-%m-%d %H:%M:%S').fillna(df[date_col])
             temp_date = parsed_dates.dt.date
@@ -79,7 +79,7 @@ def update_table(data_ref, companies, languages, start_date, end_date, auth_stat
     for col in ['segstart', 'segstop', 'segstartutc', 'segstoputc', 'Date']:
         if col in df.columns:
             # Reformat so YYYY-MM-DD HH:MM:SS is strictly displayed to user
-            df[col] = pd.to_datetime(df[col], dayfirst=True, errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S').fillna(df[col])
+            df[col] = pd.to_datetime(df[col], errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S').fillna(df[col])
 
     return dag.AgGrid(
         rowData=df.to_dict("records"),

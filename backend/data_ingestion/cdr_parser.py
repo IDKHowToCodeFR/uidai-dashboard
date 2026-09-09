@@ -42,6 +42,13 @@ def transform_cdr(df: pd.DataFrame) -> pd.DataFrame:
             
         df['Company'] = df['split1'].apply(extract_vendor)
         df['Language'] = df['split1'].apply(extract_language)
+        
+    # Date parsing as per format.txt: DD-MM-YYYY HH:MM:SS
+    if 'segstart' in df.columns:
+        df['segstart'] = pd.to_datetime(df['segstart'], format='%d-%m-%Y %H:%M:%S', errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S')
+    if 'segstop' in df.columns:
+        df['segstop'] = pd.to_datetime(df['segstop'], format='%d-%m-%Y %H:%M:%S', errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S')
+
     return df
 
 async def parse_cdr(save_path: str, progress_callback=None) -> pd.DataFrame:

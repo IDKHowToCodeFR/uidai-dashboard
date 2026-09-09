@@ -132,7 +132,7 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
         if start_date and end_date and date_col:
             start_dt = pd.to_datetime(start_date)
             end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1)
-            mask = mask & (df['Date'] >= start_dt) & (df['Date'] < end_dt)
+            mask = mask & (df['Date'].dt.date >= start_dt) & (df['Date'] < end_dt)
             
         df_current = df[mask].copy()
     
@@ -470,8 +470,8 @@ def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, st
 
     if start_date and not end_date: end_date = start_date
     if start_date and end_date and date_col:
-        start_dt, end_dt = pd.to_datetime(start_date), pd.to_datetime(end_date)
-        df = df[(df['Date'] >= start_dt) & (df['Date'] <= end_dt)]
+        start_dt, end_dt = pd.to_datetime(start_date).date(), pd.to_datetime(end_date).date()
+        df = df[(df['Date'].dt.date >= start_dt) & (df['Date'].dt.date <= end_dt)]
 
     if 'Date' in df.columns:
         df = df.drop(columns=['Date'])

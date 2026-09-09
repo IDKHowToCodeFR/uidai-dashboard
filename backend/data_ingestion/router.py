@@ -20,6 +20,27 @@ def check_data_permission(data_type: str, is_global: bool, permissions: list):
     if reqs.get(data_type) and reqs[data_type] not in permissions:
         raise HTTPException(status_code=403, detail=f"Access denied for {data_type}.")
 
+def apply_date_filters(query, model_class, data_type: str, start_date: Optional[str], end_date: Optional[str]):
+    if not start_date and not end_date:
+        return query
+        
+    def get_date_col():
+        if data_type == "UniMate Data":
+            return model_class.call_start_time
+        elif data_type == "CDR Data":
+            return model_class.segstart
+        else:
+            return model_class.date_logged
+
+    date_col = get_date_col()
+    
+    if start_date:
+        query = query.filter(date_col >= start_date)
+    if end_date:
+        query = query.filter(date_col <= end_date + " 23:59:59")
+        
+    return query
+
 def serialize_data(metrics, data_type):
     if data_type == "UniMate Data":
         return [
@@ -270,19 +291,7 @@ async def get_aggregated_data(data_type: str = "CCF Data", impersonate: Optional
         if langs:
             query = query.filter(model_class.language.in_(langs))
             
-    if start_date:
-        if hasattr(model_class, 'date_logged'):
-            query = query.filter(model_class.date_logged >= start_date)
-        elif hasattr(model_class, 'call_start_time'):
-            query = query.filter(model_class.call_start_time >= start_date)
-            
-    if end_date:
-        if hasattr(model_class, 'date_logged'):
-            query = query.filter(model_class.date_logged <= end_date)
-        elif hasattr(model_class, 'call_start_time'):
-            # For unimate data which includes time, we add a day to end_date
-            # But string comparison is tricky, so we just do a string prefix comparison or <= end_date + " 23:59:59"
-            query = query.filter(model_class.call_start_time <= end_date + " 23:59:59")
+    query = apply_date_filters(query, model_class, data_type, start_date, end_date)
             
     metrics = query.all()
     return serialize_data(metrics, data_type)
@@ -335,17 +344,7 @@ async def get_data(filename: str, impersonate: Optional[str] = None,
         if langs:
             query = query.filter(model_class.language.in_(langs))
             
-    if start_date:
-        if hasattr(model_class, 'date_logged'):
-            query = query.filter(model_class.date_logged >= start_date)
-        elif hasattr(model_class, 'call_start_time'):
-            query = query.filter(model_class.call_start_time >= start_date)
-            
-    if end_date:
-        if hasattr(model_class, 'date_logged'):
-            query = query.filter(model_class.date_logged <= end_date)
-        elif hasattr(model_class, 'call_start_time'):
-            query = query.filter(model_class.call_start_time <= end_date + " 23:59:59")
+    query = apply_date_filters(query, model_class, file_meta.data_type, start_date, end_date)
 
     metrics = query.all()
     return serialize_data(metrics, file_meta.data_type)
@@ -403,12 +402,7 @@ async def download_file(request: Request, filename: str, impersonate: Optional[s
     lookback = current_user.get("data_lookback_days")
     if lookback and not is_global:
         cutoff = (datetime.now() - timedelta(days=lookback)).strftime("%Y-%m-%d")
-        if file_meta.data_type == "UniMate Data":
-            query = query.filter(model_class.call_start_time >= cutoff)
-        elif file_meta.data_type == "CDR Data":
-            query = query.filter(func.substr(model_class.segstart, 7, 4) + "-" + func.substr(model_class.segstart, 4, 2) + "-" + func.substr(model_class.segstart, 1, 2) >= cutoff)
-        else:
-            query = query.filter(model_class.date_logged >= cutoff)
+        query = apply_date_filters(query, model_class, file_meta.data_type, cutoff, None)
             
     metrics = query.all()
     if not metrics:
@@ -489,15 +483,12 @@ async def get_apr_agents(start_date: Optional[str] = None, end_date: Optional[st
         else:
             query = query.filter(APRData.company.in_(user_companies))
             
-    if start_date:
-        if not end_date:
-            end_date = start_date
-        query = query.filter(APRData.date_logged >= start_date, APRData.date_logged <= end_date)
+    query = apply_date_filters(query, APRData, "APR Data", start_date, end_date)
             
     lookback = current_user.get("data_lookback_days")
     if lookback and not is_global:
         cutoff = (datetime.now() - timedelta(days=lookback)).strftime("%Y-%m-%d")
-        query = query.filter(APRData.date_logged >= cutoff)
+        query = apply_date_filters(query, APRData, "APR Data", cutoff, None)
             
     df = pd.read_sql(query.statement, db.bind)
     if df.empty:

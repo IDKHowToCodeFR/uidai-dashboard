@@ -406,9 +406,10 @@ def update_comparison_charts(data_ref, selected_dates, selected_days, companies,
         ui_funnel = e_ui('compare-funnel-chart')
         
     # --- 4. Language breakdown ---
-    if has_lang:
-        lang_grp = df.groupby('Language').size().reset_index(name='Volume')
-        fig_lang = px.bar(lang_grp.sort_values('Volume', ascending=True), y='Language', x='Volume', orientation='h', template=template)
+    if has_lang and 'Call Offered' in df.columns:
+        lang_grp = df.groupby('Language')['Call Offered'].sum().reset_index(name='Volume')
+        use_log_lang = should_use_log(lang_grp['Volume'].min(), lang_grp['Volume'].max())
+        fig_lang = px.bar(lang_grp.sort_values('Volume', ascending=True), y='Language', x='Volume', orientation='h', template=template, log_x=use_log_lang)
         fig_lang.update_layout(margin=dict(t=30, b=10, l=10, r=10))
         ui_lang = dcc.Graph(id='compare-lang-chart', figure=fig_lang, config={'displayModeBar': False}, style={'height': '450px'})
     else:

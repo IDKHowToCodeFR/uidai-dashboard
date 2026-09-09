@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from a2wsgi import WSGIMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from backend.audit.audit_logger import archive_old_logs
@@ -13,6 +14,9 @@ from backend.users.router import router as users_router
 from backend.data_ingestion.router import router as data_router
 from backend.settings.router import router as settings_router
 from backend.data_ingestion.websockets import router as websockets_router
+
+from a2wsgi import WSGIMiddleware
+from frontend.app import app as dash_app
 
 app = FastAPI(title="UIDAI Backend API")
 
@@ -191,8 +195,7 @@ async def shutdown_event():
 
 # Add CORS Middleware to restrict to Dash frontend origin
 origins = [
-    "http://localhost:8050",
-    "http://127.0.0.1:8050",
+    "*", # Allow all since they are on the same origin now, but good to be flexible
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -203,8 +206,11 @@ app.add_middleware(
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# Include Routers
-app.include_router(users_router)
-app.include_router(data_router)
-app.include_router(settings_router)
-app.include_router(websockets_router)
+# Include Routers with /api prefix
+app.include_router(users_router, prefix="/api")
+app.include_router(data_router, prefix="/api")
+app.include_router(settings_router, prefix="/api")
+app.include_router(websockets_router, prefix="/api")
+
+# Mount Dash app
+app.mount("/", WSGIMiddleware(dash_app.server))

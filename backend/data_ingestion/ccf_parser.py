@@ -16,10 +16,18 @@ MAPPING = {
 MODEL = CCFData
 INDEX_ELEMENTS = ['company', 'language', 'call_timestamp']
 
+def transform_ccf(df: pd.DataFrame) -> pd.DataFrame:
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.strftime('%Y-%m-%d')
+    if 'Call Timestamp' in df.columns:
+        df['Call Timestamp'] = pd.to_datetime(df['Call Timestamp'], errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S')
+    return df
+
 async def parse_ccf(save_path: str, progress_callback=None) -> pd.DataFrame:
     return await parse_generic(
         save_path=save_path,
         progress_callback=progress_callback,
+        custom_transform=transform_ccf,
         dedupe_cols=['Company', 'Language', 'Call Timestamp'],
         inject_sheet_company=True
     )
