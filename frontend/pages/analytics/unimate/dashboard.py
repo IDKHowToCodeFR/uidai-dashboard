@@ -34,15 +34,15 @@ layout = html.Div([
     dbc.Row([
         dbc.Col([
             wrap_chart_card('unimate-vol-trend', "Call Volume Trend", "unimate-dash")
-        ], width=12, lg=6, className="mb-4"),
-        dbc.Col([
-            wrap_chart_card('unimate-auth-trend', "Authentication Rate Trend", "unimate-dash")
-        ], width=12, lg=6, className="mb-4")
+        ], width=12, className="mb-4")
     ]),
     dbc.Row([
         dbc.Col([
-            wrap_chart_card('unimate-containment-trend', "Bot Containment Rate Trend", "unimate-dash")
-        ], width=12, className="mb-4")
+            wrap_chart_card('unimate-auth-trend', "Authentication Rate Trend", "unimate-dash")
+        ], width=12, lg=6, className="mb-4"),
+        dbc.Col([
+            wrap_chart_card('unimate-containment-trend', "Non-Transferred Calls Trend (%)", "unimate-dash")
+        ], width=12, lg=6, className="mb-4")
     ]),
 
     dbc.Row([
@@ -124,6 +124,7 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
     if languages and 'Language' in df.columns:
         mask = mask & df['Language'].isin(languages)
 
+    if start_date and not end_date: end_date = start_date
     if start_date and end_date and not df['Date'].isna().all():
         s = pd.to_datetime(start_date)
         e = pd.to_datetime(end_date) + pd.Timedelta(days=1)
@@ -180,18 +181,26 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
     if date_col and 'Authentication' in df.columns:
         trend_grp = df.groupby('Date_Bucket').agg(
             Calls=('Authentication', 'size'),
-            Auths=('Authentication', lambda x: x.astype(str).str.lower().isin(['true', '1', '1.0']).sum())
+            Auths=('Authentication', lambda x: x.astype(str).str.lower().isin(['true', '1', '1.0']).sum()),
+            Errors=('Termination Reason', lambda x: x.astype(str).str.lower().isin(['error', 'system']).sum()) if 'Termination Reason' in df.columns else ('Authentication', lambda x: 0)
         ).reset_index()
         trend_grp['Auth %'] = np.where(trend_grp['Calls'] == 0, 0, (trend_grp['Auths'] / trend_grp['Calls']) * 100)
+        trend_grp['Normal Calls'] = trend_grp['Calls'] - trend_grp['Errors']
         
         # Volume Chart
         fig_vol = go.Figure()
         fig_vol.add_trace(go.Bar(
-            x=trend_grp['Date_Bucket'], y=trend_grp['Calls'], name="Volume", 
+            x=trend_grp['Date_Bucket'], y=trend_grp['Normal Calls'], name="Normal", 
             marker_color=COLOR_INFO, opacity=0.85, 
-            hovertemplate='<b>Date:</b> %{x}<br><b>Volume:</b> %{y:,}<extra></extra>'
+            hovertemplate='<b>Date:</b> %{x}<br><b>Normal Calls:</b> %{y:,}<extra></extra>'
         ))
-        fig_vol.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), showlegend=False, yaxis_title="Volume")
+        if trend_grp['Errors'].sum() > 0:
+            fig_vol.add_trace(go.Bar(
+                x=trend_grp['Date_Bucket'], y=trend_grp['Errors'], name="Tech Failure", 
+                marker_color=COLOR_DANGER, opacity=0.9, 
+                hovertemplate='<b>Date:</b> %{x}<br><b>Tech Failures:</b> %{y:,}<extra></extra>'
+            ))
+        fig_vol.update_layout(template=get_plotly_template(), barmode='stack', margin=dict(t=20, b=20, l=10, r=10), showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), yaxis_title="Volume")
         
         # Auth Chart
         fig_auth = go.Figure()
@@ -212,20 +221,20 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
         ui_vol = e_ui('unimate-vol-trend')
         ui_auth = e_ui('unimate-auth-trend')
 
-    # 1.5 Bot Containment Trend
+    # 1.5 Non-Transferred Calls Trend
     if date_col and 'Termination Type' in df.columns:
         cont_grp = df.groupby('Date_Bucket').agg(
             TotalCalls=('Termination Type', 'size'),
             Transferred=('Termination Type', lambda x: x.astype(str).str.lower().str.contains('transfer').sum())
         ).reset_index()
-        cont_grp['Containment Rate %'] = np.where(cont_grp['TotalCalls'] == 0, 0, ((cont_grp['TotalCalls'] - cont_grp['Transferred']) / cont_grp['TotalCalls']) * 100)
+        cont_grp['Non-Transferred Rate %'] = np.where(cont_grp['TotalCalls'] == 0, 0, ((cont_grp['TotalCalls'] - cont_grp['Transferred']) / cont_grp['TotalCalls']) * 100)
         
-        fig_cont = px.area(cont_grp, x='Date_Bucket', y='Containment Rate %')
-        fig_cont.update_traces(mode='lines+markers', line=dict(color=COLOR_SUCCESS, width=3, shape='spline'), fill='tozeroy', hovertemplate='<b>Date:</b> %{x}<br><b>Containment Rate:</b> %{y:.1f}%<extra></extra>')
+        fig_cont = px.area(cont_grp, x='Date_Bucket', y='Non-Transferred Rate %')
+        fig_cont.update_traces(mode='lines+markers', line=dict(color=COLOR_SUCCESS, width=3, shape='spline'), fill='tozeroy', hovertemplate='<b>Date:</b> %{x}<br><b>Non-Transferred Calls:</b> %{y:.1f}%<extra></extra>')
         fig_cont.update_layout(template=get_plotly_template(), margin=dict(t=30, b=30, l=10, r=10), xaxis_title="Date")
         if sl_scale and 1 in sl_scale:
-            y_min = max(0, min(cont_grp['Containment Rate %'].min() - 2, 80))
-            y_max = min(100, cont_grp['Containment Rate %'].max() + 2)
+            y_min = max(0, min(cont_grp['Non-Transferred Rate %'].min() - 2, 80))
+            y_max = min(100, cont_grp['Non-Transferred Rate %'].max() + 2)
             fig_cont.update_yaxes(range=[y_min, y_max])
         else:
             fig_cont.update_yaxes(range=[0, 100])
@@ -318,9 +327,9 @@ def update_unimate_dashboard(data_ref, companies, languages, start_date, end_dat
             y_title = "Average Volume (Calls)"
             hover = '<b>%{data.name}</b>: %{y:d}<extra></extra>'
         
-        fig_intra = px.area(avg_intra, x='TimeStr', y=y_col, color='Language', color_discrete_sequence=px.colors.qualitative.Pastel)
+        fig_intra = px.line(avg_intra, x='TimeStr', y=y_col, color='Language', color_discrete_sequence=px.colors.qualitative.Pastel)
         fig_intra.update_xaxes(categoryorder='category ascending')
-        fig_intra.update_traces(line_shape='spline', hovertemplate=hover, line=dict(width=1))
+        fig_intra.update_traces(line_shape='spline', hovertemplate=hover, line=dict(width=2))
         fig_intra.update_layout(template=get_plotly_template(), margin=dict(t=20, b=20, l=10, r=10), xaxis_title="Time of Day", yaxis_title=y_title, hovermode='x unified')
             
         ui_intra = dcc.Graph(id='unimate-intraday-language', figure=fig_intra, config={'displayModeBar': False})
@@ -387,6 +396,7 @@ def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, st
 
     if 'Call Start Time' in df.columns:
         df['Date'] = pd.to_datetime(df['Call Start Time'], errors='coerce')
+        if start_date and not end_date: end_date = start_date
         if start_date and end_date and not df['Date'].isna().all():
             start_dt, end_dt = pd.to_datetime(start_date), pd.to_datetime(end_date) + pd.Timedelta(days=1)
             df = df[(df['Date'] >= start_dt) & (df['Date'] < end_dt)]

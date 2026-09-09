@@ -90,13 +90,11 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
         df = df[df['Language'].isin(languages)]
 
     if 'segstart' in df.columns:
-        # segstart format is dd-mm-YYYY HH:MM:SS
-        df['Date'] = pd.to_datetime(df['segstart'], format='%d-%m-%Y %H:%M:%S', errors='coerce').dt.date
-        if df['Date'].isna().all():
-            df['Date'] = pd.to_datetime(df['segstart'], errors='coerce').dt.date
+        df['Date'] = pd.to_datetime(df['segstart'], dayfirst=True, errors='coerce').dt.date
     else:
         df['Date'] = pd.NaT
 
+    if start_date and not end_date: end_date = start_date
     if start_date and end_date:
         valid_mask = df['Date'].notna()
         df = df[valid_mask]
@@ -214,9 +212,7 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
 
     # Intraday Language Distribution (line chart)
     if 'Date' in df.columns and not df['Date'].isna().all() and 'Language' in df.columns and 'segstart' in df.columns:
-        df['Time'] = pd.to_datetime(df['segstart'], format='%d-%m-%Y %H:%M:%S', errors='coerce').dt.floor('30min').dt.time
-        if df['Time'].isna().all():
-            df['Time'] = pd.to_datetime(df['segstart'], errors='coerce').dt.floor('30min').dt.time
+        df['Time'] = pd.to_datetime(df['segstart'], dayfirst=True, errors='coerce').dt.floor('30min').dt.time
             
         df['True_Day'] = df['Date']
         intra_grp = df.groupby(['True_Day', 'Time', 'Language']).size().reset_index(name='Calls')

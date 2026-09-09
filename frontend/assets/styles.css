@@ -211,6 +211,7 @@ body {
     font-weight: 800;
     color: var(--color-text-heading);
     background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
@@ -368,36 +369,42 @@ body {
     box-shadow: 0 12px 20px -8px rgba(0, 0, 0, 0.15) !important;
 }
 
- / *   S k e l e t o n   P u l s e   L o a d e r   * / 
- @ k e y f r a m e s   s k e l e t o n - p u l s e   { 
-         0 %   {   b a c k g r o u n d - c o l o r :   v a r ( - - c o l o r - b o r d e r - l i g h t ) ;   } 
-         5 0 %   {   b a c k g r o u n d - c o l o r :   v a r ( - - c o l o r - b o r d e r ) ;   } 
-         1 0 0 %   {   b a c k g r o u n d - c o l o r :   v a r ( - - c o l o r - b o r d e r - l i g h t ) ;   } 
- } 
- 
- . s k e l e t o n - p u l s e   { 
-         w i d t h :   1 0 0 % ; 
-         h e i g h t :   1 0 0 % ; 
-         m i n - h e i g h t :   3 0 0 p x ; 
-         b o r d e r - r a d i u s :   8 p x ; 
-         a n i m a t i o n :   s k e l e t o n - p u l s e   1 . 5 s   e a s e - i n - o u t   i n f i n i t e ; 
-         d i s p l a y :   f l e x ; 
-         a l i g n - i t e m s :   c e n t e r ; 
-         j u s t i f y - c o n t e n t :   c e n t e r ; 
- } 
- 
- . s k e l e t o n - p u l s e : : a f t e r   { 
-         c o n t e n t :   ' L o a d i n g   D a t a . . . ' ; 
-         c o l o r :   v a r ( - - c o l o r - t e x t - m u t e d ) ; 
-         f o n t - w e i g h t :   6 0 0 ; 
-         f o n t - s i z e :   1 4 p x ; 
-         l e t t e r - s p a c i n g :   1 p x ; 
-         t e x t - t r a n s f o r m :   u p p e r c a s e ; 
- } 
- 
- / *   H i d e   d e f a u l t   D a s h   l o a d i n g   s p i n n e r   * / 
- . d a s h - s p i n n e r   *   { 
-         d i s p l a y :   n o n e   ! i m p o r t a n t ; 
- } 
-  
- @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+/* Skeleton Pulse Loader */
+@keyframes skeleton-pulse {
+    0% { background-color: var(--color-border-light); }
+    50% { background-color: var(--color-border); }
+    100% { background-color: var(--color-border-light); }
+}
+
+.skeleton-pulse {
+    width: 100%;
+    height: 100%;
+    min-height: 300px;
+    border-radius: 8px;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.skeleton-pulse::after {
+    content: 'Loading Data...';
+    color: var(--color-text-muted);
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* Hide default Dash loading spinner */
+.dash-spinner * {
+    display: none !important;
+}
+
+ @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Ponytail: Lazy permission enforcement for downloads */
+.no-download-permission .dashboard-export-dropdown,
+.no-download-permission [id^="btn-export"] {
+    display: none !important;
+}

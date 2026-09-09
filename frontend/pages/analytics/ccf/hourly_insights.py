@@ -4,7 +4,7 @@ from dash_bootstrap_components import Container, Row, Col, Card, CardHeader, Car
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, should_use_log
+from frontend.shared.theme import get_plotly_template, make_header_with_download, make_export_dropdown, should_use_log, COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER, COLOR_NEUTRAL, COLOR_INFO
 from frontend.shared.api_client import get_dataframe
 import dash_bootstrap_components as dbc
 from frontend.components.cards import wrap_chart_card
@@ -123,6 +123,16 @@ def set_date_picker(data_ref, auth_state):
     max_date = df[date_col].max().date()
     min_date = df[date_col].min().date()
     
+    from datetime import timedelta
+    lookback = auth_state.get('data_lookback_days')
+    role = auth_state.get('role', '')
+    
+    if lookback is not None and role != 'Admin':
+        try:
+            min_date = max(min_date, max_date - timedelta(days=int(lookback)))
+        except (ValueError, TypeError):
+            pass
+    
     return min_date, max_date, min_date, max_date
 
 @callback(
@@ -143,7 +153,7 @@ def set_date_picker(data_ref, auth_state):
 def update_hourly_insights(data_ref, company_filter, language_filter, start_date, end_date, time_start, time_end, auth_state):
 
     outs = [e_ui('ccf-hour-vol'), e_ui('ccf-hour-sl'), e_ui('ccf-sl-heatmap'), e_ui('hourly-aban-bar'), e_ui('aht-time-chart')]
-    if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or not start_date or not end_date:
+    if not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or not start_date:
         return tuple(outs)
         
     token = auth_state.get('token') if auth_state else None
@@ -160,6 +170,7 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
         return tuple(outs)
 
     df['DateCol'] = pd.to_datetime(df[date_col])
+    if start_date and not end_date: end_date = start_date
     start_dt = pd.to_datetime(start_date)
     end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1)
     df_current = df[(df['DateCol'] >= start_dt) & (df['DateCol'] < end_dt)].copy()
@@ -311,7 +322,7 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
 )
 def export_csv_hourly(n_clicks, data_ref, company_filter, language_filter, start_date, end_date, time_start, time_end, auth_state):
     from dash import ctx
-    if not n_clicks or not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or not start_date or not end_date:
+    if not n_clicks or not data_ref or not isinstance(data_ref, dict) or 'filename' not in data_ref or not start_date:
         return dash.no_update
         
     triggered_id = ctx.triggered_id
@@ -327,6 +338,7 @@ def export_csv_hourly(n_clicks, data_ref, company_filter, language_filter, start
     date_col = 'Date' if 'Date' in df.columns else 'Timestamp' if 'Timestamp' in df.columns else None
     if date_col:
         df['DateCol'] = pd.to_datetime(df[date_col])
+        if start_date and not end_date: end_date = start_date
         df = df[(df['DateCol'] >= pd.to_datetime(start_date)) & (df['DateCol'] <= pd.to_datetime(end_date))]
 
     ts_col = 'Call Timestamp' if 'Call Timestamp' in df.columns else date_col

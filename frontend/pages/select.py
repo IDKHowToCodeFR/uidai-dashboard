@@ -6,17 +6,23 @@ dash.register_page(__name__, path='/select', name='Select Dashboard')
 
 layout = dbc.Container([
     html.Div([
-        html.H2("Select Dashboard", className="text-center mb-5", style={"fontWeight": "700", "color": "#3b5b8c"}),
+        html.H2("Select Dashboard", className="text-center mb-2", style={"fontWeight": "700", "color": "#3b5b8c"}),
+        html.Div(id="lookback-badge-container", className="text-center mb-5"),
         dbc.Row(id="select-cards-container", className="justify-content-center mt-4")
     ])
 ], fluid=True, className="px-4")
 
 @callback(
     Output("select-cards-container", "children"),
+    Output("lookback-badge-container", "children"),
     Input("auth-state", "data")
 )
 def render_cards(auth_state):
     perms = auth_state.get("permissions", []) if auth_state else []
+    lookback = auth_state.get("data_lookback_days") if auth_state else None
+    role = auth_state.get("role", "") if auth_state else ""
+    
+    lookback_badge = None
     
     def get_style_and_btn(req_perm, base_color, href, btn_text):
         if req_perm in perms or "Admin" in auth_state.get("role", ""):
@@ -69,4 +75,4 @@ def render_cards(auth_state):
                 ], className="text-center p-5 d-flex flex-column h-100")
             ], className="shadow h-100 border-0 rounded-4 hover-elevate", style=apr_style)
         ], xs=12, md=6, lg=5, className="mb-4")
-    ]
+    ], lookback_badge

@@ -46,8 +46,8 @@ layout = dbc.Container([
     # ]),
 
     dbc.Row([
-        dbc.Col([wrap_chart_card('apr-state-bar', "Agent State Distribution", "apr")], width=12, lg=6, className="mb-4"),
-        dbc.Col([wrap_chart_card('apr-lang-bar', "Calls by Language", "apr")], width=12, lg=6, className="mb-4")
+        dbc.Col([wrap_chart_card('apr-state-pie', "Agent State Distribution", "apr")], width=12, lg=6, className="mb-4"),
+        dbc.Col([wrap_chart_card('apr-lang-pie', "Calls by Language", "apr")], width=12, lg=6, className="mb-4")
     ])
 ])
 
@@ -56,8 +56,8 @@ layout = dbc.Container([
     Output('apr-volume-container', 'children'),
     Output('apr-occ-container', 'children'),
     Output('apr-aht-container', 'children'),
-    Output('apr-state-bar-container', 'children'),
-    Output('apr-lang-bar-container', 'children'),
+    Output('apr-state-pie-container', 'children'),
+    Output('apr-lang-pie-container', 'children'),
     Input('data-store', 'data'),
     Input('company-filter', 'value'),
     Input('language-filter', 'value'),
@@ -108,7 +108,10 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
 
     if 'Date' in df.columns:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+    else:
+        df['Date'] = pd.NaT
 
+    if start_date and not end_date: end_date = start_date
     if start_date and end_date:
         valid_mask = df['Date'].notna()
         df = df[valid_mask]
@@ -116,7 +119,7 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
             df = df[(df['Date'] >= pd.to_datetime(start_date).date()) & (df['Date'] <= pd.to_datetime(end_date).date())]
 
     if df.empty:
-        return empty_kpi, e_ui('apr-vol'), e_ui('apr-occ-aht'), e_ui('apr-state-bar'), e_ui('apr-lang-bar')
+        return empty_kpi, e_ui('apr-vol'), e_ui('apr-occ'), e_ui('apr-aht'), e_ui('apr-state-bar'), e_ui('apr-lang-bar')
 
     if '% Agent Occupancy with ACW' in df.columns:
         df['% Agent Occupancy with ACW'] = df['% Agent Occupancy with ACW'].apply(lambda x: min(x, 100) if pd.notnull(x) else x)
@@ -142,7 +145,7 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
     kpis = [
         dbc.Col(make_kpi_card("Total ACD Calls", f"{int(total_acd_calls):,}"), width=True),
         dbc.Col(make_kpi_card("Avg Occupancy", f"{avg_occ:.1f}%", "good" if avg_occ > 70 else "neutral", sla_text="Target > 70%"), width=True),
-        dbc.Col(make_kpi_card("Utilization (No ACW)", f"{avg_util:.1f}%", "good" if avg_util > 60 else "neutral", sla_text="Target > 60%"), width=True),
+        dbc.Col(make_kpi_card("Occupancy (No ACW)", f"{avg_util:.1f}%", "good" if avg_util > 60 else "neutral", sla_text="Target > 60%"), width=True),
         dbc.Col(make_kpi_card("Avg Handle Time", f"{avg_aht:.0f}s", "bad" if avg_aht > 240 else "good", sla_text="Target ≤ 240s"), width=True),
     ]
 
@@ -233,17 +236,18 @@ def update_apr_dashboard(data_ref, companies, languages, start_date, end_date, s
             return f"{sec}s"
         state_df['Time_Fmt'] = state_df['Time (Sec)'].apply(format_sec)
         
-        fig_state = px.bar(state_df, x='Time (Sec)', y='State', orientation='h', color='State', color_discrete_sequence=px.colors.qualitative.Pastel, custom_data=['Time_Fmt'])
-        fig_state.update_traces(hovertemplate='<b>%{y}</b><br>Time: %{customdata[0]}<extra></extra>')
-        fig_state.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), showlegend=False, yaxis={'categoryorder':'total ascending'}, yaxis_title="", xaxis_title="Total Time (Seconds)")
+        fig_state = px.pie(state_df, values='Time (Sec)', names='State', hole=0.4, color='State', color_discrete_sequence=px.colors.qualitative.Pastel, custom_data=['Time_Fmt'])
+        fig_state.update_traces(hovertemplate='<b>%{label}</b><br>Time: %{customdata[0]}<br>Percent: %{percent}<extra></extra>', textposition='inside', textinfo='percent+label')
+        fig_state.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
         state_ui = dcc.Graph(figure=fig_state, config={'displayModeBar': False})
     else:
-        state_ui = e_ui('apr-state-bar')
+        state_ui = e_ui('apr-state-pie')
         
     # Language Bar
     if 'Language' in df.columns and 'ACD Calls' in df.columns:
-        lang_grp = df.groupby('Language')['ACD Calls'].sum().reset_index().sort_values('ACD Calls', ascending=True)
-        fig_lang = px.bar(lang_grp, y='Language', x='ACD Calls', orientation='h', color_discrete_sequence=[COLOR_PRIMARY])
+        lang_grp = df.groupby('Language')['ACD Calls'].sum().reset_index()
+        fig_lang = px.pie(lang_grp, values='ACD Calls', names='Language', hole=0.4, color_discrete_sequence=px.colors.qualitative.Set3)
+        fig_lang.update_traces(textposition='inside', textinfo='percent+label')
         fig_lang.update_layout(template=get_plotly_template(), margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
         lang_ui = dcc.Graph(figure=fig_lang, config={'displayModeBar': False})
     else:

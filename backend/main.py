@@ -163,10 +163,15 @@ async def startup_event():
         from backend.database.models import User
         if db.query(User).first() is None:
             from backend.auth.auth_utils import get_password_hash
-            db.add(User(username="admin", password_hash=get_password_hash("admin"), companies=["Admin"]))
-            db.add(User(username="uidai", password_hash=get_password_hash("uidai"), companies=["Digitech", "NSB"]))
+            db.add(User(username="admin", password_hash=get_password_hash("admin")))
+            db.add(User(username="uidai", password_hash=get_password_hash("uidai")))
+            db.flush()
+            
+            from backend.database.models import UserPermission
+            db.add(UserPermission(user_id=1, is_admin=True, data_lookback_days=None, company_digitech=True, company_nsb=True, can_view_ccf=True, can_view_unimate=True, can_view_cdr=True, can_view_apr=True, can_download_files=True))
+            db.add(UserPermission(user_id=2, is_admin=False, data_lookback_days=90, company_digitech=True, company_nsb=True, can_view_ccf=True, can_view_unimate=True, can_view_cdr=True, can_view_apr=True, can_download_files=False))
             db.commit()
-            print("Startup check: Created default 'admin' and 'user' accounts.")
+            print("Startup check: Created default 'admin' and 'uidai' accounts.")
             
         # Archive logs older than 90 days on startup
         archive_old_logs(db=db, days=90)

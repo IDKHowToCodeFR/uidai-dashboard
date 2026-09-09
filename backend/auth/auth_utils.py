@@ -45,20 +45,34 @@ def load_users(db: Session, current_user: dict = None) -> dict:
         admin_companies = current_user.get("companies", [])
         
     for user in users:
+        permissions_obj = user.permissions
+        
+        is_admin = permissions_obj.is_admin if permissions_obj else False
+        lookback = permissions_obj.data_lookback_days if permissions_obj else None
+        
+        user_companies = ["Admin"] if is_admin else []
+        permissions = []
+        if permissions_obj:
+            if permissions_obj.company_digitech: user_companies.append("Digitech")
+            if user.permissions.company_nsb: user_companies.append("NSB")
+            if user.permissions.can_view_ccf: permissions.append("can_view_ccf")
+            if user.permissions.can_view_unimate: permissions.append("can_view_unimate")
+            if user.permissions.can_view_cdr: permissions.append("can_view_cdr")
+            if user.permissions.can_view_apr: permissions.append("can_view_apr")
+            if user.permissions.can_download_files: permissions.append("can_download_files")
+            
         if current_user and not is_superadmin:
-            user_companies = user.companies or []
             if user.username.lower() != current_user.get("username", "").lower():
                 if not any(c in admin_companies for c in user_companies):
                     continue
                     
-        permissions = [p.permission_name for p in user.permissions]
         result[user.username] = {
             "password": user.password_hash,
-            "companies": user.companies,
+            "companies": user_companies,
             "permissions": permissions,
             "login_count": user.login_count,
             "last_login": user.last_login,
-            "data_lookback_days": user.data_lookback_days
+            "data_lookback_days": lookback
         }
     return result
 
@@ -74,14 +88,23 @@ def add_user(db: Session, username: str, password: str, companies: list, permiss
     hashed_password = get_password_hash(password)
     new_user = User(
         username=key,
-        password_hash=hashed_password,
-        companies=companies
+        password_hash=hashed_password
     )
     db.add(new_user)
     db.flush() # To get the new_user.id
     
-    for p in permissions:
-        db.add(UserPermission(user_id=new_user.id, permission_name=p))
+    db.add(UserPermission(
+        user_id=new_user.id,
+        is_admin="Admin" in companies,
+        data_lookback_days=None,
+        company_digitech="Digitech" in companies,
+        company_nsb="NSB" in companies,
+        can_view_ccf="can_view_ccf" in permissions,
+        can_view_unimate="can_view_unimate" in permissions,
+        can_view_cdr="can_view_cdr" in permissions,
+        can_view_apr="can_view_apr" in permissions,
+        can_download_files="can_download_files" in permissions
+    ))
         
     db.commit()
     add_log(db, "USER_ADDED", actor, f"Added user '{username}' with companies {companies} and perms {permissions}", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
@@ -96,17 +119,29 @@ def update_permissions(db: Session, username: str, permissions: list, companies:
     if key == "admin":
         return False, "Cannot modify admin permissions."
     
-    if companies is not None:
-        user.companies = companies
+    is_admin = False
+    if user.permissions:
+        is_admin = user.permissions.is_admin
         
-    user.data_lookback_days = data_lookback_days
+    if companies is not None:
+        is_admin = "Admin" in companies
         
     # Delete existing permissions
     db.query(UserPermission).filter(UserPermission.user_id == user.id).delete()
     
     # Add new permissions
-    for p in permissions:
-        db.add(UserPermission(user_id=user.id, permission_name=p))
+    db.add(UserPermission(
+        user_id=user.id,
+        is_admin=is_admin,
+        data_lookback_days=data_lookback_days,
+        company_digitech="Digitech" in (companies or []),
+        company_nsb="NSB" in (companies or []),
+        can_view_ccf="can_view_ccf" in permissions,
+        can_view_unimate="can_view_unimate" in permissions,
+        can_view_cdr="can_view_cdr" in permissions,
+        can_view_apr="can_view_apr" in permissions,
+        can_download_files="can_download_files" in permissions
+    ))
         
     db.commit()
     add_log(db, "PERMISSIONS_UPDATED", actor, f"Updated permissions & companies for '{username}'", ip_address=ip_address, user_agent=user_agent, endpoint=endpoint)
@@ -129,7 +164,9 @@ def remove_user(db: Session, username: str, actor: str = "Admin", ip_address: st
     user = db.query(User).filter(User.username == key).first()
     if not user:
         return False, "User not found."
-    if "Admin" in user.companies or key == "admin":
+        
+    is_admin = user.permissions.is_admin if user.permissions else False
+    if is_admin or key == "admin":
         return False, "Cannot remove an Admin account."
     
     db.delete(user)
@@ -183,14 +220,28 @@ async def get_current_user(token: str = Security(oauth2_scheme), db: Session = D
         if not user:
             raise credentials_exception
             
-        role = "Admin" if "Admin" in user.companies or username.lower() == "admin" else "User"
+        permissions_obj = user.permissions
+        is_admin = permissions_obj.is_admin if permissions_obj else False
+        lookback = permissions_obj.data_lookback_days if permissions_obj else None
+            
+        role = "Admin" if is_admin or username.lower() == "admin" else "User"
+        
+        user_companies = ["Admin"] if role == "Admin" else []
+        permissions = []
+        
+        if permissions_obj:
+            if permissions_obj.company_digitech: user_companies.append("Digitech")
+            if permissions_obj.company_nsb: user_companies.append("NSB")
+            if permissions_obj.can_view_ccf: permissions.append("can_view_ccf")
+            if permissions_obj.can_view_unimate: permissions.append("can_view_unimate")
+            if permissions_obj.can_view_cdr: permissions.append("can_view_cdr")
+            if permissions_obj.can_view_apr: permissions.append("can_view_apr")
+            if permissions_obj.can_download_files: permissions.append("can_download_files")
         
         if role == "Admin":
             permissions = get_admin_permissions()
-        else:
-            permissions = [p.permission_name for p in user.permissions]
         
-        return {"username": user.username, "role": role, "permissions": permissions, "companies": user.companies, "data_lookback_days": user.data_lookback_days}
+        return {"username": user.username, "role": role, "permissions": permissions, "companies": user_companies, "data_lookback_days": lookback}
     except JWTError:
         raise credentials_exception
 

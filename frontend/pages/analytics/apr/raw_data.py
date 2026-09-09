@@ -45,6 +45,7 @@ def update_table(data_ref, companies, languages, start_date, end_date, auth_stat
     if languages and 'Language' in df.columns:
         df = df[df['Language'].isin(languages)]
 
+    if start_date and not end_date: end_date = start_date
     if start_date and end_date and 'Date' in df.columns:
         temp_date = pd.to_datetime(df['Date'], errors='coerce').dt.date
         valid_mask = temp_date.notna()

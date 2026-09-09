@@ -93,7 +93,11 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
         if not token:
             return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('ccf-intra-vol'), e_ui('ccf-intra-sl'), e_ui('company-kpi-bar'), e_ui('ccf-vol-trend'), e_ui('ccf-aban-trend'), e_ui('aht-lang-bar'), e_ui('ccf-ans-funnel'), e_ui('offered-ans-bar')
             
-        df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
+        companies_tuple = tuple(company_filter) if company_filter else None
+        languages_tuple = tuple(language_filter) if language_filter else None
+        df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'),
+                           companies=companies_tuple, languages=languages_tuple,
+                           start_date=start_date, end_date=end_date)
         if df is None or df.empty:
             return [], e_ui('sl-trend'), e_ui('lang-pie'), e_ui('ccf-intra-vol'), e_ui('ccf-intra-sl'), e_ui('company-kpi-bar'), e_ui('ccf-vol-trend'), e_ui('ccf-aban-trend'), e_ui('aht-lang-bar'), e_ui('ccf-ans-funnel'), e_ui('offered-ans-bar')
     
@@ -124,6 +128,7 @@ def update_dashboard(data_ref, company_filter, language_filter, start_date, end_
             mask = mask & df['Company'].isin(company_filter)
         if language_filter and 'Language' in df.columns:
             mask = mask & df['Language'].isin(language_filter)
+        if start_date and not end_date: end_date = start_date
         if start_date and end_date and date_col:
             start_dt = pd.to_datetime(start_date)
             end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1)
@@ -440,7 +445,11 @@ def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, st
     if not token:
         return dash.no_update
         
-    df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'))
+    companies_tuple = tuple(company_filter) if company_filter else None
+    languages_tuple = tuple(language_filter) if language_filter else None
+    df = get_dataframe(token, data_ref['filename'], data_ref.get('impersonate'),
+                       companies=companies_tuple, languages=languages_tuple,
+                       start_date=start_date, end_date=end_date)
     if df.empty:
         return dash.no_update
 
@@ -459,6 +468,7 @@ def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, st
     if language_filter and 'Language' in df.columns:
         df = df[df['Language'].isin(language_filter)]
 
+    if start_date and not end_date: end_date = start_date
     if start_date and end_date and date_col:
         start_dt, end_dt = pd.to_datetime(start_date), pd.to_datetime(end_date)
         df = df[(df['Date'] >= start_dt) & (df['Date'] <= end_dt)]

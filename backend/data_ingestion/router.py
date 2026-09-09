@@ -183,7 +183,14 @@ async def get_history(data_type: Optional[str] = None, impersonate: Optional[str
                 from backend.database.models import APRData
                 query = query.filter(FileMetadata.apr_metrics.any(APRData.company.in_(user_companies)))
             else:
-                query = query.filter(FileMetadata.metrics.any(CCFData.company.in_(user_companies)))
+                from backend.database.models import APRData
+                from sqlalchemy import or_
+                query = query.filter(or_(
+                    FileMetadata.metrics.any(CCFData.company.in_(user_companies)),
+                    FileMetadata.unimate_metrics.any(UniMateData.company.in_(user_companies)),
+                    FileMetadata.cdr_metrics.any(CDRData.company.in_(user_companies)),
+                    FileMetadata.apr_metrics.any(APRData.company.in_(user_companies))
+                ))
                 
     if target_company:
         if data_type == "UniMate Data":
@@ -194,14 +201,18 @@ async def get_history(data_type: Optional[str] = None, impersonate: Optional[str
             from backend.database.models import APRData
             query = query.filter(FileMetadata.apr_metrics.any(APRData.company == target_company))
         else:
-            query = query.filter(FileMetadata.metrics.any(CCFData.company == target_company))
+            from backend.database.models import APRData
+            from sqlalchemy import or_
+            query = query.filter(or_(
+                FileMetadata.metrics.any(CCFData.company == target_company),
+                FileMetadata.unimate_metrics.any(UniMateData.company == target_company),
+                FileMetadata.cdr_metrics.any(CDRData.company == target_company),
+                FileMetadata.apr_metrics.any(APRData.company == target_company)
+            ))
             
     files = query.order_by(FileMetadata.uploaded_at.desc()).all()
     
-    lookback = current_user.get("data_lookback_days")
-    if lookback and not is_global:
-        cutoff = (datetime.now() - timedelta(days=lookback)).isoformat()
-        files = [f for f in files if f.uploaded_at >= cutoff]
+    # Lookback is enforced by frontend date pickers based on the dataset's actual max date
 
     file_times = []
     for f in files:
@@ -217,7 +228,10 @@ async def get_history(data_type: Optional[str] = None, impersonate: Optional[str
     
     
 @router.get("/data/aggregate")
-async def get_aggregated_data(data_type: str = "CCF Data", impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def get_aggregated_data(data_type: str = "CCF Data", impersonate: Optional[str] = None, 
+                              companies: Optional[str] = None, languages: Optional[str] = None,
+                              start_date: Optional[str] = None, end_date: Optional[str] = None,
+                              current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     if data_type == "UniMate Data":
         model_class = UniMateData
     elif data_type == "CDR Data":
@@ -246,22 +260,39 @@ async def get_aggregated_data(data_type: str = "CCF Data", impersonate: Optional
         else:
             query = query.filter(model_class.company.in_(user_companies))
             
-    lookback = current_user.get("data_lookback_days")
-    if lookback and not is_global:
-        cutoff = (datetime.now() - timedelta(days=lookback)).strftime("%Y-%m-%d")
-        if data_type == "UniMate Data":
-            query = query.filter(model_class.call_start_time >= cutoff)
-        elif data_type == "CDR Data":
-            query = query.filter(func.substr(model_class.segstart, 7, 4) + "-" + func.substr(model_class.segstart, 4, 2) + "-" + func.substr(model_class.segstart, 1, 2) >= cutoff)
-        else:
-            query = query.filter(model_class.date_logged >= cutoff)
+    if companies:
+        comps = [c.strip() for c in companies.split(",") if c.strip()]
+        if comps:
+            query = query.filter(model_class.company.in_(comps))
+            
+    if languages and hasattr(model_class, 'language'):
+        langs = [l.strip() for l in languages.split(",") if l.strip()]
+        if langs:
+            query = query.filter(model_class.language.in_(langs))
+            
+    if start_date:
+        if hasattr(model_class, 'date_logged'):
+            query = query.filter(model_class.date_logged >= start_date)
+        elif hasattr(model_class, 'call_start_time'):
+            query = query.filter(model_class.call_start_time >= start_date)
+            
+    if end_date:
+        if hasattr(model_class, 'date_logged'):
+            query = query.filter(model_class.date_logged <= end_date)
+        elif hasattr(model_class, 'call_start_time'):
+            # For unimate data which includes time, we add a day to end_date
+            # But string comparison is tricky, so we just do a string prefix comparison or <= end_date + " 23:59:59"
+            query = query.filter(model_class.call_start_time <= end_date + " 23:59:59")
             
     metrics = query.all()
     return serialize_data(metrics, data_type)
     
     
 @router.get("/data/{filename}")
-async def get_data(filename: str, impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def get_data(filename: str, impersonate: Optional[str] = None, 
+                   companies: Optional[str] = None, languages: Optional[str] = None,
+                   start_date: Optional[str] = None, end_date: Optional[str] = None,
+                   current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     file_meta = db.query(FileMetadata).filter(FileMetadata.filename == filename).first()
     if not file_meta:
         raise HTTPException(status_code=404, detail="File not found")
@@ -294,15 +325,27 @@ async def get_data(filename: str, impersonate: Optional[str] = None, current_use
         else:
             query = query.filter(model_class.company.in_(user_companies))
             
-    lookback = current_user.get("data_lookback_days")
-    if lookback and not is_global:
-        cutoff = (datetime.now() - timedelta(days=lookback)).strftime("%Y-%m-%d")
-        if file_meta.data_type == "UniMate Data":
-            query = query.filter(model_class.call_start_time >= cutoff)
-        elif file_meta.data_type == "CDR Data":
-            query = query.filter(func.substr(model_class.segstart, 7, 4) + "-" + func.substr(model_class.segstart, 4, 2) + "-" + func.substr(model_class.segstart, 1, 2) >= cutoff)
-        else:
-            query = query.filter(model_class.date_logged >= cutoff)
+    if companies:
+        comps = [c.strip() for c in companies.split(",") if c.strip()]
+        if comps:
+            query = query.filter(model_class.company.in_(comps))
+            
+    if languages and hasattr(model_class, 'language'):
+        langs = [l.strip() for l in languages.split(",") if l.strip()]
+        if langs:
+            query = query.filter(model_class.language.in_(langs))
+            
+    if start_date:
+        if hasattr(model_class, 'date_logged'):
+            query = query.filter(model_class.date_logged >= start_date)
+        elif hasattr(model_class, 'call_start_time'):
+            query = query.filter(model_class.call_start_time >= start_date)
+            
+    if end_date:
+        if hasattr(model_class, 'date_logged'):
+            query = query.filter(model_class.date_logged <= end_date)
+        elif hasattr(model_class, 'call_start_time'):
+            query = query.filter(model_class.call_start_time <= end_date + " 23:59:59")
 
     metrics = query.all()
     return serialize_data(metrics, file_meta.data_type)
@@ -423,9 +466,13 @@ async def get_apr_metrics(impersonate: Optional[str] = None, current_user: dict 
     return await get_aggregated_data(data_type="APR Data", impersonate=impersonate, current_user=current_user, db=db)
 
 @router.get("/dashboards/apr/agents")
-async def get_apr_agents(impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-    from backend.database.models import AgentMetadata
-    query = db.query(AgentMetadata)
+async def get_apr_agents(start_date: Optional[str] = None, end_date: Optional[str] = None, impersonate: Optional[str] = None, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    from backend.database.models import APRData
+    import pandas as pd
+    import numpy as np
+    
+    query = db.query(APRData.login_id, APRData.agent_name, APRData.company, APRData.language, 
+                     APRData.acd_calls, APRData.acd_time, APRData.acw_time, APRData.staffed_time, APRData.occupancy_with_acw, APRData.date_logged)
     
     user_companies = current_user.get("companies", [])
     permissions = current_user.get("permissions", [])
@@ -433,27 +480,81 @@ async def get_apr_agents(impersonate: Optional[str] = None, current_user: dict =
     
     if is_global:
         if impersonate:
-            query = query.filter(AgentMetadata.company == impersonate)
+            query = query.filter(APRData.company == impersonate)
     else:
         if impersonate:
             if impersonate not in user_companies:
                 raise HTTPException(status_code=403, detail="Access denied to this company.")
-            query = query.filter(AgentMetadata.company == impersonate)
+            query = query.filter(APRData.company == impersonate)
         else:
-            query = query.filter(AgentMetadata.company.in_(user_companies))
+            query = query.filter(APRData.company.in_(user_companies))
             
-    agents = query.all()
-    return [
-        {
-            "Login ID": a.anslogin,
-            "Agent Name": a.name,
-            "Company": a.company,
-            "Language": a.language,
-            "Total ACD Calls": a.total_acd_calls,
-            "Total Staffed Time Sec": a.total_staffed_time_sec,
-            "Total ACD Time Sec": a.total_acd_time_sec,
-            "Total ACW Time Sec": a.total_acw_time_sec,
-            "Occupancy %": a.avg_occupancy,
-            "Score": a.composite_score
-        } for a in agents
-    ]
+    if start_date:
+        if not end_date:
+            end_date = start_date
+        query = query.filter(APRData.date_logged >= start_date, APRData.date_logged <= end_date)
+            
+    lookback = current_user.get("data_lookback_days")
+    if lookback and not is_global:
+        cutoff = (datetime.now() - timedelta(days=lookback)).strftime("%Y-%m-%d")
+        query = query.filter(APRData.date_logged >= cutoff)
+            
+    df = pd.read_sql(query.statement, db.bind)
+    if df.empty:
+        return []
+        
+    def hhmmss_to_seconds(time_str):
+        if pd.isna(time_str) or not isinstance(time_str, str): return 0
+        try:
+            parts = str(time_str).split(':')
+            if len(parts) == 3: return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+            return 0
+        except:
+            return 0
+            
+    df['acd_time_sec'] = df['acd_time'].apply(hhmmss_to_seconds)
+    df['acw_time_sec'] = df['acw_time'].apply(hhmmss_to_seconds)
+    df['staffed_time_sec'] = df['staffed_time'].apply(hhmmss_to_seconds)
+    
+    grp = df.groupby(['login_id']).agg({
+        'agent_name': 'last',
+        'company': 'last',
+        'language': 'last',
+        'acd_calls': 'sum',
+        'acd_time_sec': 'sum',
+        'acw_time_sec': 'sum',
+        'staffed_time_sec': 'sum',
+        'occupancy_with_acw': 'mean'
+    }).reset_index()
+    
+    grp['Calls Per Hour'] = np.where(grp['staffed_time_sec'] > 0, grp['acd_calls'] / (grp['staffed_time_sec'] / 3600), 0)
+    grp['AHT (sec)'] = np.where(grp['acd_calls'] > 0, (grp['acd_time_sec'] + grp['acw_time_sec']) / grp['acd_calls'], 0)
+    
+    grp['composite_score'] = (
+        (grp['Calls Per Hour'] / 15.0) * 40 + 
+        (grp['occupancy_with_acw'] / 100.0) * 30 + 
+        (np.where(grp['AHT (sec)'] > 0, 240.0 / grp['AHT (sec)'], 0)) * 30
+    ).round(2)
+    
+    import re
+    def clean_name(name):
+        if not isinstance(name, str): return ""
+        name = re.sub(r'^(digitech|nsb)_', '', name, flags=re.IGNORECASE)
+        return name.replace('_', ' ').strip()
+        
+    records = []
+    for _, row in grp.iterrows():
+        records.append({
+            'Login ID': str(row['login_id']),
+            'Agent Name': clean_name(row['agent_name']),
+            'Company': str(row['company']),
+            'Language': str(row['language']),
+            'Total ACD Calls': int(row['acd_calls']),
+            'Total Staffed Time Sec': int(row['staffed_time_sec']),
+            'Total ACD Time Sec': int(row['acd_time_sec']),
+            'Total ACW Time Sec': int(row['acw_time_sec']),
+            'Occupancy %': float(row['occupancy_with_acw']),
+            'Score': float(row['composite_score'])
+        })
+        
+    return records

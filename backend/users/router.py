@@ -20,6 +20,7 @@ class Token(BaseModel):
     role: str
     permissions: List[str]
     companies: List[str]
+    data_lookback_days: Optional[int] = None
 
 class RefreshRequest(BaseModel):
     refresh_token: str
@@ -58,14 +59,26 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
             headers={"WWW-Authenticate": "Bearer"},
         )
         
-    companies = db_user.companies or []
-    role = "Admin" if "Admin" in companies or key == "admin" else "User"
+    permissions_obj = db_user.permissions
+    is_admin = permissions_obj.is_admin if permissions_obj else False
+    lookback = permissions_obj.data_lookback_days if permissions_obj else None
+    role = "Admin" if is_admin or key == "admin" else "User"
     
+    companies = ["Admin"] if role == "Admin" else []
+    permissions = []
+    
+    if permissions_obj:
+        if permissions_obj.company_digitech: companies.append("Digitech")
+        if permissions_obj.company_nsb: companies.append("NSB")
+        if permissions_obj.can_view_ccf: permissions.append("can_view_ccf")
+        if permissions_obj.can_view_unimate: permissions.append("can_view_unimate")
+        if permissions_obj.can_view_cdr: permissions.append("can_view_cdr")
+        if permissions_obj.can_view_apr: permissions.append("can_view_apr")
+        if permissions_obj.can_download_files: permissions.append("can_download_files")
+        
     if role == "Admin":
         from backend.auth.auth_utils import get_admin_permissions
         permissions = get_admin_permissions()
-    else:
-        permissions = [p.permission_name for p in db_user.permissions] if db_user.permissions else []
     
     # We only need the 'sub' claim now as get_current_user checks the DB dynamically.
     access_token = create_access_token(data={"sub": form_data.username})
@@ -82,7 +95,8 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         "token_type": "bearer", 
         "role": role, 
         "permissions": permissions, 
-        "companies": companies
+        "companies": companies,
+        "data_lookback_days": lookback
     }
 
 @router.post("/refresh", response_model=Token)
@@ -105,14 +119,26 @@ async def refresh_token(req: RefreshRequest, db: Session = Depends(get_db)):
         if not db_user:
             raise credentials_exception
             
-        companies = db_user.companies or []
-        role = "Admin" if "Admin" in companies or username.lower() == "admin" else "User"
+        permissions_obj = db_user.permissions
+        is_admin = permissions_obj.is_admin if permissions_obj else False
+        lookback = permissions_obj.data_lookback_days if permissions_obj else None
+        role = "Admin" if is_admin or username.lower() == "admin" else "User"
+        
+        companies = ["Admin"] if role == "Admin" else []
+        permissions = []
+        
+        if permissions_obj:
+            if permissions_obj.company_digitech: companies.append("Digitech")
+            if permissions_obj.company_nsb: companies.append("NSB")
+            if permissions_obj.can_view_ccf: permissions.append("can_view_ccf")
+            if permissions_obj.can_view_unimate: permissions.append("can_view_unimate")
+            if permissions_obj.can_view_cdr: permissions.append("can_view_cdr")
+            if permissions_obj.can_view_apr: permissions.append("can_view_apr")
+            if permissions_obj.can_download_files: permissions.append("can_download_files")
         
         if role == "Admin":
             from backend.auth.auth_utils import get_admin_permissions
             permissions = get_admin_permissions()
-        else:
-            permissions = [p.permission_name for p in db_user.permissions] if db_user.permissions else []
         
         access_token = create_access_token(data={"sub": username})
         new_refresh_token = create_refresh_token(data={"sub": username})
@@ -123,7 +149,8 @@ async def refresh_token(req: RefreshRequest, db: Session = Depends(get_db)):
             "token_type": "bearer", 
             "role": role, 
             "permissions": permissions, 
-            "companies": companies
+            "companies": companies,
+            "data_lookback_days": lookback
         }
     except JWTError:
         raise credentials_exception

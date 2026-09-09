@@ -44,7 +44,7 @@ filter_drawer = dbc.Offcanvas(
     className="offcanvas border-0 shadow-lg"
 )
 
-def get_topbar(user_role, permissions, pathname=None):
+def get_topbar(user_role, permissions, pathname=None, lookback_days=None):
     impersonate_div = html.Div(dcc.Dropdown(id="impersonate-dropdown"), style={"display": "none"})
 
     left_elements = []
@@ -97,6 +97,8 @@ def get_topbar(user_role, permissions, pathname=None):
     
     is_dashboard = pathname and any(pathname.startswith(p) for p in ['/ccf', '/cdr', '/unimate', '/apr'])
     visibility_class = "d-flex align-items-center" if is_dashboard else "d-none"
+    
+    pass
     
     right_elements.append(
         html.Div([
