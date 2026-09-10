@@ -7,7 +7,7 @@ The application uses a unified architecture where the Dash frontend is mounted d
 
 1. Clone the repository:
 ```bash
-git clone <your-repo-url>
+git clone https://gitlab.com/lazy3915830/uidai-dashbard/
 cd uidai_dashboard
 ```
 
@@ -22,12 +22,29 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+
+or 
+```bash
+uv init 
+uv add -r requirements.txt 
+uv sync 
+uv lock
+```
+or 
+```bash
+./start_all.bat 
+```
+
 ## Running the Application
 
 To run the application, simply execute the root start script:
 
 ```bash
 python run.py
+```
+or 
+```bash
+./start_all.bat
 ```
 Or, if you are on Windows, you can double-click `start_all.bat`.
 
