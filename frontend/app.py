@@ -13,7 +13,7 @@ app = Dash(
     pages_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pages'),
     external_stylesheets=[
         dbc.themes.BOOTSTRAP,
-        "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css",
+        dbc.icons.BOOTSTRAP,
         "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
     ],
     external_scripts=[
@@ -73,8 +73,8 @@ app.clientside_callback(
             window.app_ws.close();
         }
         
-        // Ensure WebSocket URL matches the host
-        const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + 'localhost:8000/ws/progress/' + clientId;
+        // Ensure WebSocket URL matches the host and hits the /api prefix
+        const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/api/ws/progress/' + clientId;
         const ws = new WebSocket(wsUrl);
         window.app_ws = ws;
         
@@ -162,5 +162,4 @@ register_routing_callbacks(app, content)
 register_data_callbacks(app)
 register_admin_callbacks(app)
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8050)
+

@@ -81,9 +81,9 @@ def update_agent_performance(data_ref, companies, languages, start_date, end_dat
         return empty_kpi, e_ui('cdr-agent-volume'), e_ui('cdr-agent-transfer'), e_ui('cdr-agent-scatter'), e_ui('cdr-agent-aht')
 
     if 'segstart' in df.columns:
-        df['Date'] = pd.to_datetime(df['segstart'], dayfirst=True, errors='coerce').dt.date
+        df_dates = pd.to_datetime(df['segstart'], errors='coerce').dt.date
     else:
-        df['Date'] = pd.NaT
+        df_dates = pd.Series(pd.NaT, index=df.index)
 
     mask = pd.Series(True, index=df.index)
     if companies and 'Company' in df.columns:
@@ -92,12 +92,13 @@ def update_agent_performance(data_ref, companies, languages, start_date, end_dat
         mask = mask & df['Language'].isin(languages)
 
     if start_date and not end_date: end_date = start_date
-    if start_date and end_date and not df['Date'].isna().all():
+    if start_date and end_date:
         s = pd.to_datetime(start_date).date()
         e = pd.to_datetime(end_date).date()
-        mask = mask & (df['Date'] >= s) & (df['Date'] <= e)
+        mask = mask & (df_dates >= s) & (df_dates <= e)
 
     df = df[mask].copy()
+    df['Date'] = df_dates[mask]
     if df.empty: return outs
     
     total_calls = len(df)

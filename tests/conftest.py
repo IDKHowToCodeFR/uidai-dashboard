@@ -66,7 +66,7 @@ def client(db):
 
 @pytest.fixture(scope="function")
 def auth_client(client):
-    response = client.post("/login", data={"username": "admin", "password": "admin"})
+    response = client.post("/api/login", data={"username": "admin", "password": "admin"})
     assert response.status_code == 200
     token = response.json()["access_token"]
     client.headers.update({"Authorization": f"Bearer {token}"})

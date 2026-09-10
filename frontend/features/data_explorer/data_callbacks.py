@@ -46,7 +46,7 @@ def register_data_callbacks(app):
 
         min_date = max_date = start_date = end_date = None
         
-        date_candidates = ['Timestamp', 'Call Timestamp', 'Date', 'Call Start Time']
+        date_candidates = ['Timestamp', 'Call Timestamp', 'Date', 'Call Start Time', 'segstart', 'date_logged']
         df['ParsedDate'] = pd.NaT
         for col in date_candidates:
             if col in df.columns:

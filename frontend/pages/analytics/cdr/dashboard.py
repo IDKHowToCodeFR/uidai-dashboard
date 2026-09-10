@@ -83,23 +83,27 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
     if df is None or df.empty:
         return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
 
+    mask = pd.Series(True, index=df.index)
+
     if companies and 'Company' in df.columns:
-        df = df[df['Company'].isin(companies)]
+        mask = mask & df['Company'].isin(companies)
 
     if languages and 'Language' in df.columns:
-        df = df[df['Language'].isin(languages)]
+        mask = mask & df['Language'].isin(languages)
 
     if 'segstart' in df.columns:
-        df['Date'] = pd.to_datetime(df['segstart'], dayfirst=True, errors='coerce').dt.date
+        df_dates = pd.to_datetime(df['segstart'], errors='coerce').dt.date
     else:
-        df['Date'] = pd.NaT
+        df_dates = pd.Series(pd.NaT, index=df.index)
 
     if start_date and not end_date: end_date = start_date
     if start_date and end_date:
-        valid_mask = df['Date'].notna()
-        df = df[valid_mask]
-        if not df.empty:
-            df = df[(df['Date'] >= pd.to_datetime(start_date).date()) & (df['Date'] <= pd.to_datetime(end_date).date())]
+        s = pd.to_datetime(start_date).date()
+        e = pd.to_datetime(end_date).date()
+        mask = mask & (df_dates >= s) & (df_dates <= e)
+
+    df = df[mask].copy()
+    df['Date'] = df_dates[mask]
 
     if df.empty:
         return empty_kpi, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui, empty_ui
@@ -179,7 +183,8 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
     if 'Language' in df.columns:
         lang_df = df['Language'].value_counts().reset_index()
         lang_df.columns = ['Language', 'Count']
-        fig_lang = px.bar(lang_df.sort_values('Count', ascending=True), y='Language', x='Count', orientation='h', template='plotly_white', color_discrete_sequence=[COLOR_PRIMARY])
+        use_log_lang = should_use_log(lang_df['Count'].min(), lang_df['Count'].max())
+        fig_lang = px.bar(lang_df.sort_values('Count', ascending=True), y='Language', x='Count', orientation='h', template='plotly_white', color_discrete_sequence=[COLOR_PRIMARY], log_x=use_log_lang)
         fig_lang.update_layout(margin=dict(l=0, r=0, t=20, b=0), showlegend=False)
         fig_lang.update_xaxes(showgrid=False)
         lang_ui = dcc.Graph(figure=fig_lang, config={'displayModeBar': False})
@@ -200,9 +205,10 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
         outcome_df['Outcome'] = outcome_df.apply(get_outcome, axis=1)
         out_counts = outcome_df['Outcome'].value_counts().reset_index()
         out_counts.columns = ['Outcome', 'Count']
+        use_log_out = should_use_log(out_counts['Count'].min(), out_counts['Count'].max())
         
         fig_out = px.bar(out_counts, x='Count', y='Outcome', orientation='h', template='plotly_white',
-                         color='Outcome', color_discrete_sequence=[COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING])
+                         color='Outcome', color_discrete_sequence=[COLOR_PRIMARY, COLOR_SUCCESS, COLOR_WARNING], log_x=use_log_out)
         fig_out.update_traces(hovertemplate='<b>%{y}</b><br>Count: %{x:,}<extra></extra>')
         fig_out.update_layout(margin=dict(l=0, r=0, t=20, b=0), showlegend=False, yaxis={'categoryorder':'total ascending'}, yaxis_title="")
         fig_out.update_xaxes(showgrid=False)
@@ -212,7 +218,7 @@ def update_cdr_dashboard(data_ref, companies, languages, start_date, end_date, s
 
     # Intraday Language Distribution (line chart)
     if 'Date' in df.columns and not df['Date'].isna().all() and 'Language' in df.columns and 'segstart' in df.columns:
-        df['Time'] = pd.to_datetime(df['segstart'], dayfirst=True, errors='coerce').dt.floor('30min').dt.time
+        df['Time'] = pd.to_datetime(df['segstart'], errors='coerce').dt.floor('30min').dt.time
             
         df['True_Day'] = df['Date']
         intra_grp = df.groupby(['True_Day', 'Time', 'Language']).size().reset_index(name='Calls')

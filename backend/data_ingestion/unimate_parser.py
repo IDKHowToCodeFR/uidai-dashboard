@@ -52,6 +52,12 @@ def transform_unimate(df: pd.DataFrame) -> pd.DataFrame:
             return 0
         df['Call Duration'] = df['Call Duration'].apply(duration_to_seconds)
         
+    # Date parsing (raw data is actually YYYY-MM-DD HH:MM:SS already!)
+    if 'Call Start Time' in df.columns:
+        df['Call Start Time'] = pd.to_datetime(df['Call Start Time'], errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S')
+    if 'Call End Time' in df.columns:
+        df['Call End Time'] = pd.to_datetime(df['Call End Time'], errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S')
+
     return df
 
 async def parse_unimate(save_path: str, progress_callback=None) -> pd.DataFrame:

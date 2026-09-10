@@ -35,6 +35,9 @@ def transform_apr(df: pd.DataFrame) -> pd.DataFrame:
     else:
         df['Language'] = 'Unknown'
         
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.strftime('%Y-%m-%d')
+        
     return df
 
 async def parse_apr(save_path: str, progress_callback=None) -> pd.DataFrame:

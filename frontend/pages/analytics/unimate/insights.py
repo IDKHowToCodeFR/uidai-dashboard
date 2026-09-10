@@ -111,8 +111,7 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
         s = pd.to_datetime(start_date)
         e = pd.to_datetime(end_date) + pd.Timedelta(days=1)
         mask = mask & (df['Date'] >= s) & (df['Date'] < e)
-
-    df = df[mask].copy()
+        df = df[mask].copy()
     if df.empty: return outs
     
     date_col = 'Date' if not df['Date'].isna().all() else None
