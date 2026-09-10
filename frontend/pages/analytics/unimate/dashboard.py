@@ -398,8 +398,8 @@ def export_csv_dashboard(n_clicks, data_ref, company_filter, language_filter, st
         df['Date'] = pd.to_datetime(df['Call Start Time'], errors='coerce')
         if start_date and not end_date: end_date = start_date
         if start_date and end_date and not df['Date'].isna().all():
-            start_dt, end_dt = pd.to_datetime(start_date).date(), pd.to_datetime(end_date).date() + pd.Timedelta(days=1)
-            df = df[(df['Date'].dt.date >= start_dt) & (df['Date'] < end_dt)]
+            start_dt, end_dt = pd.to_datetime(start_date), pd.to_datetime(end_date) + pd.Timedelta(days=1)
+            df = df[(df['Date'] >= start_dt) & (df['Date'] < end_dt)]
         df = df.drop(columns=['Date'])
 
     return dcc.send_data_frame(df.to_csv, "unimate_dashboard_data.csv", index=False)

@@ -13,7 +13,7 @@ app = Dash(
     pages_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pages'),
     external_stylesheets=[
         dbc.themes.BOOTSTRAP,
-        "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css",
+        dbc.icons.BOOTSTRAP,
         "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
     ],
     external_scripts=[

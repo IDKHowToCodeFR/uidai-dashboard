@@ -108,9 +108,9 @@ def update_insights(data_ref, companies, languages, start_date, end_date, sl_gra
 
     if start_date and not end_date: end_date = start_date
     if start_date and end_date and not df['Date'].isna().all():
-        s = pd.to_datetime(start_date).date()
-        e = pd.to_datetime(end_date).date()
-        mask = mask & (df['Date'].dt.date >= s) & (df['Date'].dt.date <= e)
+        s = pd.to_datetime(start_date)
+        e = pd.to_datetime(end_date) + pd.Timedelta(days=1)
+        mask = mask & (df['Date'] >= s) & (df['Date'] < e)
         df = df[mask].copy()
     if df.empty: return outs
     
@@ -322,8 +322,8 @@ def export_csv_insights(n_clicks, data_ref, company_filter, language_filter, sta
         df['Date'] = pd.to_datetime(df['Call Start Time'], errors='coerce')
         if start_date and not end_date: end_date = start_date
         if start_date and end_date and not df['Date'].isna().all():
-            start_dt, end_dt = pd.to_datetime(start_date).date(), pd.to_datetime(end_date).date() + pd.Timedelta(days=1)
-            df = df[(df['Date'].dt.date >= start_dt) & (df['Date'] < end_dt)]
+            start_dt, end_dt = pd.to_datetime(start_date), pd.to_datetime(end_date) + pd.Timedelta(days=1)
+            df = df[(df['Date'] >= start_dt) & (df['Date'] < end_dt)]
         df = df.drop(columns=['Date'])
 
     return dcc.send_data_frame(df.to_csv, "unimate_insights_data.csv", index=False)

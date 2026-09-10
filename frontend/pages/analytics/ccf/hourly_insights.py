@@ -172,7 +172,7 @@ def update_hourly_insights(data_ref, company_filter, language_filter, start_date
     if start_date and not end_date: end_date = start_date
     start_dt = pd.to_datetime(start_date)
     end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1)
-    df_current = df[(df['DateCol'].dt.date >= start_dt) & (df['DateCol'] < end_dt)].copy()
+    df_current = df[(df['DateCol'] >= start_dt) & (df['DateCol'] < end_dt)].copy()
     
     # Filter by time range (HH:MM:SS)
     ts_col = 'Call Timestamp' if 'Call Timestamp' in df_current.columns else date_col
@@ -341,7 +341,7 @@ def export_csv_hourly(n_clicks, data_ref, company_filter, language_filter, start
     if date_col:
         df['DateCol'] = pd.to_datetime(df[date_col])
         if start_date and not end_date: end_date = start_date
-        df = df[(df['DateCol'].dt.date >= pd.to_datetime(start_date).date()) & (df['DateCol'].dt.date <= pd.to_datetime(end_date).date())]
+        df = df[(df['DateCol'] >= pd.to_datetime(start_date)) & (df['DateCol'] < pd.to_datetime(end_date) + pd.Timedelta(days=1))]
 
     ts_col = 'Call Timestamp' if 'Call Timestamp' in df.columns else date_col
     if ts_col and ts_col in df.columns and time_start and time_end:
