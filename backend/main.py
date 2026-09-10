@@ -154,6 +154,13 @@ async def startup_event():
             command.stamp(alembic_cfg, "head")
             print("Stamped new database to head.")
             
+        # Clean up leftover SQLite temporary tables from failed migrations
+        from sqlalchemy import text
+        with engine.begin() as conn:
+            for t in inspector.get_table_names():
+                if t.startswith("_alembic_tmp_"):
+                    conn.execute(text(f"DROP TABLE {t}"))
+                    
         # Run migrations automatically
         command.upgrade(alembic_cfg, "head")
         print("Database schema is fully up to date.")
