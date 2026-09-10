@@ -160,7 +160,18 @@ async def startup_event():
             for t in inspector.get_table_names():
                 if t.startswith("_alembic_tmp_"):
                     conn.execute(text(f"DROP TABLE {t}"))
-                    
+            
+            # Auto-scrub duplicates in user_permissions so Alembic UNIQUE constraints don't fail
+            if has_users and inspector.has_table("user_permissions"):
+                conn.execute(text("""
+                    DELETE FROM user_permissions 
+                    WHERE id NOT IN (
+                        SELECT MAX(id) 
+                        FROM user_permissions 
+                        GROUP BY user_id
+                    )
+                """))
+                
         # Run migrations automatically
         command.upgrade(alembic_cfg, "head")
         print("Database schema is fully up to date.")
