@@ -18,7 +18,15 @@ from backend.data_ingestion.websockets import router as websockets_router
 from a2wsgi import WSGIMiddleware
 from frontend.app import app as dash_app
 
-app = FastAPI(title="UIDAI Backend API")
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await startup_event()
+    yield
+    await shutdown_event()
+
+app = FastAPI(title="UIDAI Backend API", lifespan=lifespan)
 
 scheduler = BackgroundScheduler()
 
@@ -119,10 +127,9 @@ def ensure_sample_data():
             except Exception as e:
                 print(f"Failed to generate {mod}: {e}")
                 
-    # threading.Thread(target=generate_data, daemon=True).start()
-    print("Sample data generation is disabled. Please uncomment the thread start in backend/main.py if you want sample files.")
+    threading.Thread(target=generate_data, daemon=True).start()
+    print("Sample data generation thread started.")
 
-@app.on_event("startup")
 async def startup_event():
     # Check if database is brand new before creating tables
     from sqlalchemy import inspect
@@ -168,7 +175,7 @@ async def startup_event():
                     conn.execute(text(f"DROP TABLE {t}"))
             
             # Auto-scrub duplicates in user_permissions so Alembic UNIQUE constraints don't fail
-            if has_users and inspector.has_table("user_permissions"):
+            if has_users_before and inspector.has_table("user_permissions"):
                 conn.execute(text("""
                     DELETE FROM user_permissions 
                     WHERE id NOT IN (
@@ -213,7 +220,6 @@ async def startup_event():
     scheduler.add_job(process_unprocessed_files, 'interval', minutes=3)
     scheduler.start()
 
-@app.on_event("shutdown")
 async def shutdown_event():
     scheduler.shutdown()
 

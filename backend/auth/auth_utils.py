@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
 from fastapi import HTTPException, status, Security, Depends, Request, WebSocket
 from fastapi.security import OAuth2PasswordBearer
@@ -20,7 +20,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey_change_me_in_production")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7 # 7 days
-SERVER_START_TIME = datetime.utcnow().timestamp()
+SERVER_START_TIME = int(datetime.now(timezone.utc).timestamp())
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
@@ -186,15 +186,15 @@ def get_admin_permissions():
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire, "type": "access", "iat": datetime.utcnow().timestamp()})
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire, "type": "access", "iat": int(datetime.now(timezone.utc).timestamp())})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 def create_refresh_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire, "type": "refresh", "iat": datetime.utcnow().timestamp()})
+    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh", "iat": int(datetime.now(timezone.utc).timestamp())})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
     
