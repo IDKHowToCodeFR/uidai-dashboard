@@ -42,3 +42,4 @@ server.log
 uidai_data/
 scratch/
 test_*.py
+docs/
