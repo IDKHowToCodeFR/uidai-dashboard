@@ -52,8 +52,15 @@ The unified server will start on port 8000.
 Open your browser and navigate to:
 **http://localhost:8000**
 
-## Database
-
-The application uses an SQLite database (`uidai.db`). 
+## Database & Errors
+- The application uses an SQLite database (`uidai.db`). 
 - On first startup, it will automatically initialize the schema and create default accounts (`admin` / `admin`).
-- If your database schema gets corrupted or out-of-sync, simply delete `uidai.db` and restart the server. It will automatically recreate itself perfectly.
+- **If you get Alembic migration errors (e.g., UNIQUE constraint failed)** when cloning and running, just delete `uidai.db` and let it recreate. The startup check will now properly stamp a new database to avoid these constraint errors.
+- **Secret Key:** Make sure your `.env` contains `SECRET_KEY=UIDAI_HQ_SPECIAL_PRIVATE_KEY`.
+
+## Sample Data Generation
+By default, the system will only create the necessary upload folders (`uidai_data/ccf_data`, `cdr_data`, etc.) without generating sample `.csv` or `.xlsx` files inside them. 
+If you want to auto-generate sample files for testing, open `backend/main.py`, search for `ensure_sample_data()` and uncomment this line:
+```python
+threading.Thread(target=generate_data, daemon=True).start()
+```

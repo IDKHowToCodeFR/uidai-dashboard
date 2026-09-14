@@ -119,10 +119,17 @@ def ensure_sample_data():
             except Exception as e:
                 print(f"Failed to generate {mod}: {e}")
                 
-    threading.Thread(target=generate_data, daemon=True).start()
+    # threading.Thread(target=generate_data, daemon=True).start()
+    print("Sample data generation is disabled. Please uncomment the thread start in backend/main.py if you want sample files.")
 
 @app.on_event("startup")
 async def startup_event():
+    # Check if database is brand new before creating tables
+    from sqlalchemy import inspect
+    inspector = inspect(engine)
+    has_alembic_before = inspector.has_table("alembic_version")
+    has_users_before = inspector.has_table("users")
+
     # 1. Safely create all missing tables (handles "already exists" cleanly)
     Base.metadata.create_all(bind=engine)
     
@@ -130,17 +137,19 @@ async def startup_event():
     try:
         from alembic import command
         from alembic.config import Config
-        from sqlalchemy import inspect
         alembic_cfg = Config("alembic.ini")
         
-        inspector = inspect(engine)
-        has_alembic = inspector.has_table("alembic_version")
-        has_users = inspector.has_table("users")
-        
         # Determine if database needs a stamp before upgrade
-        if has_users and not has_alembic:
+        if not has_users_before:
+            # Brand new database. create_all() already handled creation.
+            command.stamp(alembic_cfg, "head")
+            print("Stamped new database to head.")
+        elif has_users_before and not has_alembic_before:
             # Legacy database that existed before Alembic tracking
-            cols = [c['name'] for c in inspector.get_columns('users')]
+            # Re-inspect to get current columns since create_all might have modified things?
+            # Wait, create_all won't remove columns.
+            inspector_now = inspect(engine)
+            cols = [c['name'] for c in inspector_now.get_columns('users')]
             if 'data_lookback_days' in cols:
                 # Fully up to date manually
                 command.stamp(alembic_cfg, "head")
@@ -149,15 +158,12 @@ async def startup_event():
                 # Stamp to the previous migration so upgrade() applies data_lookback_days
                 command.stamp(alembic_cfg, "62a625ae6135")
                 print("Stamped legacy database to 62a625ae6135 (pre-lookback days).")
-        elif not has_users:
-            # Brand new database. create_all() already handled creation.
-            command.stamp(alembic_cfg, "head")
-            print("Stamped new database to head.")
             
         # Clean up leftover SQLite temporary tables from failed migrations
         from sqlalchemy import text
         with engine.begin() as conn:
-            for t in inspector.get_table_names():
+            inspector_now = inspect(engine)
+            for t in inspector_now.get_table_names():
                 if t.startswith("_alembic_tmp_"):
                     conn.execute(text(f"DROP TABLE {t}"))
             
