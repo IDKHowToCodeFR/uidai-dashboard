@@ -19,6 +19,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache
 
 # Virtual Environment
 venv/
@@ -42,3 +43,10 @@ server.log
 uidai_data/
 scratch/
 test_*.py
+docs/
+suggestion.txt
+CONTEXT.md
+architecture.html
+architecture.md
+server.log
+ARCHITECTURE.md
